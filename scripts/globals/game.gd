@@ -16,6 +16,9 @@ var settings := {
 	"touch_controls": 0, # 0 — авто, 1 — всегда, 2 — никогда
 	"auto_jump": true,
 	"show_fps": false,
+	"sound_volume": 0.8,
+	"music_volume": 0.5,
+	"third_person": 0, # 0 — от первого лица, 1 — сзади, 2 — спереди (F5)
 }
 ## Тема интерфейса. Назначается корню окна и верхним Control внутри CanvasLayer
 ## (CanvasLayer прерывает наследование темы от окна).

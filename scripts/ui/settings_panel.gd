@@ -31,6 +31,8 @@ func _ready() -> void:
 	_add_slider("Поле зрения", "fov", 55, 110, 1, func(v: float) -> String: return "%d°" % int(v))
 	_add_slider("Чувствительность мыши", "mouse_sensitivity", 0.03, 0.5, 0.01, func(v: float) -> String: return "%d%%" % roundi(v / 0.15 * 100.0))
 	_add_slider("Чувствительность касаний", "touch_sensitivity", 0.08, 1.0, 0.01, func(v: float) -> String: return "%d%%" % roundi(v / 0.3 * 100.0))
+	_add_slider("Звуки", "sound_volume", 0.0, 1.0, 0.05, func(v: float) -> String: return "%d%%" % roundi(v * 100.0))
+	_add_slider("Музыка", "music_volume", 0.0, 1.0, 0.05, func(v: float) -> String: return "%d%%" % roundi(v * 100.0))
 
 	var row := _row("Сенсорное управление")
 	var opt := OptionButton.new()

@@ -163,6 +163,7 @@ func projectile_block_hit(proj: Node3D, hit: Dictionary) -> void:
 	var type: String = proj.get("type")
 	if type == "arrow":
 		proj.set("stuck", true)
+		_fx_sound("arrow_hit", proj.position, 0.5)
 		return
 	_impact(proj, hit["hit"])
 
@@ -174,6 +175,7 @@ func _impact(proj: Node3D, at: Vector3) -> void:
 			if rng.randi_range(0, 7) == 0 and mobs != null:
 				mobs.call("spawn", 93, at, true)
 		"ender_pearl":
+			_fx("portal", at)
 			if proj.get("shooter") == player and player != null:
 				player.position = at + Vector3(0, 0.2, 0)
 				player.velocity = Vector3.ZERO
@@ -181,6 +183,8 @@ func _impact(proj: Node3D, at: Vector3) -> void:
 		"xp_bottle":
 			spawn_xp(at, 3 + rng.randi_range(0, 4) + rng.randi_range(0, 4))
 		"potion":
+			_fx_sound("glass_break", at, 0.6)
+			_fx("potion", at, Potions.color_of(int(proj.get("data"))).to_rgba32() >> 8)
 			_splash_potion(at, int(proj.get("data")))
 		"fireball":
 			if logic != null:
@@ -190,6 +194,16 @@ func _impact(proj: Node3D, at: Vector3) -> void:
 				var cell := Vector3i(floori(at.x), floori(at.y), floori(at.z))
 				logic.place_fire(cell)
 	proj.queue_free()
+
+
+func _fx(kind: String, at: Vector3, data := 0) -> void:
+	if game != null and game.has_method("effect"):
+		game.call("effect", kind, at, data)
+
+
+func _fx_sound(sound_name: String, at: Vector3, vol := 1.0) -> void:
+	if game != null and game.has_method("play_sound"):
+		game.call("play_sound", sound_name, at, vol)
 
 
 func _splash_potion(at: Vector3, data: int) -> void:

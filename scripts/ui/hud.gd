@@ -20,6 +20,7 @@ var _item_name: Label
 var _saved: Label
 var _underwater: ColorRect
 var _damage: ColorRect
+var _portal: ColorRect
 var _loading: Control
 var _loading_label: Label
 var _death: Control
@@ -67,6 +68,7 @@ func _ready() -> void:
 	_underwater = _overlay(Color(0.08, 0.22, 0.7, 0.38))
 	_underwater.visible = false
 	_damage = _overlay(Color(0.85, 0.0, 0.0, 0.0))
+	_portal = _overlay(Color(0.55, 0.15, 0.85, 0.0))
 
 	_crosshair = Painter.new(_paint_crosshair)
 	root.add_child(_crosshair)
@@ -195,6 +197,11 @@ func show_death(value: bool) -> void:
 
 func set_underwater(value: bool) -> void:
 	_underwater.visible = value
+
+
+## Фиолетовая пелена портала (0 — нет, 1 — переход).
+func set_portal_effect(amount: float) -> void:
+	_portal.color.a = clampf(amount, 0.0, 1.0) * 0.75
 
 
 func show_toast(text: String, duration: float = 2.5) -> void:

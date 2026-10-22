@@ -19,6 +19,22 @@ func _init(p_game: Node, p_world: World, p_logic: BlockLogic, p_entities: Entity
 	rng.randomize()
 
 
+## Звук и эффекты — через игровую сцену (если она их поддерживает).
+func _sound(sound_name: String, p: Vector3, vol := 1.0) -> void:
+	if game != null and game.has_method("play_sound"):
+		game.call("play_sound", sound_name, p, vol)
+
+
+func _effect(kind: String, p: Vector3, data := 0) -> void:
+	if game != null and game.has_method("effect"):
+		game.call("effect", kind, p, data)
+
+
+func _placed(p: Vector3i, id: int) -> void:
+	if game != null and game.has_method("on_block_placed"):
+		game.call("on_block_placed", p, id)
+
+
 ## Блоки, на которые действует правая кнопка (вместо установки предмета).
 func is_usable_block(id: int) -> bool:
 	return id in [Blocks.CRAFTING_TABLE, Blocks.FURNACE, Blocks.LIT_FURNACE, Blocks.CHEST, Blocks.DISPENSER,
@@ -46,8 +62,12 @@ func attack(player: Player) -> bool:
 	if player.effects.has(Potions.WEAKNESS):
 		dmg -= 2
 	# Критический удар в падении.
+	var target: Node3D = hit["entity"] as Node3D
 	if not player.on_ground and player.velocity.y < 0.0 and not player.in_water and not player.on_ladder:
+		@warning_ignore("integer_division")
 		dmg += rng.randi_range(0, dmg / 2 + 1)
+		if target != null:
+			_effect("crit", target.position + Vector3(0, 1.0, 0))
 	entities.attack(hit["entity"], maxi(dmg, 0))
 	player.add_exhaustion(0.3)
 	if Items.is_damageable(item) and not player.creative:
@@ -130,6 +150,7 @@ func _use_block(player: Player, t: Dictionary) -> bool:
 		Blocks.CHEST, Blocks.LOCKED_CHEST:
 			if Blocks.is_opaque(world.get_block_v(p + Vector3i(0, 1, 0))):
 				return true
+			_sound("chest_open", Vector3(p) + Vector3(0.5, 0.5, 0.5), 0.6)
 			game.call("open_container", "chest", p)
 		Blocks.DISPENSER:
 			game.call("open_container", "dispenser", p)
@@ -145,12 +166,15 @@ func _use_block(player: Player, t: Dictionary) -> bool:
 				# Калитка открывается от игрока.
 				m = (m & ~3) | player.facing()
 			world.set_block(p.x, p.y, p.z, id, m)
+			_sound("door_open" if m & 4 else "door_close", Vector3(p) + Vector3(0.5, 0.5, 0.5), 0.7)
 		Blocks.LEVER:
 			world.set_block(p.x, p.y, p.z, id, meta ^ 8)
+			_sound("click", Vector3(p) + Vector3(0.5, 0.5, 0.5), 0.5)
 		Blocks.STONE_BUTTON:
 			if meta & 8 == 0:
 				world.set_block(p.x, p.y, p.z, id, meta | 8)
 				logic.schedule(p, 20)
+				_sound("click", Vector3(p) + Vector3(0.5, 0.5, 0.5), 0.5)
 		Blocks.REPEATER_OFF, Blocks.REPEATER_ON:
 			world.set_block(p.x, p.y, p.z, id, (meta + 4) & 15)
 		Blocks.BED:
@@ -174,6 +198,8 @@ func _use_block(player: Player, t: Dictionary) -> bool:
 			if rec != 0:
 				be["record"] = 0
 				world.mark_dirty(p)
+				if game.has_method("play_record"):
+					game.call("play_record", 0, p)
 				entities.spawn_drop(rec, 1, 0, Vector3(p) + Vector3(0.5, 1.1, 0.5))
 				game.call("show_toast", "Пластинка извлечена")
 			elif Items.is_record(player.inventory.selected_id()):
@@ -182,6 +208,8 @@ func _use_block(player: Player, t: Dictionary) -> bool:
 				if not player.creative:
 					player.inventory.consume_selected(1)
 				game.call("show_toast", "Играет: %s" % Items.name_of(int(be["record"])))
+				if game.has_method("play_record"):
+					game.call("play_record", int(be["record"]), p)
 			else:
 				return false
 		Blocks.CAULDRON:
@@ -202,6 +230,7 @@ func _toggle_door(p: Vector3i, id: int, meta: int) -> void:
 	var m := world.get_meta_v(lower) ^ 4
 	world.set_block(lower.x, lower.y, lower.z, id, m & 7)
 	world.set_block(upper.x, upper.y, upper.z, id, (m & 7) | 8)
+	_sound("door_open" if m & 4 else "door_close", Vector3(upper), 0.7)
 
 
 func _use_cauldron(player: Player, p: Vector3i, meta: int) -> bool:
@@ -238,6 +267,7 @@ func _use_item(player: Player, id: int, data: int, t: Dictionary) -> bool:
 		Items.BUCKET:
 			if has_target and Blocks.is_liquid(tb) and world.get_meta_v(tp) == 0:
 				world.set_block(tp.x, tp.y, tp.z, Blocks.AIR)
+				_sound("splash" if Blocks.is_water(tb) else "fizz", Vector3(tp) + Vector3(0.5, 0.5, 0.5), 0.5)
 				if not player.creative:
 					inv.replace_selected(Items.WATER_BUCKET if Blocks.is_water(tb) else Items.LAVA_BUCKET)
 				return true
@@ -251,8 +281,11 @@ func _use_item(player: Player, id: int, data: int, t: Dictionary) -> bool:
 				return false
 			if id == Items.WATER_BUCKET and world.dimension == -1:
 				game.call("show_toast", "Вода испарилась")
+				_sound("fizz", Vector3(cell) + Vector3(0.5, 0.5, 0.5))
+				_effect("smoke", Vector3(cell) + Vector3(0.5, 0.5, 0.5))
 			else:
 				world.set_block(cell.x, cell.y, cell.z, Blocks.WATER if id == Items.WATER_BUCKET else Blocks.LAVA, 0)
+				_sound("splash" if id == Items.WATER_BUCKET else "fizz", Vector3(cell) + Vector3(0.5, 0.5, 0.5), 0.5)
 			if not player.creative:
 				inv.replace_selected(Items.BUCKET)
 			return true
@@ -261,8 +294,11 @@ func _use_item(player: Player, id: int, data: int, t: Dictionary) -> bool:
 				return false
 			if tb == Blocks.TNT:
 				logic.ignite_tnt(tp)
+				_sound("fuse", Vector3(tp) + Vector3(0.5, 0.5, 0.5))
 			elif not logic.place_fire(np):
 				return false
+			else:
+				_sound("click", Vector3(np) + Vector3(0.5, 0.5, 0.5), 0.6)
 			if not player.creative:
 				if id == Items.FLINT_AND_STEEL:
 					inv.damage_slot(inv.selected)
@@ -489,6 +525,7 @@ func _place(player: Player, id: int, data: int, t: Dictionary) -> bool:
 	if not world.set_block(p.x, p.y, p.z, block, meta):
 		return false
 	_consume(player)
+	_placed(p, block)
 	if block == Blocks.PUMPKIN or block == Blocks.JACK_O_LANTERN:
 		_check_golems(p)
 	if block == Blocks.SIGN_POST or block == Blocks.WALL_SIGN:
@@ -519,6 +556,7 @@ func _place_door(player: Player, block: int, p: Vector3i) -> bool:
 	world.set_block(p.x, p.y, p.z, block, meta, false)
 	world.set_block(up.x, up.y, up.z, block, meta | 8)
 	_consume(player)
+	_placed(p, block)
 	return true
 
 
@@ -531,6 +569,7 @@ func _place_bed(player: Player, p: Vector3i) -> bool:
 	world.set_block(p.x, p.y, p.z, Blocks.BED, dir, false)
 	world.set_block(head.x, head.y, head.z, Blocks.BED, dir | 8)
 	_consume(player)
+	_placed(p, Blocks.BED)
 	return true
 
 
@@ -574,6 +613,7 @@ func finish_consume(player: Player) -> void:
 	if not Items.is_food(id):
 		return
 	player.eat(Items.food_value(id), Items.food_saturation(id))
+	_sound("burp", player.position + Vector3(0, 1.5, 0), 0.5)
 	match id:
 		Items.GOLDEN_APPLE:
 			player.add_effect(Potions.REGENERATION, 3, 30.0)
@@ -606,3 +646,4 @@ func shoot_bow(player: Player, charge: float) -> void:
 	var pos := player.eye_position() + dir * 0.5
 	var dmg := 6.0 if power >= 1.0 else 4.0 * power + 1.0
 	entities.spawn_projectile("arrow", pos, dir * (power * 55.0), player, dmg)
+	_sound("bow", pos, 0.6)

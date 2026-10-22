@@ -291,6 +291,12 @@ static func _apply_environment(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("daylight", _env[3])
 
 
+## Минимальная освещённость (в Нижнем мире и Краю светлее, как в оригинале).
+static func set_min_light(v: float) -> void:
+	for m: ShaderMaterial in [chunk_material, water_material]:
+		m.set_shader_parameter("min_light", v)
+
+
 static func set_environment(fog_color: Color, fog_start: float, fog_end: float, daylight: float) -> void:
 	_env = [fog_color, fog_start, fog_end, daylight]
 	for m: ShaderMaterial in [chunk_material, water_material, entity_material]:

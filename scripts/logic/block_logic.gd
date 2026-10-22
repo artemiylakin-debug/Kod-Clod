@@ -128,6 +128,10 @@ func _neighbor_changed(p: Vector3i, from: Vector3i) -> void:
 			if from == p + Vector3i(0, 1, 0) and Blocks.is_opaque(world.get_block_v(from)):
 				world.set_block(p.x, p.y, p.z, Blocks.DIRT)
 				return
+		Blocks.PORTAL:
+			if not Portals.is_intact(world, p):
+				Portals.break_portal(world, p)
+			return
 		Blocks.CACTUS:
 			for d in 4:
 				if Blocks.is_solid(world.get_block_v(p + Blocks.DIR_VEC[d])):
@@ -668,7 +672,7 @@ func place_fire(p: Vector3i) -> bool:
 		return false
 	if not _fire_can_stay(p):
 		return false
-	if game != null and game.has_method("try_light_portal") and bool(game.call("try_light_portal", p)):
+	if world.dimension != 1 and Portals.try_light(world, p):
 		return true
 	world.set_block(p.x, p.y, p.z, Blocks.FIRE)
 	return true

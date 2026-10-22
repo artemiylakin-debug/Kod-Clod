@@ -49,12 +49,19 @@ var touch: TouchControls
 var inventory_ui: ContainerUI
 var pause_menu: PauseMenu
 var settings_panel: SettingsPanel
+var weather: Weather
+var particles: Particles
+var sound: SoundSystem
 var meta: Dictionary = {}
 var world_dir := ""
 var time_of_day := 0.08
 var loading := true
 var creative := true
 var difficulty := 2
+## Измерение: 0 — обычный мир, -1 — Нижний мир, 1 — Край.
+var dimension := 0
+## Дракон Края побеждён (больше не появляется).
+var dragon_killed := false
 
 var _env: Environment
 var _sky: ProceduralSkyMaterial
@@ -71,6 +78,18 @@ var _needs_spawn := false
 var _legacy := false
 var _daylight := 1.0
 var _sleep_fade := 0.0
+## Как игрок попал в это измерение: "nether_portal", "end", "end_exit", "respawn" или "".
+var _arrival := ""
+var _portal_time := 0.0
+## После перехода игрок стоит в портале — новый переход только после выхода из него.
+var _portal_wait_exit := false
+var _switching := false
+
+const NETHER_GEN_PATH := "res://scripts/world/gen/nether_gen.gd"
+const END_GEN_PATH := "res://scripts/world/gen/end_gen.gd"
+const PORTAL_TIME := 4.0
+const NETHER_FOG := Color(0.22, 0.04, 0.03)
+const END_FOG := Color(0.07, 0.05, 0.09)
 
 
 func _ready() -> void:
@@ -84,14 +103,21 @@ func _ready() -> void:
 	creative = bool(meta.get("creative", true))
 	difficulty = int(meta.get("difficulty", 2))
 	time_of_day = float(meta.get("time", 0.08))
+	dimension = int(meta.get("dimension", 0))
+	dragon_killed = bool(meta.get("dragon_killed", false))
+	_arrival = str(meta.get("arrival", ""))
+	meta.erase("arrival")
+	_portal_wait_exit = _arrival == "nether_portal"
 	_legacy = int(meta.get("version", 1)) < 2
 	meta["version"] = 2
 	_build_environment()
+	TextureFactory.set_min_light(0.07 if dimension == 0 else (0.16 if dimension == -1 else 0.12))
 
 	world = World.new()
 	world.name = "World"
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
-	world.setup(int(meta.get("seed", 0)), world_dir, int(Game.settings["render_distance"]))
+	world.setup(int(meta.get("seed", 0)), dimension_dir(dimension), int(Game.settings["render_distance"]),
+		generator_for(dimension), dimension)
 	world.sync_budget_usec = 40000
 	add_child(world)
 
@@ -117,6 +143,26 @@ func _ready() -> void:
 
 	actions = PlayerActions.new(self, world, logic, entities)
 	player.actions = actions
+
+	weather = Weather.new()
+	weather.name = "Weather"
+	add_child(weather)
+	weather.setup(world, logic, self, player)
+	if meta.get("weather") is Dictionary:
+		weather.from_dict(meta["weather"])
+	weather.lightning_struck.connect(_on_lightning)
+	particles = Particles.new()
+	particles.name = "Particles"
+	add_child(particles)
+	particles.setup(world, player.camera)
+	sound = SoundSystem.new()
+	sound.name = "Sound"
+	sound.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(sound)
+	player.block_broken.connect(func(pos: Vector3i, id: int, m: int) -> void:
+		particles.block_break(pos, id, m)
+		sound.play_block("break", id, Vector3(pos) + Vector3(0.5, 0.5, 0.5)))
+	player.damaged.connect(func(_a: int) -> void: sound.play_ui("hurt", 0.8))
 
 	if meta.get("player") is Dictionary:
 		player.from_dict(meta["player"], _legacy)
@@ -151,6 +197,7 @@ func _ready() -> void:
 	_apply_settings()
 	_update_sky()
 	hud.show_loading(true)
+	_update_loading_text()
 
 
 # --- Окружение -------------------------------------------------------------
@@ -213,9 +260,12 @@ func _day_factor() -> float:
 	return clampf(s * 2.5 + 0.35, 0.0, 1.0)
 
 
-## Уровень небесного света сейчас (0–15): ночью около 4, как в оригинале.
+## Уровень небесного света сейчас (0–15): ночью около 4, как в оригинале; дождь и гроза темнее.
 func sky_light_level() -> int:
-	return clampi(int(round(lerpf(4.0, 15.0, _day_factor()))), 0, 15)
+	var l := lerpf(4.0, 15.0, _day_factor())
+	if weather != null:
+		l -= weather.rain * 3.0 + weather.thunder * 5.0
+	return clampi(int(round(l)), 4, 15)
 
 
 func is_night() -> bool:
@@ -231,11 +281,19 @@ func _update_sky() -> void:
 	var s := sin(a)
 	var day := _day_factor()
 	var dusk := clampf(1.0 - absf(s) * 3.5, 0.0, 1.0) * clampf(day * 2.0, 0.0, 1.0)
+	var gloom := weather.darkness() if weather != null else 0.0
 	var top := NIGHT_TOP.lerp(DAY_TOP, day)
 	var horizon := NIGHT_HORIZON.lerp(DAY_HORIZON, day).lerp(DUSK_HORIZON, dusk * 0.45)
+	# Пасмурное небо: серое и темнее.
+	var grey := Color(0.45, 0.47, 0.5) * lerpf(0.25, 1.0, day)
+	top = top.lerp(grey * 0.85, minf(gloom * 1.6, 0.9))
+	horizon = horizon.lerp(grey, minf(gloom * 1.6, 0.9))
+	if weather != null and weather.flash() > 0.0:
+		top = top.lerp(Color(0.85, 0.88, 1.0), weather.flash() * 0.6)
+		horizon = horizon.lerp(Color(0.85, 0.88, 1.0), weather.flash() * 0.6)
 	# Небо и солнце перерисовываются не каждый кадр, а при заметном сдвиге времени (~раз в секунду):
 	# изменение материала неба заставляет движок заново рендерить небо, что дорого на телефонах.
-	if absf(time_of_day - _sky_time) > 0.0008:
+	if absf(time_of_day - _sky_time) > 0.0008 or gloom > 0.0 or (weather != null and weather.flash() > 0.0):
 		_sky_time = time_of_day
 		_sky.sky_top_color = top
 		_sky.sky_horizon_color = horizon
@@ -245,9 +303,20 @@ func _update_sky() -> void:
 		var sun_dir := Vector3(cos(a), s, 0.3).normalized()
 		_sun.basis = Basis.looking_at(-sun_dir, Vector3.BACK)
 		_sun.light_energy = clampf(s * 4.0, 0.0, 1.0)
-	_daylight = lerpf(0.22, 1.0, day)
+	_daylight = lerpf(0.22, 1.0, day) * (1.0 - gloom * 0.6)
+	if weather != null:
+		_daylight = minf(_daylight + weather.flash() * 0.5, 1.0)
 	var daylight := _daylight * (1.0 - _sleep_fade * 0.9)
 	var rd := float(world.render_distance * WorldGen.CHUNK_SIZE)
+	if dimension != 0 and not player.head_in_water and not player.in_lava:
+		# Нижний мир и Край: без неба, смены дня и облаков; густой цветной туман.
+		var fog := NETHER_FOG if dimension == -1 else END_FOG
+		TextureFactory.set_environment(fog, rd * (0.25 if dimension == -1 else 0.5), rd - 6.0, 1.0 if dimension == -1 else 0.55)
+		_env.background_mode = Environment.BG_COLOR
+		_env.background_color = fog
+		_clouds.visible = false
+		player.camera.far = rd + 32.0
+		return
 	if player.head_in_water or player.in_lava:
 		var fog := WATER_FOG * daylight if player.head_in_water else LAVA_FOG
 		TextureFactory.set_environment(fog, 0.5 if player.in_lava else 1.0, 3.0 if player.in_lava else 18.0, daylight)
@@ -256,7 +325,7 @@ func _update_sky() -> void:
 	else:
 		TextureFactory.set_environment(horizon * (1.0 - _sleep_fade), rd * 0.7, rd - 6.0, daylight)
 		_env.background_mode = Environment.BG_SKY
-	_clouds.visible = not player.head_in_water
+	_clouds.visible = not player.head_in_water and dimension == 0
 	player.camera.far = rd + 96.0
 	_cloud_material.set_shader_parameter("daylight", daylight)
 	_cloud_material.set_shader_parameter("fade_start", rd * 0.6)
@@ -327,6 +396,9 @@ func _apply_settings() -> void:
 	touch.set_margins(margins)
 	hud.set_touch_mode(touch_on, margins)
 	hud.show_debug = bool(s["show_fps"])
+	if sound != null:
+		sound.volume = float(s.get("sound_volume", 0.8))
+		sound.music_volume = float(s.get("music_volume", 0.5))
 	_ui_state_changed()
 
 
@@ -440,16 +512,61 @@ func show_item_info(id: int) -> void:
 			hud.show_toast("Карта: X %d, Z %d" % [floori(player.position.x), floori(player.position.z)], 3.0)
 
 
-func play_note(_p: Vector3i, note: int) -> void:
-	hud.show_toast("♪ нота %d" % note, 1.0)
+func play_note(p: Vector3i, note: int) -> void:
+	sound.play_note(Vector3(p) + Vector3(0.5, 0.5, 0.5), note, world.get_block_v(p + Vector3i(0, -1, 0)))
+	var hue := note / 24.0
+	particles.colored(Vector3(p) + Vector3(0.5, 1.2, 0.5), Color.from_hsv(hue, 0.9, 1.0), 1, 0.05, 0.4)
+
+
+## Пластинка: id предмета или 0 — тишина.
+func play_record(record_id: int, p: Vector3i) -> void:
+	sound.play_record(record_id, Vector3(p) + Vector3(0.5, 0.5, 0.5))
+
+
+## Звук в мире (для логики блоков, существ и т. п.).
+func play_sound(sound_name: String, pos: Vector3, vol := 1.0, pitch := 1.0) -> void:
+	sound.play(sound_name, pos, vol, pitch)
+
+
+## Визуальный эффект: hearts, smoke, angry, portal, crit, magic_crit, explosion (data — мощность ×10),
+## splash, flame, potion (data — цвет RGB).
+func effect(kind: String, pos: Vector3, data := 0) -> void:
+	match kind:
+		"hearts":
+			particles.colored(pos, Color(1.0, 0.3, 0.4), 6, 0.4, 0.6)
+		"smoke":
+			particles.smoke(pos, 8)
+		"angry":
+			particles.colored(pos, Color(0.35, 0.05, 0.05), 4, 0.3, 0.5)
+		"portal":
+			for i in 8:
+				particles.portal(pos)
+		"crit":
+			particles.crit(pos)
+		"magic_crit":
+			particles.crit(pos, true)
+		"explosion":
+			particles.explosion(pos, data / 10.0)
+		"splash":
+			particles.splash(pos)
+		"flame":
+			particles.flame(pos)
+		"potion":
+			particles.colored(pos, Color.hex(data << 8 | 0xFF), 10, 0.5, 0.6)
+
+
+## Звуки событий блоков (вызывается действиями игрока и логикой).
+func on_block_placed(p: Vector3i, id: int) -> void:
+	sound.play_block("place", id, Vector3(p) + Vector3(0.5, 0.5, 0.5))
 
 
 func edit_sign(_p: Vector3i) -> void:
 	pass
 
 
-func check_end_portal(_p: Vector3i) -> void:
-	pass
+func check_end_portal(p: Vector3i) -> void:
+	if Portals.check_end_portal(world, p):
+		hud.show_toast("Портал в Край открыт", 2.5)
 
 
 func use_fishing_rod() -> void:
@@ -457,7 +574,7 @@ func use_fishing_rod() -> void:
 
 
 func on_item_picked(_id: int, _count: int) -> void:
-	pass
+	sound.play_ui("pop", 0.35, randf_range(0.8, 1.6))
 
 
 func on_item_crafted(_id: int) -> void:
@@ -533,11 +650,15 @@ func _process(delta: float) -> void:
 	if paused:
 		return
 	time_of_day = fposmod(time_of_day + delta / DAY_LENGTH, 1.0)
+	_update_portals(delta)
 	_update_sleep(delta)
 	_check_browser_pointer_lock()
+	weather.update(delta, player.camera.global_position)
 	_update_sky()
 	_update_selection()
 	entities.update(delta)
+	particles.update(delta, _daylight)
+	_update_sounds(delta)
 	hud.set_underwater(player.head_in_water)
 	_autosave += delta
 	if _autosave >= AUTOSAVE_INTERVAL:
@@ -545,17 +666,30 @@ func _process(delta: float) -> void:
 		save_game(false)
 
 
-func _update_loading() -> void:
+func _update_loading_text() -> void:
 	var r := world.render_distance
 	var total := (2 * r + 1) * (2 * r + 1)
-	hud.set_loading_text("Генерация ландшафта… %d%%" % mini(99, roundi(100.0 * world.loaded_count() / total)))
-	if not world.is_area_ready(player.position, 1):
+	var title := "Генерация ландшафта…"
+	match _arrival:
+		"nether_portal":
+			title = "Вход в Нижний мир…" if dimension == -1 else "Выход из Нижнего мира…"
+		"end":
+			title = "Вход в Край…"
+		"end_exit", "respawn":
+			title = "Возвращение в обычный мир…"
+	hud.set_loading_text("%s %d%%" % [title, mini(99, roundi(100.0 * world.loaded_count() / total))])
+
+
+func _update_loading() -> void:
+	_update_loading_text()
+	# Для поиска портала рядом нужна область пошире.
+	if not world.is_area_ready(player.position, 2 if _arrival == "nether_portal" else 1):
 		return
 	if _needs_spawn:
 		_find_safe_spawn()
 		_needs_spawn = false
 	else:
-		_unstuck_player()
+		_place_on_arrival()
 	loading = false
 	world.sync_budget_usec = World.SYNC_BUDGET_USEC
 	player.frozen = false
@@ -585,6 +719,24 @@ func _find_safe_spawn() -> void:
 				return
 	player.position.y = world.top_solid_y(base.x, base.y) + 1.001
 	player.spawn_point = player.position
+
+
+## Куда поставить игрока после перехода между измерениями.
+func _place_on_arrival() -> void:
+	match _arrival:
+		"nether_portal":
+			var found := Portals.find_portal(world, player.position, 32)
+			if found.y < 0:
+				found = Portals.build_portal(world, player.position)
+				hud.show_toast("Построен обратный портал", 2.0)
+			player.position = Vector3(found) + Vector3(0.5, 0.001, 0.5)
+		"end":
+			Portals.make_end_platform(world)
+			player.position = Vector3(Portals.END_SPAWN) + Vector3(0.5, 0.001, 0.5)
+		_:
+			_unstuck_player()
+	_arrival = ""
+	player.velocity = Vector3.ZERO
 
 
 func _unstuck_player() -> void:
@@ -649,6 +801,8 @@ func _restore_legacy_drops() -> void:
 
 func explosion_damage(center: Vector3, power: float, source: Node) -> void:
 	entities.explosion_damage(center, power, source)
+	particles.explosion(center, power)
+	sound.play("explode", center, 1.0 + power * 0.1, 0.9)
 
 
 # --- Сон -------------------------------------------------------------------
@@ -710,6 +864,11 @@ func _on_player_died() -> void:
 
 
 func _respawn() -> void:
+	if dimension != 0:
+		# Возрождение — всегда в обычном мире.
+		player.respawn()
+		change_dimension(0, player.spawn_point, "respawn")
+		return
 	player.respawn()
 	_unstuck_player()
 	hud.show_death(false)
@@ -731,6 +890,10 @@ func save_game(full := true) -> void:
 	meta["time"] = time_of_day
 	meta["creative"] = creative
 	meta["difficulty"] = difficulty
+	meta["dimension"] = dimension
+	meta["dragon_killed"] = dragon_killed
+	if dimension == 0:
+		meta["weather"] = weather.to_dict()
 	meta["last_played"] = Time.get_unix_time_from_system()
 	WorldStorage.save_meta(world_dir, meta)
 	if full:
@@ -740,6 +903,146 @@ func save_game(full := true) -> void:
 		entities.clear_saved_lists()
 	if n > 0:
 		hud.flash_saved()
+
+
+# --- Звуки и частицы -----------------------------------------------------------
+
+var _step_acc := 0.0
+var _dig_acc := 0.0
+var _eat_acc := 0.0
+var _last_pos := Vector3.ZERO
+var _was_in_water := false
+var _last_level := 0
+
+
+func _update_sounds(delta: float) -> void:
+	sound.listener_pos = player.camera.global_position
+	sound.update_music(delta)
+	# Шаги — по блоку под ногами.
+	var moved := Vector2(player.position.x - _last_pos.x, player.position.z - _last_pos.z).length()
+	_last_pos = player.position
+	if player.on_ground and not player.flying and moved < 1.0:
+		_step_acc += moved
+		if _step_acc > 1.7:
+			_step_acc = 0.0
+			var below := Vector3i(floori(player.position.x), floori(player.position.y - 0.2), floori(player.position.z))
+			sound.play_block("step", world.get_block_v(below), player.position)
+	# Звук и осколки при добыче.
+	if player.break_progress > 0.0 and not player.target.is_empty():
+		_dig_acc += delta
+		if _dig_acc > 0.22:
+			_dig_acc = 0.0
+			var bp := player.break_pos
+			var id := world.get_block_v(bp)
+			sound.play_block("dig", id, Vector3(bp) + Vector3(0.5, 0.5, 0.5))
+			particles.block_hit(bp, id, world.get_meta_v(bp), player.target.get("normal", Vector3i.UP))
+	# Еда и питьё.
+	if player.eat_progress > 0.0:
+		_eat_acc += delta
+		if _eat_acc > 0.25:
+			_eat_acc = 0.0
+			var item := player.inventory.selected_id()
+			var drink := item == Items.POTION or item == Items.MILK_BUCKET
+			sound.play(("drink" if drink else "eat"), player.position + Vector3(0, 1.5, 0), 0.6)
+			if not drink:
+				var tile := Items.sprite_tile(item, player.inventory.selected_data())
+				particles.crumbs(player.eye_position() + player.look_dir() * 0.45 - Vector3(0, 0.25, 0), tile)
+	# Всплеск при падении в воду.
+	if player.in_water and not _was_in_water and player.velocity.y < -3.0:
+		sound.play("splash", player.position, 0.7)
+		particles.splash(player.position + Vector3(0, 0.3, 0))
+	_was_in_water = player.in_water
+	# Новый уровень опыта (каждые 5 уровней — фанфары, как в оригинале).
+	if player.xp_level > _last_level:
+		sound.play_ui("levelup" if player.xp_level % 5 == 0 else "orb", 0.6)
+	elif player.xp_level == _last_level and player.xp_progress > 0.0 and _xp_seen != player.xp_total:
+		sound.play_ui("orb", 0.3, randf_range(0.8, 1.3))
+	_xp_seen = player.xp_total
+	_last_level = player.xp_level
+	# Дождь (тише под крышей).
+	var rain_vol := 0.0
+	if weather.rain > 0.05 and dimension == 0:
+		rain_vol = weather.rain * (0.7 if weather.is_precipitating_at(player.position) else 0.25)
+	sound.set_loop("rain", rain_vol)
+
+
+var _xp_seen := 0
+
+
+func _on_lightning(pos: Vector3) -> void:
+	var d := pos.distance_to(player.position)
+	sound.play_ui("thunder", clampf(1.4 - d / 80.0, 0.3, 1.2), randf_range(0.8, 1.1))
+	particles.smoke(pos, 6, true)
+
+
+# --- Измерения ---------------------------------------------------------------
+
+static func generator_for(dim: int) -> Script:
+	var path := NETHER_GEN_PATH if dim == -1 else (END_GEN_PATH if dim == 1 else "")
+	if not path.is_empty() and ResourceLoader.exists(path):
+		return load(path)
+	return null
+
+
+## Папка чанков измерения (как в оригинале: DIM-1 — Нижний мир, DIM1 — Край).
+func dimension_dir(dim: int) -> String:
+	if dim == 0:
+		return world_dir
+	return world_dir.path_join("DIM%d" % dim)
+
+
+## Порталы: стоя в портале в Нижний мир 4 секунды (в креативе — секунду), игрок переходит
+## в другое измерение; портал Края переносит сразу.
+func _update_portals(delta: float) -> void:
+	if _switching or player.dead:
+		return
+	var feet := Vector3i(floori(player.position.x), floori(player.position.y + 0.1), floori(player.position.z))
+	var head := feet + Vector3i(0, 1, 0)
+	var fid := world.get_block_v(feet)
+	if fid == Blocks.END_PORTAL:
+		if dimension == 1:
+			change_dimension(0, player.spawn_point, "end_exit")
+		else:
+			change_dimension(1, Vector3(Portals.END_SPAWN) + Vector3(0.5, 0.0, 0.5), "end")
+		return
+	var in_portal := fid == Blocks.PORTAL or world.get_block_v(head) == Blocks.PORTAL
+	sound.set_loop("portal_hum", 0.5 if in_portal else 0.0)
+	if not in_portal:
+		_portal_wait_exit = false
+		_portal_time = maxf(_portal_time - delta * 2.0, 0.0)
+		hud.set_portal_effect(_portal_time / PORTAL_TIME)
+		return
+	if _portal_wait_exit or dimension == 1:
+		return
+	_portal_time += delta
+	var need := 1.0 if creative else PORTAL_TIME
+	hud.set_portal_effect(_portal_time / need)
+	if _portal_time >= need:
+		var pos := player.position
+		if dimension == 0:
+			change_dimension(-1, Vector3(pos.x / 8.0, clampf(pos.y, 34.0, 110.0), pos.z / 8.0), "nether_portal")
+		else:
+			change_dimension(0, Vector3(pos.x * 8.0, pos.y, pos.z * 8.0), "nether_portal")
+
+
+## Переход в другое измерение: сохранение и перезагрузка игровой сцены с другим миром.
+func change_dimension(to: int, pos: Vector3, arrival: String) -> void:
+	if _switching:
+		return
+	_switching = true
+	sound.stop_all()
+	sound.play_ui("portal_travel", 0.6)
+	if inventory_ui.visible:
+		inventory_ui.close_ui()
+	save_game(true)
+	var pd := player.to_dict()
+	pd["pos"] = [pos.x, pos.y, pos.z]
+	meta["player"] = pd
+	meta["dimension"] = to
+	meta["arrival"] = arrival
+	WorldStorage.save_meta(world_dir, meta)
+	world.wait_for_jobs()
+	Game.start_world(Game.current_world_id)
 
 
 func quit_to_menu() -> void:
