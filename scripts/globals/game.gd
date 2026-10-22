@@ -40,9 +40,16 @@ func _ready() -> void:
 	get_tree().root.theme = ui_theme
 	get_tree().set_auto_accept_quit(false)
 	var args := OS.get_cmdline_user_args()
-	if "--visual-test" in args:
+	# --visual-test — основной сценарий; --test-script=res://… — любой другой сценарий-узел.
+	var script_path := ""
+	for a in args:
+		if a == "--visual-test":
+			script_path = "res://tests/visual_test.gd"
+		elif a.begins_with("--test-script="):
+			script_path = a.substr(14)
+	if not script_path.is_empty():
 		test_mode = true
-		var runner: Node = load("res://tests/visual_test.gd").new()
+		var runner: Node = load(script_path).new()
 		add_child.call_deferred(runner)
 
 
