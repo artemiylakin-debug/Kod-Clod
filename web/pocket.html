@@ -1494,7 +1494,7 @@ void main() {
   }
   const Store = {
     kind: 'memory', db: null, uid: null, mem: new Map(), queue: Promise.resolve(), ready: Promise.resolve(),
-    onChange: null,
+    onChange: null, onFallback: null,
     async init() {
       try {
         const api = window.claude && typeof window.claude.use === 'function' ? window.claude : null;
@@ -1519,11 +1519,17 @@ void main() {
         if (this.kind === 'cloud') {
           try { return await cloudFn(); } catch (e) {
             const code = e && e.code;
-            if (code === 'unavailable') { await new Promise((r) => setTimeout(r, 500 + Math.random() * 1000)); return cloudFn(); }
-            if (code === 'quota_exceeded' || code === 'resource_exhausted') throw e;
-            console.warn('запись в аккаунт недоступна, сохраняю в браузере', e);
+            if (code !== 'invalid_argument' && code !== 'not_granted') {
+              if (code === 'quota_exceeded' || code === 'resource_exhausted') throw e;
+              // Временный сбой (или неизвестный код) — один повтор с паузой, дальше ошибка уходит
+              // в save(), и несохранённое попадёт в следующее автосохранение.
+              await new Promise((r) => setTimeout(r, 500 + Math.random() * 1000));
+              return cloudFn();
+            }
+            console.warn('запись в аккаунт запрещена, сохраняю в браузере', e);
             try { localStorage.setItem('bcp:nocloud', this.uid); } catch (err) { /* нет localStorage */ }
             this.useLocal();
+            if (this.onFallback) this.onFallback();
           }
         }
         return localFn();
@@ -1537,7 +1543,7 @@ void main() {
       await this.ready;
       if (this.kind === 'cloud') {
         const snap = await this.worldsCol().limit(500).get();
-        return snap.docs.filter((d) => d.exists).map((d) => Object.assign({ id: d.id }, d.data()));
+        return snap.docs.filter((d) => d.exists && typeof (d.data() || {}).seed === 'number').map((d) => Object.assign({ id: d.id }, d.data()));
       }
       if (this.kind === 'local') {
         try { return JSON.parse(localStorage.getItem('bcp:worlds') || '[]'); } catch (e) { return []; }
@@ -1547,10 +1553,19 @@ void main() {
     async loadChunks(id) {
       await this.ready;
       const map = new Map();
-      const put = (k, d) => { const m = /^c(-?\d+)_(-?\d+)$/.exec(k); const u = d && rleDecode(d); if (m && u) map.set(chunkKey(+m[1], +m[2]), u); };
+      const put = (k, d) => {
+        const m = /^c(-?\d+)_(-?\d+)$/.exec(k); let u = null;
+        try { u = typeof d === 'string' && rleDecode(d); } catch (e) { console.warn('повреждённый чанк', k); }
+        if (m && u) map.set(chunkKey(+m[1], +m[2]), u);
+      };
       if (this.kind === 'cloud') {
-        const snap = await this.chunksCol(id).limit(1000).get();
-        for (const d of snap.docs) if (d.exists) put(d.id, d.data().d);
+        const col = this.chunksCol(id);
+        let snap = await col.limit(1000).get();
+        for (let page = 0; page < 50; page++) {
+          for (const d of snap.docs) if (d.exists) put(d.id, d.data().d);
+          if (snap.size < 1000) break;
+          snap = await col.where('k', '>', snap.docs[snap.docs.length - 1].id).orderBy('k').limit(1000).get();
+        }
       } else if (this.kind === 'local') {
         const pre = 'bcp:c:' + id + ':';
         for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(pre)) put(k.slice(pre.length), localStorage.getItem(k)); }
@@ -1572,7 +1587,7 @@ void main() {
     },
     saveChunk(id, cx, cz, blocks) {
       const name = 'c' + cx + '_' + cz, data = rleEncode(blocks);
-      return this.write(() => this.chunksCol(id).doc(name).set({ d: data }), async () => {
+      return this.write(() => this.chunksCol(id).doc(name).set({ k: name, d: data }), async () => {
         if (this.kind === 'local') return localStorage.setItem('bcp:c:' + id + ':' + name, data);
         const w = this.mem.get(id); if (w) w.chunks.set(name, data);
       });
@@ -1580,8 +1595,12 @@ void main() {
     deleteWorld(id) {
       return this.enqueue(async () => {
         if (this.kind === 'cloud') {
-          const snap = await this.chunksCol(id).limit(1000).get();
-          for (const d of snap.docs) await this.chunksCol(id).doc(d.id).delete();
+          // Удалённые документы пропадают из выборки, поэтому просто повторяем, пока что-то есть.
+          for (let page = 0; page < 50; page++) {
+            const snap = await this.chunksCol(id).limit(1000).get();
+            if (snap.empty) break;
+            for (const d of snap.docs) await this.chunksCol(id).doc(d.id).delete();
+          }
           return this.worldsCol().doc(id).delete();
         }
         if (this.kind === 'local') {
@@ -1659,20 +1678,50 @@ void main() {
         row.append(img, info, play, del); list.append(row);
       }
     },
+    async worldsError(msg) {
+      show('worlds');
+      await this.refreshWorlds();
+      const n = document.createElement('div'); n.className = 'empty'; n.style.color = '#ffb3a3'; n.textContent = msg;
+      $('world-list').prepend(n);
+    },
     async createWorld(name, creative, seedText) {
+      if (this.busy) return;
+      this.busy = true;
+      try { await this.createWorldNow(name, creative, seedText); } finally { this.busy = false; }
+    },
+    async startWorld(id, meta) {
+      if (this.busy || this.running) return;
+      this.busy = true;
+      try { await this.openWorld(id, meta); } finally { this.busy = false; }
+    },
+    async createWorldNow(name, creative, seedText) {
       seedText = seedText.trim();
       let seed = Math.floor(Math.random() * 2147483647);
       if (seedText) { seed = /^-?\d+$/.test(seedText) ? Math.abs(parseInt(seedText, 10)) % 2147483647 : [...seedText].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7) >>> 1; }
       const id = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
       const meta = { name: name.trim() || 'Новый мир', seed, creative, created: Date.now(), lastPlayed: Date.now(), time: 0.08 };
-      await Store.saveMeta(id, meta);
-      this.startWorld(id, meta);
+      try { await Store.saveMeta(id, meta); } catch (e) {
+        console.warn('мир не создан', e);
+        await this.worldsError(e && e.code === 'quota_exceeded' ? 'Место для сохранений закончилось — удалите ненужный мир.' : 'Не удалось создать мир. Попробуйте ещё раз.');
+        return;
+      }
+      await this.openWorld(id, meta);
     },
-    async startWorld(id, meta) {
+    async openWorld(id, meta) {
       show('loading');
       $('loading-text').textContent = 'Загрузка сохранения…';
-      let saved = new Map();
-      try { saved = await Store.loadChunks(id); } catch (e) { console.warn('чанки не загружены', e); }
+      // №2: без сохранённых чанков мир открылся бы «чистым», и автосохранение затёрло бы постройки,
+      // поэтому при ошибке чтения пробуем ещё раз, а затем возвращаемся к списку миров.
+      let saved = null;
+      for (let attempt = 0; attempt < 2 && !saved; attempt++) {
+        try { saved = await Store.loadChunks(id); } catch (e) {
+          console.warn('чанки не загружены', e);
+          if (!attempt) await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
+        }
+      }
+      if (!saved) { await this.worldsError('Не удалось загрузить мир — проверьте соединение и попробуйте ещё раз.'); return; }
+      // Чанки, которые не удалось записать раньше, новее сохранённых.
+      for (const e of this.pendingChunkSaves.values()) if (e.wid === id) saved.set(chunkKey(e.c.cx, e.c.cz), e.c.blocks.slice());
       this.worldId = id; this.meta = Object.assign({}, meta); delete this.meta.id; this.metaKey = null;
       this.time = +this.meta.time || 0.08;
       this.world = new World(this.meta.seed, saved);
@@ -1725,6 +1774,8 @@ void main() {
     },
     async quitToMenu() {
       this.releaseMouse();
+      show('loading');
+      $('loading-text').textContent = 'Сохранение мира…';
       await this.save(true);
       this.running = false;
       if (this.world) this.world.destroy();
@@ -1733,7 +1784,7 @@ void main() {
       show('worlds');
       this.refreshWorlds();
     },
-    queueChunkSave(c) { this.pendingChunkSaves.set(chunkKey(c.cx, c.cz), c); },
+    queueChunkSave(c, wid = this.worldId) { this.pendingChunkSaves.set(wid + ':' + chunkKey(c.cx, c.cz), { wid, c }); },
     // Сохранения выполняются строго по очереди: выход в меню дождётся автосохранения.
     save(force) {
       this.saveChain = (this.saveChain || Promise.resolve()).then(() => this.saveNow(force)).catch((e) => console.warn('сохранение не удалось', e));
@@ -1753,10 +1804,10 @@ void main() {
       }
       let n = 0;
       for (const c of this.world.chunks.values()) if (c.dirty) this.queueChunkSave(c);
-      for (const c of this.pendingChunkSaves.values()) {
+      for (const { wid, c } of this.pendingChunkSaves.values()) {
         c.dirty = false; n++;
-        // Если запись не удалась, чанк снова встанет в очередь и сохранится в следующий раз.
-        jobs.push(Store.saveChunk(worldId, c.cx, c.cz, c.blocks.slice()).catch((e) => { if (this.worldId === worldId) this.queueChunkSave(c); throw e; }));
+        // Если запись не удалась, чанк снова встанет в очередь (со своим миром) и сохранится позже.
+        jobs.push(Store.saveChunk(wid, c.cx, c.cz, c.blocks.slice()).catch((e) => { this.queueChunkSave(c, wid); throw e; }));
       }
       this.pendingChunkSaves.clear();
       const res = await Promise.allSettled(jobs);
@@ -1858,15 +1909,23 @@ void main() {
     resume() { show('game'); if (!this.touchMode) this.lockMouse(); },
 
     // ----- мышь -----
-    lockMouse() {
+    lockMouse(fromClick) {
       if (this.touchMode || !canvas.requestPointerLock) return;
+      this.lockRequest = { fromClick: !!fromClick };
       try {
         const r = canvas.requestPointerLock();
         if (r && r.catch) r.catch(() => this.lockFailed());
       } catch (e) { this.lockFailed(); }
     },
+    // Браузер сообщает об отказе и событием, и отклонённым промисом — учитываем один раз на запрос.
+    // После Esc захват разрешён только по клику, поэтому сенсорный режим включаем лишь после
+    // двух отказов подряд в ответ на клик по игре (например, в рамке без права на захват мыши).
     lockFailed() {
-      if (this.locked || this.forceTouch) return;
+      const req = this.lockRequest; this.lockRequest = null;
+      if (!req || this.locked || this.forceTouch) return;
+      if (!req.fromClick) { this.toast('Кликните по игре, чтобы захватить мышь', 3); return; }
+      this.lockFails = (this.lockFails || 0) + 1;
+      if (this.lockFails < 2) { this.toast('Не удалось захватить мышь — кликните ещё раз', 3); return; }
       this.forceTouch = true;
       this.uiChanged(); this.renderHotbar();
       this.toast('Браузер не дал захватить мышь — управляйте мышью как на сенсорном экране', 4);
@@ -1956,13 +2015,13 @@ void main() {
         this.player.input.sprint = vy < -0.9;
       }
     },
-    onPointerUp(e) {
+    onPointerUp(e, cancelled) {
       const t = this.touches.get(e.pointerId); if (!t) return;
       this.touches.delete(e.pointerId);
       const p = this.player; if (!p) return;
       switch (t.role) {
         case 'joy': this.joyId = null; p.input.move = [0, 0]; p.input.sprint = false; $('joy').classList.remove('active'); this.placeJoy(); break;
-        case 'look': if (!t.holding && now() - t.t0 < 0.4 && t.moved < 14) p.placeQueued = true; break;
+        case 'look': if (!cancelled && !t.holding && now() - t.t0 < 0.4 && t.moved < 14) p.placeQueued = true; break;
         case 'jump': p.input.jump = false; break;
         case 'sneak': p.input.sneak = this.sneakToggle && !p.flying; break;
         case 'place': p.input.placeHeld = false; break;
@@ -2127,7 +2186,7 @@ void main() {
     const S = 320, U = 640 / 768;
     game.cloudGeo = makeGeo([-S, 0, -S, 0, 0, 1, 1, 1, S, 0, -S, U, 0, 1, 1, 1, S, 0, S, U, U, 1, 1, 1, -S, 0, S, 0, U, 1, 1, 1], [0, 1, 2, 0, 2, 3]);
   }
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); fail('Видеоконтекст потерян. Обновите страницу — мир сохраняется автоматически.'); });
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); if (game.running) game.save(true); fail('Видеоконтекст потерян. Обновите страницу — мир сохраняется автоматически.'); });
 
   const splashes = ['Карманное издание!', 'Копай и строй!', 'Сохраняется само!', 'И на телефоне тоже!', 'Кубы повсюду!'];
   $('splash').textContent = splashes[Math.floor(Math.random() * splashes.length)];
@@ -2207,7 +2266,7 @@ void main() {
   // Мышь (компьютер): клик захватывает указатель; Esc в браузере отпускает его — тогда открываем паузу.
   canvas.addEventListener('mousedown', (e) => {
     if (!game.gameplay() || game.touchMode) return;
-    if (!game.locked) { game.lockMouse(); return; }
+    if (!game.locked) { game.lockMouse(true); return; }
     const p = game.player;
     if (e.button === 0) { p.input.breakHeld = true; p.breakCd = 0; }
     else if (e.button === 2) { p.input.placeHeld = true; p.placeCd = 0; p.placeQueued = true; }
@@ -2219,17 +2278,26 @@ void main() {
     if (e.button === 2) game.player.input.placeHeld = false;
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  // Chrome с захваченным курсором иногда присылает ложный скачок на сотни пикселей (в том числе
+  // посреди обычного движения) — такие одиночные события пропускаем.
+  let mouseAvg = 0;
+  function acceptMouseStep(step) {
+    if (step > 250) return false;
+    if (step > 90 && step > mouseAvg * 6) { mouseAvg = (step / 6) * 1.2; return false; }
+    mouseAvg += (step - mouseAvg) * 0.25;
+    return true;
+  }
   window.addEventListener('mousemove', (e) => {
     if (!game.locked || !game.gameplay()) return;
     if (game.skipMouse > 0) { game.skipMouse--; return; }
-    if (Math.abs(e.movementX) > 250 || Math.abs(e.movementY) > 250) return; // ложный скачок сразу после захвата
+    if (!acceptMouseStep(Math.hypot(e.movementX, e.movementY))) return;
     game.player.rotate(-e.movementX * settings.ms, -e.movementY * settings.ms);
   });
   canvas.addEventListener('wheel', (e) => { if (game.gameplay() && game.locked) { e.preventDefault(); game.player.inv.select(game.player.inv.selected + (e.deltaY > 0 ? 1 : -1)); } }, { passive: false });
   document.addEventListener('pointerlockchange', () => {
     const was = game.locked;
     game.locked = document.pointerLockElement === canvas;
-    if (game.locked) { game.skipMouse = 2; game.toastTimer = Math.min(game.toastTimer, 0.3); }
+    if (game.locked) { game.skipMouse = 2; game.lockFails = 0; game.lockRequest = null; game.toastTimer = Math.min(game.toastTimer, 0.3); }
     else if (was && !game.expectUnlock && game.gameplay()) game.openPause();
     game.expectUnlock = false;
   });
@@ -2240,7 +2308,7 @@ void main() {
   touchEl.addEventListener('pointerdown', (e) => game.onPointerDown(e));
   touchEl.addEventListener('pointermove', (e) => game.onPointerMove(e));
   touchEl.addEventListener('pointerup', (e) => game.onPointerUp(e));
-  touchEl.addEventListener('pointercancel', (e) => game.onPointerUp(e));
+  touchEl.addEventListener('pointercancel', (e) => game.onPointerUp(e, true));
   touchEl.addEventListener('contextmenu', (e) => e.preventDefault());
   $('hotbar').addEventListener('pointerdown', (e) => {
     const s = e.target.closest('.hslot'); if (!s || !game.gameplay()) return;
@@ -2256,6 +2324,16 @@ void main() {
   requestAnimationFrame(loop);
   show('menu');
 
+  Store.onFallback = () => {
+    const w = game.world; if (!w) return;
+    for (const [k, blocks] of w.saved) {
+      const cx = Math.floor(k / 65536) - 32768, cz = (k % 65536) - 32768;
+      if (!w.chunks.has(k)) game.queueChunkSave({ cx, cz, blocks, dirty: false });
+    }
+    for (const c of w.chunks.values()) if (c.modified) game.queueChunkSave(c);
+    game.metaKey = null;
+    game.save(true);
+  };
   Store.onChange = () => {
     $('storage-note').textContent = Store.kind === 'cloud' ? 'Миры сохраняются в вашем аккаунте Claude и доступны с любого устройства.'
       : Store.kind === 'local' ? 'Миры сохраняются в этом браузере.' : 'Сохранение недоступно: миры пропадут после закрытия страницы.';

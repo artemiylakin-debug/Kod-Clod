@@ -299,6 +299,17 @@ func _test_world_and_player() -> void:
 		p._process(1.0 / 60.0)
 	check(p.on_ground and absf(p.position.y - 11.0) < 0.01, "игрок падает и встаёт на землю (y=%.3f)" % p.position.y)
 	check(p.health < Player.MAX_HEALTH, "урон от падения с 9 блоков (здоровье %d)" % p.health)
+	# Фильтр ложных скачков мыши: обычное движение проходит, одиночный скачок — нет,
+	# настоящий быстрый рывок теряет не больше одного события.
+	var steady := 0
+	for i in 20:
+		steady += int(p._accept_mouse_step(15.0))
+	var spike := p._accept_mouse_step(200.0)
+	var after := p._accept_mouse_step(15.0)
+	var flick := 0
+	for st: float in [40.0, 160.0, 170.0, 180.0, 175.0]:
+		flick += int(p._accept_mouse_step(st))
+	check(steady == 20 and not spike and after and flick >= 4, "фильтр скачков мыши (%d/20, рывок %d/5)" % [steady, flick])
 	# Стена: игрок не проходит сквозь блок.
 	p.health = Player.MAX_HEALTH
 	w.set_block(10, 11, 8, Blocks.STONE)

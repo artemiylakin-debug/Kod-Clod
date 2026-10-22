@@ -88,6 +88,15 @@ func drag(index: int, from: Vector2, to: Vector2, steps: int) -> void:
 		await frames(1)
 
 
+## Перемещение пальца с заданным relative (как его иногда присылает веб-версия движка).
+func drag_raw(index: int, pos: Vector2, relative: Vector2) -> void:
+	var e := InputEventScreenDrag.new()
+	e.index = index
+	e.position = to_window(pos)
+	e.relative = relative
+	Input.parse_input_event(e)
+
+
 func game() -> Node:
 	return get_tree().current_scene
 
@@ -308,6 +317,23 @@ func _run() -> void:
 	touch(1, look + Vector2(-120, 0), false)
 	await frames(3)
 	check(absf(p.yaw - yaw0) > 0.2, "свайп справа поворачивает камеру")
+	# Идём джойстиком и одновременно ведём обзор. В браузере движок присылает relative
+	# пальца обзора, посчитанный от позиции пальца джойстика, — камера не должна дёргаться.
+	touch(0, joy, true)
+	touch(1, look, true)
+	await frames(2)
+	var yaw1 := p.yaw
+	var joy2 := joy + Vector2(0, -40)
+	drag_raw(0, joy2, to_window(joy2) - to_window(joy))
+	await frames(1)
+	var look2 := look + Vector2(-10, 0)
+	drag_raw(1, look2, to_window(look2) - to_window(joy2))
+	await frames(2)
+	var turned := rad_to_deg(absf(p.yaw - yaw1))
+	check(turned > 0.5 and turned < 8.0, "ходьба + поворот: камера повернулась плавно (%.1f°)" % turned)
+	touch(1, look2, false)
+	touch(0, joy2, false)
+	await frames(3)
 	# Тап — поставить блок, удержание — ломать.
 	p.position = Vector3(arena) + Vector3(0.5, 1.001, 0.5)
 	p.set_look(0.0, deg_to_rad(-60.0))

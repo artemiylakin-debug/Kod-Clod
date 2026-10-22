@@ -59,8 +59,13 @@ var mouse_sensitivity := 0.15
 var free_look := false
 ## Сразу после захвата мыши браузер может прислать «скачок» на сотни пикселей — такие события пропускаем.
 const MAX_MOUSE_STEP := 250.0
+## Chrome с захваченным курсором иногда присылает одиночный ложный скачок посреди обычного
+## движения — пропускаем событие, если оно резко больше недавних.
+const MOUSE_SPIKE_MIN := 90.0
+const MOUSE_SPIKE_RATIO := 6.0
 var _was_captured := false
 var _skip_motion := 0
+var _mouse_avg := 0.0
 
 # Сенсорный ввод (выставляется TouchControls).
 var touch_move := Vector2.ZERO
@@ -125,7 +130,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _mouse_active() and mm.device != InputEvent.DEVICE_ID_EMULATION:
 			if _skip_motion > 0:
 				_skip_motion -= 1
-			elif mm.relative.length() <= MAX_MOUSE_STEP:
+			elif _accept_mouse_step(mm.relative.length()):
 				rotate_view(-mm.relative.x * mouse_sensitivity, -mm.relative.y * mouse_sensitivity)
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
@@ -166,6 +171,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _mouse_active() -> bool:
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or free_look
+
+
+func _accept_mouse_step(step: float) -> bool:
+	if step > MAX_MOUSE_STEP:
+		return false
+	if step > MOUSE_SPIKE_MIN and step > _mouse_avg * MOUSE_SPIKE_RATIO:
+		# Если это начало настоящего быстрого движения, следующие такие же шаги уже пройдут.
+		_mouse_avg = step / MOUSE_SPIKE_RATIO * 1.2
+		return false
+	_mouse_avg = lerpf(_mouse_avg, step, 0.25)
+	return true
 
 
 func rotate_view(yaw_deg: float, pitch_deg: float) -> void:

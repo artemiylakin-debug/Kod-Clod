@@ -85,7 +85,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		var sd := event as InputEventScreenDrag
-		_drag(sd.index, sd.position, sd.relative)
+		_drag(sd.index, sd.position)
 		get_viewport().set_input_as_handled()
 
 
@@ -114,7 +114,7 @@ func _press(index: int, pos: Vector2) -> void:
 		_joy_index = index
 		_joy_center = pos
 		_joy_knob = pos
-	_touches[index] = {"role": role, "t0": _now(), "moved": 0.0, "holding": false}
+	_touches[index] = {"role": role, "t0": _now(), "moved": 0.0, "holding": false, "last": pos}
 	match role:
 		R_JUMP:
 			player.touch_jump = true
@@ -139,10 +139,15 @@ func _press(index: int, pos: Vector2) -> void:
 	queue_redraw()
 
 
-func _drag(index: int, pos: Vector2, rel: Vector2) -> void:
+func _drag(index: int, pos: Vector2) -> void:
 	var t: Dictionary = _touches.get(index, {})
 	if t.is_empty():
 		return
+	# Смещение считаем сами от прошлой позиции этого же пальца: веб-версия Godot 4.3 при
+	# мультитаче берёт relative от позиции другого пальца, и камера резко поворачивалась,
+	# если одновременно идти джойстиком и вести обзор.
+	var rel: Vector2 = pos - Vector2(t["last"])
+	t["last"] = pos
 	t["moved"] = float(t["moved"]) + rel.length()
 	match int(t["role"]):
 		R_JOY:
