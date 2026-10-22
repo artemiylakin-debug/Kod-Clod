@@ -1,0 +1,264 @@
+class_name WorldGen
+extends RefCounted
+## Детерминированная генерация ландшафта по сиду.
+## Не трогает дерево сцены, поэтому экземпляр можно создавать в рабочем потоке.
+## Результат генерации чанка — словарь {blocks, meta, biomes, block_entities, entities}.
+
+const CHUNK_SIZE := 16
+const CHUNK_HEIGHT := 256
+const LAYER := CHUNK_SIZE * CHUNK_SIZE
+const VOLUME := LAYER * CHUNK_HEIGHT
+const SEA_LEVEL := 63
+const SNOW_LINE := 115
+const TREE_CELL := 6
+
+var seed_value := 0
+var _continent := FastNoiseLite.new()
+var _detail := FastNoiseLite.new()
+var _mountain := FastNoiseLite.new()
+var _forest := FastNoiseLite.new()
+var _cave_a := FastNoiseLite.new()
+var _cave_b := FastNoiseLite.new()
+
+# Состояние порционной генерации: begin_chunk → fill_rows → finish_chunk.
+var _data := PackedByteArray()
+var _meta := PackedByteArray()
+var _biomes := PackedByteArray()
+var _ox := 0
+var _oz := 0
+var _heights := PackedInt32Array()
+var _imgs_a: Array[Image] = []
+var _imgs_b: Array[Image] = []
+
+
+func _init(p_seed: int) -> void:
+	seed_value = p_seed
+	_setup(_continent, p_seed, 0.0021, 3, FastNoiseLite.FRACTAL_FBM)
+	_setup(_detail, p_seed + 11, 0.012, 4, FastNoiseLite.FRACTAL_FBM)
+	_setup(_mountain, p_seed + 23, 0.0055, 4, FastNoiseLite.FRACTAL_RIDGED)
+	_setup(_forest, p_seed + 37, 0.009, 2, FastNoiseLite.FRACTAL_FBM)
+	_setup(_cave_a, p_seed + 51, 0.034, 1, FastNoiseLite.FRACTAL_NONE)
+	_setup(_cave_b, p_seed + 67, 0.034, 1, FastNoiseLite.FRACTAL_NONE)
+
+
+static func _setup(n: FastNoiseLite, s: int, freq: float, octaves: int, fractal: FastNoiseLite.FractalType) -> void:
+	n.seed = s
+	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	n.frequency = freq
+	n.fractal_type = fractal
+	n.fractal_octaves = octaves
+
+
+## Быстрый детерминированный хеш (результат 0..2^31-1), без переполнений int64.
+static func hash3(x: int, y: int, z: int, s: int) -> int:
+	var h: int = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (s * 2654435761)
+	h = h & 0xFFFFFFFF
+	h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
+	h = h ^ (h >> 16)
+	return h & 0x7FFFFFFF
+
+
+## Высота поверхности (y верхнего твёрдого блока) в мировой колонке.
+func get_height(wx: int, wz: int) -> int:
+	var c := _continent.get_noise_2d(wx, wz)
+	var d := _detail.get_noise_2d(wx, wz)
+	var h := SEA_LEVEL + 4.0 + c * 30.0 + d * 7.0
+	# Горы появляются только вглубь материка.
+	var inland := clampf((c + 0.02) * 4.0, 0.0, 1.0)
+	var ridge := (_mountain.get_noise_2d(wx, wz) + 1.0) * 0.5
+	h += pow(ridge, 3.0) * 46.0 * inland
+	return clampi(int(h), 4, CHUNK_HEIGHT - 16)
+
+
+func biome_at(wx: int, wz: int) -> int:
+	var h := get_height(wx, wz)
+	if h <= SEA_LEVEL - 3:
+		return Biomes.OCEAN
+	if h <= SEA_LEVEL + 1:
+		return Biomes.BEACH
+	if h >= SNOW_LINE:
+		return Biomes.ICE_MOUNTAINS
+	return Biomes.FOREST if _forest.get_noise_2d(wx, wz) > 0.1 else Biomes.PLAINS
+
+
+func generate_chunk(cx: int, cz: int) -> Dictionary:
+	begin_chunk(cx, cz)
+	fill_rows(0, CHUNK_SIZE)
+	return finish_chunk()
+
+
+## Начало генерации: высоты колонок и шум пещер (дёшево — шум считается на стороне движка).
+func begin_chunk(cx: int, cz: int) -> void:
+	_data = PackedByteArray()
+	_data.resize(VOLUME)
+	_meta = PackedByteArray()
+	_meta.resize(VOLUME)
+	_biomes = PackedByteArray()
+	_biomes.resize(LAYER)
+	_ox = cx * CHUNK_SIZE
+	_oz = cz * CHUNK_SIZE
+	_heights = PackedInt32Array()
+	_heights.resize(LAYER)
+	var max_h := 0
+	for z in CHUNK_SIZE:
+		for x in CHUNK_SIZE:
+			var h := get_height(_ox + x, _oz + z)
+			_heights[x + z * CHUNK_SIZE] = h
+			_biomes[x + z * CHUNK_SIZE] = biome_at(_ox + x, _oz + z)
+			max_h = maxi(max_h, h)
+	# image[z].pixel(x, y) = noise(x, y, z).
+	var cave_h := maxi(max_h - 4, 1)
+	_cave_a.offset = Vector3(_ox, 0, _oz)
+	_cave_b.offset = Vector3(_ox, 0, _oz)
+	_imgs_a = _cave_a.get_image_3d(CHUNK_SIZE, cave_h, CHUNK_SIZE, false, false)
+	_imgs_b = _cave_b.get_image_3d(CHUNK_SIZE, cave_h, CHUNK_SIZE, false, false)
+
+
+## Заполняет ряды z0..z1-1 (основная часть работы; можно растянуть на несколько кадров).
+func fill_rows(z0: int, z1: int) -> void:
+	var data := _data
+	var heights := _heights
+	var ox := _ox
+	var oz := _oz
+	for z in range(z0, z1):
+		var cave_a: PackedByteArray = _imgs_a[z].get_data()
+		var cave_b: PackedByteArray = _imgs_b[z].get_data()
+		for x in CHUNK_SIZE:
+			var col := x + z * CHUNK_SIZE
+			var h := heights[col]
+			var wx := ox + x
+			var wz := oz + z
+			var top_block := Blocks.GRASS
+			var filler := Blocks.DIRT
+			if h <= SEA_LEVEL + 1:
+				top_block = Blocks.SAND
+				filler = Blocks.SAND
+				if h < SEA_LEVEL - 7:
+					top_block = Blocks.GRAVEL
+			elif h >= SNOW_LINE:
+				top_block = Blocks.SNOW
+				filler = Blocks.STONE
+			for y in range(0, h + 1):
+				var b: int = Blocks.STONE
+				if y == 0:
+					b = Blocks.BEDROCK
+				elif y < 4 and hash3(wx, y, wz, seed_value) % 3 == 0:
+					b = Blocks.BEDROCK
+				elif y == h:
+					b = top_block
+				elif y > h - 4:
+					b = filler
+				else:
+					var r := hash3(wx, y, wz, seed_value + 5) % 1000
+					if r < 11 and y < 128:
+						b = Blocks.COAL_ORE
+					elif r < 18 and y < 64:
+						b = Blocks.IRON_ORE
+					elif r < 20 and y < 32:
+						b = Blocks.GOLD_ORE
+					elif r < 22 and y < 16:
+						b = Blocks.REDSTONE_ORE
+					elif r < 23 and y < 16:
+						b = Blocks.DIAMOND_ORE
+					elif r < 24 and y < 32:
+						b = Blocks.LAPIS_ORE
+					# Пещеры-«спагетти»: пересечение двух тонких изоповерхностей шума.
+					if y > 4 and y < h - 4:
+						var ci := x + y * CHUNK_SIZE
+						var va := cave_a[ci]
+						var vb := cave_b[ci]
+						if va > 113 and va < 142 and vb > 113 and vb < 142:
+							b = Blocks.AIR
+				data[col + y * LAYER] = b
+			for y in range(h + 1, SEA_LEVEL + 1):
+				data[col + y * LAYER] = Blocks.WATER
+
+
+## Завершение: деревья. Возвращает готовый чанк.
+func finish_chunk() -> Dictionary:
+	_place_trees(_data, _ox, _oz)
+	var out := {"blocks": _data, "meta": _meta, "biomes": _biomes, "block_entities": {}, "entities": []}
+	_data = PackedByteArray()
+	_meta = PackedByteArray()
+	_biomes = PackedByteArray()
+	_heights = PackedInt32Array()
+	_imgs_a = []
+	_imgs_b = []
+	return out
+
+
+## Деревья ставятся по сетке со случайным смещением; каждый чанк проверяет и соседние ячейки,
+## поэтому кроны на границах чанков совпадают без обмена данными между чанками.
+func _place_trees(data: PackedByteArray, ox: int, oz: int) -> void:
+	var gx0 := floori((ox - 3) / float(TREE_CELL))
+	var gx1 := floori((ox + CHUNK_SIZE + 2) / float(TREE_CELL))
+	var gz0 := floori((oz - 3) / float(TREE_CELL))
+	var gz1 := floori((oz + CHUNK_SIZE + 2) / float(TREE_CELL))
+	for gz in range(gz0, gz1 + 1):
+		for gx in range(gx0, gx1 + 1):
+			var hs := hash3(gx, 7, gz, seed_value)
+			var forest := _forest.get_noise_2d(gx * TREE_CELL, gz * TREE_CELL)
+			var chance := clampf(0.1 + forest * 1.2, 0.02, 0.8)
+			if float(hs % 1000) / 1000.0 >= chance:
+				continue
+			var tx := gx * TREE_CELL + 1 + (hs >> 10) % 4
+			var tz := gz * TREE_CELL + 1 + (hs >> 13) % 4
+			if tx < ox - 2 or tx > ox + CHUNK_SIZE + 1 or tz < oz - 2 or tz > oz + CHUNK_SIZE + 1:
+				continue
+			var ground := get_height(tx, tz)
+			if ground <= SEA_LEVEL + 1 or ground >= SNOW_LINE - 6:
+				continue
+			var trunk := 4 + (hs >> 17) % 3
+			_place_tree(data, ox, oz, tx, ground, tz, trunk, hs)
+
+
+func _place_tree(data: PackedByteArray, ox: int, oz: int, tx: int, ground: int, tz: int, trunk: int, hs: int) -> void:
+	var top := ground + trunk
+	for dy in range(-2, 2):
+		var y := top + dy
+		var r := 2 if dy < 0 else 1
+		for dz in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				if absi(dx) == r and absi(dz) == r:
+					if dy == 1:
+						continue
+					if hash3(tx + dx, y, tz + dz, hs) % 2 == 0:
+						continue
+				_set_local(data, ox, oz, tx + dx, y, tz + dz, Blocks.LEAVES, true)
+	for y in range(ground + 1, top + 1):
+		_set_local(data, ox, oz, tx, y, tz, Blocks.LOG, false)
+	# Под стволом трава превращается в землю.
+	var lx := tx - ox
+	var lz := tz - oz
+	if lx >= 0 and lx < CHUNK_SIZE and lz >= 0 and lz < CHUNK_SIZE:
+		data[lx + lz * CHUNK_SIZE + ground * LAYER] = Blocks.DIRT
+
+
+func _set_local(data: PackedByteArray, ox: int, oz: int, wx: int, y: int, wz: int, b: int, only_air: bool) -> void:
+	var lx := wx - ox
+	var lz := wz - oz
+	if lx < 0 or lx >= CHUNK_SIZE or lz < 0 or lz >= CHUNK_SIZE or y < 0 or y >= CHUNK_HEIGHT:
+		return
+	var i := lx + lz * CHUNK_SIZE + y * LAYER
+	var cur := data[i]
+	if only_air:
+		if cur != Blocks.AIR:
+			return
+	elif cur != Blocks.AIR and cur != Blocks.LEAVES:
+		return
+	data[i] = b
+
+
+## Поиск точки появления на суше рядом с началом координат.
+func find_spawn_column() -> Vector2i:
+	for radius in range(0, 400, 8):
+		for i in 16:
+			var a := TAU * i / 16.0
+			var x := int(cos(a) * radius)
+			var z := int(sin(a) * radius)
+			var h := get_height(x, z)
+			if h > SEA_LEVEL + 2 and h < SNOW_LINE - 10:
+				return Vector2i(x, z)
+			if radius == 0:
+				break
+	return Vector2i.ZERO
