@@ -1,0 +1,333 @@
+<title>BlockCraft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Rubik:wght@400;500&display=swap">
+<style>
+/* Один экран: игра на весь кадр, поверх — экран загрузки в духе стартового экрана игры (земля, пиксельный заголовок, полоса-«дёрн»). */
+:root {
+  --earth: #2a1f17;
+  --panel: rgba(16, 12, 9, 0.74);
+  --line: rgba(241, 235, 226, 0.16);
+  --text: #f1ebe2;
+  --muted: #b9ad9e;
+  --grass: #79b843;
+  --grass-dark: #4e7d2a;
+  --danger: #ec8a6e;
+  --font-display: "Pixelify Sans", "Courier New", monospace;
+  --font-body: "Rubik", "Segoe UI", system-ui, sans-serif;
+  --ground: #2a1f17 url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAB9klEQVR42iXSyY4bRxCE4cilqnohTQrCwAJ0kwHf/f4PZFgw5JGmya4tM33gOW5f/PTXH7/XNi5raWMG8Kz9flmneUkSwGsK0Vare5Qkct9LVslJAlDh61bG9KTMzJ/u19ZHG9b7WLPmJAD4upV9yWZu5sJEIGZqw1jT39//m+YiTIB5IKIPYzNnwjBn5gCO2hHx25pHb9N8X1JJoipt2vf3RyD4OPuvswdg7vu+CfO2bR5A4Hrda58IjGmfbpekoiLy59fP7gEgJ621lSzhDkSf9nGcxOQelyWZ2VZSG5PPPpLyVhITpjkTRcSzTSZ6u+8vj6MOAEcd+5KZiX78OpnJI5JKBOowIorAcfaI8AgV7tNan7VPHeb7mqe5eSjzow0mWrKYRVKe5h4BAMDtsggTL0nfPt9qn2bextyKRsS6rkn52YZ5lKTTHEAb8/2oDOCff99LEgDbkp5tekQf1oatWad5H3acXZjd47JmbmO+filJWXNWJqKP4+EREUjKPx+VCQCY6X67yrcvdyJ6ddF7VxECSll6HxaY5rfLwsQWEYHzbMzM0yIinm0wURuzTztrfdROhJI1PHISIvryds+v+C5LYiLzEKGcRJizSu1TRaYHEwH4eHaCm7vOaeZxtrGWBOAFQkQqDGDN+vNRs8ptLy/e/wEB7F6Uw0oD+gAAAABJRU5ErkJggg==") repeat;
+  color-scheme: dark;
+}
+html { height: 100%; box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ground);
+  background-size: 64px 64px;
+  image-rendering: pixelated;
+  color: var(--text);
+  font-family: var(--font-body);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#stage { position: relative; width: 100%; height: 100%; }
+#canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; image-rendering: auto; }
+#boot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overflow-y: auto;
+  background: var(--ground);
+  background-size: 64px 64px;
+}
+.card {
+  width: min(640px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 24px clamp(16px, 4vw, 32px);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 6px;
+}
+h1 {
+  margin: 0;
+  font: 600 clamp(40px, 9vw, 68px) / 1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-wrap: balance;
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
+}
+.tagline { margin: -8px 0 0; text-align: center; color: var(--muted); font-size: 15px; }
+.bar {
+  height: 18px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(var(--grass) 0 45%, var(--grass-dark) 45% 100%);
+  transition: width 0.2s linear;
+}
+#status { margin: 0; text-align: center; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.3em; }
+#status.error { color: var(--danger); white-space: pre-line; }
+.help { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.help section { min-width: 0; }
+.help h2 {
+  margin: 0 0 6px;
+  font: 600 13px / 1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--grass);
+}
+.help ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; line-height: 1.4; }
+kbd {
+  font: 500 12px / 1 var(--font-body);
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+}
+.note { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+#fullscreen {
+  position: absolute;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  display: none;
+  padding: 6px 10px;
+  font: 500 13px / 1 var(--font-body);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.55;
+}
+#fullscreen:hover, #fullscreen:focus-visible { opacity: 1; outline: 2px solid var(--grass); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { body.running #fullscreen { display: block; } }
+@media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
+</style>
+
+<div id="stage">
+  <canvas id="canvas" tabindex="0">Ваш браузер не поддерживает canvas.</canvas>
+  <button id="fullscreen" type="button">На весь экран</button>
+  <div id="boot">
+    <div class="card">
+      <h1>BLOCKCRAFT</h1>
+      <p class="tagline">Песочница в стиле Minecraft: копай, строй, выживай. Работает прямо в браузере.</p>
+      <div class="bar" role="progressbar" aria-label="Загрузка игры" aria-valuemin="0" aria-valuemax="100"><span id="bar"></span></div>
+      <p id="status">Подготовка…</p>
+      <div class="help">
+        <section>
+          <h2>Компьютер</h2>
+          <ul>
+            <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> — ходьба, <kbd>Пробел</kbd> — прыжок</li>
+            <li>Мышь — обзор (кликните по игре, чтобы захватить курсор)</li>
+            <li>Левая кнопка — сломать, правая — поставить</li>
+            <li><kbd>E</kbd> — инвентарь, <kbd>Esc</kbd> — пауза, <kbd>F4</kbd> — режим</li>
+            <li>Дважды <kbd>Пробел</kbd> в креативе — полёт</li>
+          </ul>
+        </section>
+        <section>
+          <h2>Телефон и планшет</h2>
+          <ul>
+            <li>Левая часть экрана — джойстик</li>
+            <li>Свайп справа — поворот камеры</li>
+            <li>Тап — поставить блок, удержание — сломать</li>
+            <li>Кнопки справа — прыжок, присесть, полёт, пауза</li>
+            <li>Держите устройство горизонтально</li>
+          </ul>
+        </section>
+      </div>
+      <p class="note">Миры сохраняются в этом браузере автоматически.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// Движок (index.wasm, ~35 МБ) и данные игры (index.pck) опубликованы сжатыми (gzip) в base64-текстах:
+// так они укладываются в ограничения хостинга. Подменяем их загрузку и распаковываем в браузере.
+const BLOCKCRAFT_ASSETS = /*ASSETS*/;
+(function () {
+  const nativeFetch = window.fetch.bind(window);
+
+  function reportDownload(loaded, total) {
+    if (window.blockcraftDownload) window.blockcraftDownload(loaded, total);
+  }
+
+  function concat(chunks, length) {
+    const out = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return out;
+  }
+
+  async function fetchText(asset) {
+    const response = await nativeFetch(asset.src);
+    if (!response.ok) {
+      throw new Error('Не удалось загрузить ' + asset.src + ' (код ' + response.status + ')');
+    }
+    if (!response.body || !asset.progress) {
+      return response.text();
+    }
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      chunks.push(part.value);
+      loaded += part.value.length;
+      reportDownload(loaded, asset.size);
+    }
+    return new TextDecoder().decode(concat(chunks, loaded));
+  }
+
+  function decodeBase64(text) {
+    const binary = atob(text.trim());
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function gunzipWithLibrary(bytes) {
+    return new Promise(function (resolve, reject) {
+      const run = function () {
+        try { resolve(window.fflate.gunzipSync(bytes)); } catch (err) { reject(err); }
+      };
+      if (window.fflate) { run(); return; }
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js';
+      script.onload = run;
+      script.onerror = function () { reject(new Error('Не удалось загрузить распаковщик движка.')); };
+      document.head.appendChild(script);
+    });
+  }
+
+  async function gunzip(bytes) {
+    if ('DecompressionStream' in window) {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    return gunzipWithLibrary(bytes);
+  }
+
+  async function packedResponse(asset) {
+    const bytes = await gunzip(decodeBase64(await fetchText(asset)));
+    return new Response(bytes, { headers: { 'Content-Type': asset.type } });
+  }
+
+  window.fetch = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    const name = url.split('?')[0].split('/').pop();
+    if (Object.prototype.hasOwnProperty.call(BLOCKCRAFT_ASSETS, name)) {
+      return packedResponse(BLOCKCRAFT_ASSETS[name]);
+    }
+    return nativeFetch(input, init);
+  };
+}());
+</script>
+<script src="index.js"></script>
+<script>
+(function () {
+  const GODOT_CONFIG = /*GODOT_CONFIG*/;
+  const canvas = document.getElementById('canvas');
+  const boot = document.getElementById('boot');
+  const bar = document.getElementById('bar');
+  const status = document.getElementById('status');
+  const fullscreen = document.getElementById('fullscreen');
+
+  // Размер буфера canvas задаём сами (режим «без авто-подгонки»): игра занимает ровно свою область страницы.
+  const touch = 'ontouchstart' in window;
+  const maxRatio = touch ? 1.5 : 2;
+  function fitCanvas() {
+    const ratio = Math.min(window.devicePixelRatio || 1, maxRatio);
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width * ratio));
+    const h = Math.max(1, Math.round(rect.height * ratio));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+  }
+  fitCanvas();
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(fitCanvas).observe(canvas);
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  function showError(message) {
+    status.textContent = message;
+    status.classList.add('error');
+    bar.parentElement.hidden = true;
+  }
+
+  const megabytes = function (bytes) { return (bytes / 1048576).toFixed(1).replace('.', ','); };
+
+  function start() {
+    GODOT_CONFIG.canvas = canvas;
+    const engine = new Engine(GODOT_CONFIG);
+    const missing = Engine.getMissingFeatures({ threads: false });
+    if (missing.length !== 0) {
+      showError('Браузер не поддерживает нужные функции:\n' + missing.join('\n') +
+        '\nОткройте игру в свежей версии Chrome, Edge, Firefox или Safari.');
+      return;
+    }
+    status.textContent = 'Загрузка движка…';
+    window.blockcraftDownload = function (loaded, total) {
+      const percent = Math.min(100, Math.round(loaded / total * 100));
+      bar.style.width = percent + '%';
+      bar.parentElement.setAttribute('aria-valuenow', String(percent));
+      status.textContent = percent < 100
+        ? 'Загрузка: ' + percent + '% (' + megabytes(loaded) + ' из ' + megabytes(total) + ' МБ)'
+        : 'Распаковка и запуск…';
+    };
+    engine.startGame({}).then(function () {
+      boot.hidden = true;
+      document.body.classList.add('running');
+      canvas.focus();
+    }, function (err) {
+      console.error(err);
+      const text = String(err && err.message ? err.message : err);
+      if (/WebAssembly|wasm|CompileError/i.test(text)) {
+        showError('Браузер не разрешил запустить движок игры (WebAssembly).\n' +
+          'Откройте страницу в обычной вкладке Chrome, Edge, Firefox или Safari и обновите её.\n' + text);
+      } else {
+        showError('Не удалось запустить игру: ' + text + '\nПопробуйте обновить страницу.');
+      }
+    });
+  }
+
+  fullscreen.addEventListener('click', function () {
+    const root = document.getElementById('stage');
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(function () {});
+    } else if (request) {
+      Promise.resolve(request.call(root)).catch(function () {}).finally(function () { canvas.focus(); });
+    }
+  });
+
+  if (window.claude && window.claude.hot && window.claude.hot.ready) {
+    window.claude.hot.ready(start);
+  } else {
+    start();
+  }
+}());
+</script>

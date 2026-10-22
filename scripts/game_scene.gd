@@ -62,6 +62,8 @@ var _clouds: MeshInstance3D
 var _cloud_material: ShaderMaterial
 var _autosave := 0.0
 var _sky_time := -1.0
+var _was_captured := false
+var _capture_requested_at := -1.0
 var _needs_spawn := false
 
 
@@ -81,6 +83,7 @@ func _ready() -> void:
 	world.name = "World"
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	world.setup(int(meta.get("seed", 0)), world_dir, int(Game.settings["render_distance"]))
+	world.sync_budget_usec = 40000
 	add_child(world)
 
 	_drops = Node3D.new()
@@ -308,6 +311,28 @@ func _update_mouse_mode() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if capture else Input.MOUSE_MODE_VISIBLE
 
 
+## В браузере Esc снимает захват мыши, а сама клавиша до игры не доходит:
+## потерю захвата во время игры считаем нажатием Esc и открываем паузу.
+## Если браузер так и не дал захватить мышь — включаем обзор без захвата.
+func _check_browser_pointer_lock() -> void:
+	if not OS.has_feature("web") or Game.is_touch_enabled():
+		return
+	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if _was_captured and not captured and gameplay_active():
+		_was_captured = false
+		open_pause()
+		return
+	_was_captured = captured
+	if captured:
+		player.free_look = false
+		_capture_requested_at = -1.0
+	elif _capture_requested_at > 0.0 and Time.get_ticks_msec() / 1000.0 - _capture_requested_at > 0.8:
+		_capture_requested_at = -1.0
+		if not player.free_look:
+			player.free_look = true
+			hud.show_toast("Браузер не дал захватить мышь — обзор движением курсора", 4.0)
+
+
 func open_inventory() -> void:
 	if not gameplay_active():
 		return
@@ -380,6 +405,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mb.pressed and mb.device != InputEvent.DEVICE_ID_EMULATION and gameplay_active() \
 				and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			_update_mouse_mode()
+			_capture_requested_at = Time.get_ticks_msec() / 1000.0
 
 
 func _notification(what: int) -> void:
@@ -415,6 +441,7 @@ func _process(delta: float) -> void:
 	if paused:
 		return
 	time_of_day = fposmod(time_of_day + delta / DAY_LENGTH, 1.0)
+	_check_browser_pointer_lock()
 	_update_sky()
 	_update_selection()
 	_update_drops(delta)
@@ -437,6 +464,7 @@ func _update_loading() -> void:
 	else:
 		_unstuck_player()
 	loading = false
+	world.sync_budget_usec = World.SYNC_BUDGET_USEC
 	player.frozen = false
 	hud.show_loading(false)
 	_ui_state_changed()

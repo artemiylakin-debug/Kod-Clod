@@ -52,6 +52,9 @@ class Surface:
 
 var _vol := PackedByteArray()
 var _hm := PackedInt32Array()
+var _kinds := PackedByteArray()
+var _py := 1
+var _py_end := 1
 var _solid := Surface.new()
 var _water := Surface.new()
 
@@ -92,11 +95,26 @@ static func _offset(p: Vector3i) -> int:
 ## chunks — 9 массивов блоков в порядке [dz][dx] (dz, dx ∈ -1..1), центральный — индекс 4.
 ## top_y — верхний непустой слой центрального чанка, vol_top — максимум по соседям.
 static func build(chunks: Array, top_y: int, vol_top: int) -> Dictionary:
+	var m := ChunkMesher.begin(chunks, top_y, vol_top)
+	m.mesh_layers(H + 2)
+	return m.result()
+
+
+## Подготовка: объём с соседями, карта высот, классификация строк. Слои строятся в mesh_layers().
+@warning_ignore("integer_division")
+static func begin(chunks: Array, top_y: int, vol_top: int) -> ChunkMesher:
 	var m := ChunkMesher.new()
 	m._vol = pad_volume(chunks, vol_top)
 	m._compute_heightmap(vol_top)
-	m._mesh(top_y)
-	return {"opaque": m._solid.to_arrays(), "water": m._water.to_arrays()}
+	var layers := m._vol.size() / SY
+	m._kinds = m._row_kinds(layers)
+	m._py = 1
+	m._py_end = mini(top_y + 2, layers - 1)
+	return m
+
+
+func result() -> Dictionary:
+	return {"opaque": _solid.to_arrays(), "water": _water.to_arrays()}
 
 
 ## Собирает объём (18 × 18 × (vol_top + 3)): нижний слой — коренная порода, затем y = 0..vol_top+1.
@@ -174,16 +192,16 @@ func _row_kinds(layers: int) -> PackedByteArray:
 	return kinds
 
 
-@warning_ignore("integer_division")
-func _mesh(top_y: int) -> void:
+## Строит до count слоёв (y) меша. true — меш готов.
+func mesh_layers(count: int) -> bool:
 	var vol := _vol
 	var opq := Blocks.opaque_flags
 	var rnd := Blocks.render_types
 	var ftex := Blocks.face_tex
 	var noff := neighbor_off
-	var layers := _vol.size() / SY
-	var kinds := _row_kinds(layers)
-	for py in range(1, mini(top_y + 2, layers - 1)):
+	var kinds := _kinds
+	var end := mini(_py + count, _py_end)
+	for py in range(_py, end):
 		var wy := py - 1
 		for pz in range(1, S + 1):
 			var rk := py * PS + pz
@@ -210,6 +228,8 @@ func _mesh(top_y: int) -> void:
 					if nb == b and b == Blocks.GLASS:
 						continue
 					_add_face(i, px - 1, wy, pz - 1, d, ftex[b * 6 + d])
+	_py = end
+	return _py >= _py_end
 
 
 func _add_face(i: int, x: int, y: int, z: int, d: int, layer: int) -> void:

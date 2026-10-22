@@ -24,6 +24,8 @@ func _run() -> void:
 	_test_storage()
 	await _test_world_and_player()
 	_test_threaded_job()
+	_test_sliced_jobs()
+	await _test_single_thread_world()
 	_test_performance()
 	print("\n==== Итог: %d пройдено, %d провалено ====" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -370,6 +372,64 @@ func _test_threaded_job() -> void:
 	WorkerThreadPool.wait_for_task_completion(tid)
 	check(job.blocks == WorldGen.new(4242).generate_chunk(2, -1), "генерация в потоке совпадает с обычной")
 	check(job.computed_top > WorldGen.SEA_LEVEL - 20 and job.computed_top < WorldGen.CHUNK_HEIGHT, "верхний слой вычислен (%d)" % job.computed_top)
+
+
+func _test_sliced_jobs() -> void:
+	print("Порционные задачи (однопоточная веб-сборка)")
+	var gen := WorldGen.new(777)
+	gen.begin_chunk(3, -2)
+	for z in range(0, WorldGen.CHUNK_SIZE, 3):
+		gen.fill_rows(z, mini(z + 3, WorldGen.CHUNK_SIZE))
+	check(gen.finish_chunk() == WorldGen.new(777).generate_chunk(3, -2), "генерация по частям совпадает с обычной")
+	var chunks := []
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			chunks.append(gen.generate_chunk(dx, dz))
+	var top := 0
+	for c: PackedByteArray in chunks:
+		top = maxi(top, Chunk.compute_top(c))
+	var center_top := Chunk.compute_top(chunks[4])
+	var full := ChunkMesher.build(chunks, center_top, top)
+	var m := ChunkMesher.begin(chunks, center_top, top)
+	var steps := 1
+	while not m.mesh_layers(1):
+		steps += 1
+	var sliced := m.result()
+	# Массивы поверхностей сравниваются целиком (вода может отсутствовать — тогда оба пустые).
+	check(full["opaque"] == sliced["opaque"] and full["water"] == sliced["water"],
+		"меш по слоям (%d шагов) совпадает с обычным" % steps)
+	# Задача с крошечным бюджетом всё равно доходит до конца и даёт тот же результат.
+	var job := ChunkJob.new()
+	job.kind = ChunkJob.GENERATE
+	job.key = Vector2i(-4, 9)
+	job.seed_value = 777
+	var calls := 0
+	while not job.step(Time.get_ticks_usec() + 200):
+		calls += 1
+	check(calls > 3 and job.blocks == WorldGen.new(777).generate_chunk(-4, 9), "генерация с бюджетом 0,2 мс: %d шагов, результат верный" % (calls + 1))
+
+
+func _test_single_thread_world() -> void:
+	print("Мир в однопоточном режиме")
+	var w := World.new()
+	w.setup(4242, "", 3)
+	w.set("_no_threads", true)
+	root.add_child(w)
+	var worst := 0
+	var frames := 0
+	var focus := Vector3(8, 60, 8)
+	while not w.is_streaming_idle(focus) and frames < 5000:
+		var t0 := Time.get_ticks_usec()
+		w.update_streaming(focus)
+		worst = maxi(worst, Time.get_ticks_usec() - t0)
+		frames += 1
+		await process_frame
+	check(w.is_streaming_idle(focus) and w.loaded_count() > 40, "мир загрузился без потоков: %d чанков за %d кадров" % [w.loaded_count(), frames])
+	print("    самый долгий кадр подгрузки: %.1f мс (бюджет %.0f мс + один шаг)" % [worst / 1000.0, World.SYNC_BUDGET_USEC / 1000.0])
+	check(worst < World.SYNC_BUDGET_USEC + 6000, "работа над чанками укладывается в бюджет кадра")
+	check(w.set_block(8, 70, 8, Blocks.BRICKS) and w.get_block(8, 70, 8) == Blocks.BRICKS, "правка блока в однопоточном режиме")
+	w.queue_free()
+	await process_frame
 
 
 func _test_performance() -> void:

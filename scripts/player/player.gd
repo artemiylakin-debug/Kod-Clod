@@ -55,6 +55,12 @@ var controls_enabled := true
 var auto_jump := false
 var base_fov := 75.0
 var mouse_sensitivity := 0.15
+## Обзор мышью без захвата курсора (запасной вариант, если браузер не дал захватить мышь).
+var free_look := false
+## Сразу после захвата мыши браузер может прислать «скачок» на сотни пикселей — такие события пропускаем.
+const MAX_MOUSE_STEP := 250.0
+var _was_captured := false
+var _skip_motion := 0
 
 # Сенсорный ввод (выставляется TouchControls).
 var touch_move := Vector2.ZERO
@@ -116,12 +122,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and mm.device != InputEvent.DEVICE_ID_EMULATION:
-			rotate_view(-mm.relative.x * mouse_sensitivity, -mm.relative.y * mouse_sensitivity)
+		if _mouse_active() and mm.device != InputEvent.DEVICE_ID_EMULATION:
+			if _skip_motion > 0:
+				_skip_motion -= 1
+			elif mm.relative.length() <= MAX_MOUSE_STEP:
+				rotate_view(-mm.relative.x * mouse_sensitivity, -mm.relative.y * mouse_sensitivity)
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		# Касания экрана эмулируют мышь — их обрабатывает TouchControls.
-		if mb.device == InputEvent.DEVICE_ID_EMULATION or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		if mb.device == InputEvent.DEVICE_ID_EMULATION or not _mouse_active():
 			return
 		match mb.button_index:
 			MOUSE_BUTTON_LEFT:
@@ -153,6 +162,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if now() - _last_forward_time < DOUBLE_TAP:
 				_sprint_latched = true
 			_last_forward_time = now()
+
+
+func _mouse_active() -> bool:
+	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or free_look
 
 
 func rotate_view(yaw_deg: float, pitch_deg: float) -> void:
@@ -209,6 +222,10 @@ func release_all_input() -> void:
 # --- Кадр ------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if captured and not _was_captured:
+		_skip_motion = 2
+	_was_captured = captured
 	_apply_rotation()
 	if world == null:
 		return

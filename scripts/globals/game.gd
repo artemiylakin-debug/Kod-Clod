@@ -28,7 +28,7 @@ var test_mode := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	if is_mobile():
+	if is_mobile() or OS.has_feature("web"):
 		settings["render_distance"] = 4
 	_setup_input_map()
 	load_settings()

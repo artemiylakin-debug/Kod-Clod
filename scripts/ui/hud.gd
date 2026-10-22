@@ -275,6 +275,9 @@ func _debug_text() -> String:
 		"Направление: %s" % facing,
 		"Режим: %s%s" % ["креатив" if player.creative else "выживание", " · полёт" if player.flying else ""],
 	])
+	var w := player.world
+	if w.sync_job_count > 0:
+		lines.append("Чанки в основном потоке: %d задач, в среднем %.1f мс работы" % [w.sync_job_count, w.sync_job_ms / w.sync_job_count])
 	if not player.target.is_empty():
 		var t: Vector3i = player.target["pos"]
 		lines.append("Блок: %s (%d, %d, %d)" % [Blocks.block_name(player.target["block"]), t.x, t.y, t.z])

@@ -19,6 +19,14 @@ var _forest := FastNoiseLite.new()
 var _cave_a := FastNoiseLite.new()
 var _cave_b := FastNoiseLite.new()
 
+# Состояние порционной генерации: begin_chunk → fill_rows → finish_chunk.
+var _data := PackedByteArray()
+var _ox := 0
+var _oz := 0
+var _heights := PackedInt32Array()
+var _imgs_a: Array[Image] = []
+var _imgs_b: Array[Image] = []
+
 
 func _init(p_seed: int) -> void:
 	seed_value = p_seed
@@ -60,30 +68,42 @@ func get_height(wx: int, wz: int) -> int:
 
 
 func generate_chunk(cx: int, cz: int) -> PackedByteArray:
-	var data := PackedByteArray()
-	data.resize(VOLUME)
-	var ox := cx * CHUNK_SIZE
-	var oz := cz * CHUNK_SIZE
+	begin_chunk(cx, cz)
+	fill_rows(0, CHUNK_SIZE)
+	return finish_chunk()
 
-	var heights := PackedInt32Array()
-	heights.resize(LAYER)
+
+## Начало генерации: высоты колонок и шум пещер (дёшево — шум считается на стороне движка).
+func begin_chunk(cx: int, cz: int) -> void:
+	_data = PackedByteArray()
+	_data.resize(VOLUME)
+	_ox = cx * CHUNK_SIZE
+	_oz = cz * CHUNK_SIZE
+	_heights = PackedInt32Array()
+	_heights.resize(LAYER)
 	var max_h := 0
 	for z in CHUNK_SIZE:
 		for x in CHUNK_SIZE:
-			var h := get_height(ox + x, oz + z)
-			heights[x + z * CHUNK_SIZE] = h
+			var h := get_height(_ox + x, _oz + z)
+			_heights[x + z * CHUNK_SIZE] = h
 			max_h = maxi(max_h, h)
-
-	# Шум пещер считается целиком на стороне движка: image[z].pixel(x, y) = noise(x, y, z).
+	# image[z].pixel(x, y) = noise(x, y, z).
 	var cave_h := maxi(max_h - 4, 1)
-	_cave_a.offset = Vector3(ox, 0, oz)
-	_cave_b.offset = Vector3(ox, 0, oz)
-	var imgs_a := _cave_a.get_image_3d(CHUNK_SIZE, cave_h, CHUNK_SIZE, false, false)
-	var imgs_b := _cave_b.get_image_3d(CHUNK_SIZE, cave_h, CHUNK_SIZE, false, false)
+	_cave_a.offset = Vector3(_ox, 0, _oz)
+	_cave_b.offset = Vector3(_ox, 0, _oz)
+	_imgs_a = _cave_a.get_image_3d(CHUNK_SIZE, cave_h, CHUNK_SIZE, false, false)
+	_imgs_b = _cave_b.get_image_3d(CHUNK_SIZE, cave_h, CHUNK_SIZE, false, false)
 
-	for z in CHUNK_SIZE:
-		var cave_a: PackedByteArray = imgs_a[z].get_data()
-		var cave_b: PackedByteArray = imgs_b[z].get_data()
+
+## Заполняет ряды z0..z1-1 (основная часть работы; можно растянуть на несколько кадров).
+func fill_rows(z0: int, z1: int) -> void:
+	var data := _data
+	var heights := _heights
+	var ox := _ox
+	var oz := _oz
+	for z in range(z0, z1):
+		var cave_a: PackedByteArray = _imgs_a[z].get_data()
+		var cave_b: PackedByteArray = _imgs_b[z].get_data()
 		for x in CHUNK_SIZE:
 			var col := x + z * CHUNK_SIZE
 			var h := heights[col]
@@ -126,8 +146,16 @@ func generate_chunk(cx: int, cz: int) -> PackedByteArray:
 			for y in range(h + 1, SEA_LEVEL + 1):
 				data[col + y * LAYER] = Blocks.WATER
 
-	_place_trees(data, ox, oz)
-	return data
+
+## Завершение: деревья. Возвращает готовые блоки чанка.
+func finish_chunk() -> PackedByteArray:
+	_place_trees(_data, _ox, _oz)
+	var out := _data
+	_data = PackedByteArray()
+	_heights = PackedInt32Array()
+	_imgs_a = []
+	_imgs_b = []
+	return out
 
 
 ## Деревья ставятся по сетке со случайным смещением; каждый чанк проверяет и соседние ячейки,

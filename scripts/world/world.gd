@@ -22,8 +22,16 @@ var _stream_jobs := 0
 var _center := Vector2i(1 << 30, 1 << 30)
 var _gen_order: Array[Vector2i] = []
 var _mesh_order: Array[Vector2i] = []
-## Однопоточная сборка (например, Web без SharedArrayBuffer): задачи выполняются прямо в кадре.
+## Однопоточная сборка (например, Web без SharedArrayBuffer): задачи выполняются в основном потоке
+## порциями — не больше SYNC_BUDGET_USEC за кадр, чтобы игра не подтормаживала при подгрузке мира.
 var _no_threads := OS.has_feature("nothreads")
+const SYNC_BUDGET_USEC := 6000
+## Бюджет можно увеличить, пока показан экран загрузки (рывки там не видны).
+var sync_budget_usec := SYNC_BUDGET_USEC
+var _sync_queue: Array[ChunkJob] = []
+## Статистика синхронных задач (однопоточный режим): число и суммарное время, мс.
+var sync_job_count := 0
+var sync_job_ms := 0.0
 
 
 func setup(p_seed: int, p_save_dir: String, p_render_distance: int) -> void:
@@ -195,6 +203,7 @@ func raycast(origin: Vector3, dir: Vector3, max_dist: float) -> Dictionary:
 # --- Подгрузка чанков ------------------------------------------------------
 
 func update_streaming(focus: Vector3) -> void:
+	_run_sync_queue()
 	_poll_jobs()
 	_apply_done_meshes()
 	var c := key_of(focus)
@@ -254,8 +263,8 @@ func _unload_far() -> void:
 
 
 func _schedule() -> void:
-	# Без потоков каждая задача выполняется синхронно — не больше одной за кадр.
-	var limit := 1 if _no_threads else MAX_STREAM_JOBS
+	# Без потоков очередь короткая: ближайшие чанки всегда идут первыми.
+	var limit := 3 if _no_threads else MAX_STREAM_JOBS
 	# Сначала меши для уже загруженных чанков (видимый результат), затем генерация новых.
 	for key in _mesh_order:
 		if _stream_jobs >= limit:
@@ -315,8 +324,11 @@ func _start_job(job: ChunkJob, high_priority: bool) -> void:
 
 func _dispatch(job: ChunkJob, high_priority: bool, label: String) -> void:
 	if _no_threads:
-		job.run()
 		job.task_id = -1
+		if high_priority:
+			_timed_step(job, -1) # Правка блока: результат нужен сразу.
+		else:
+			_sync_queue.append(job)
 	else:
 		job.task_id = WorkerThreadPool.add_task(job.run, high_priority, label)
 	_jobs.append(job)
@@ -324,7 +336,7 @@ func _dispatch(job: ChunkJob, high_priority: bool, label: String) -> void:
 
 func _job_finished(job: ChunkJob) -> bool:
 	if job.task_id < 0:
-		return true
+		return job.completed
 	if not WorkerThreadPool.is_task_completed(job.task_id):
 		return false
 	WorkerThreadPool.wait_for_task_completion(job.task_id)
@@ -347,6 +359,25 @@ func _remesh_batch(keys: Array[Vector2i]) -> void:
 		batch.append(job)
 	for job: ChunkJob in batch:
 		_dispatch(job, true, "chunk_edit")
+
+
+func _run_sync_queue() -> void:
+	if _sync_queue.is_empty():
+		return
+	var deadline := Time.get_ticks_usec() + sync_budget_usec
+	while not _sync_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		if _timed_step(_sync_queue[0], deadline):
+			_sync_queue.pop_front()
+
+
+func _timed_step(job: ChunkJob, deadline_usec: int) -> bool:
+	var t0 := Time.get_ticks_usec()
+	var finished := job.step(deadline_usec)
+	sync_job_ms += (Time.get_ticks_usec() - t0) / 1000.0
+	if finished:
+		job.completed = true
+		sync_job_count += 1
+	return finished
 
 
 func _poll_jobs() -> void:
@@ -474,6 +505,7 @@ func wait_for_jobs() -> void:
 		job.batch = []
 	for job in _done_meshes:
 		job.batch = []
+	_sync_queue.clear()
 	_jobs.clear()
 	_done_meshes.clear()
 	_stream_jobs = 0
