@@ -158,8 +158,12 @@ func damage_slot(slot: int, amount: int = 1) -> bool:
 	var max_d := Items.max_damage(id)
 	if max_d <= 0 or counts[slot] <= 0:
 		return false
-	datas[slot] += amount
-	if datas[slot] >= max_d:
+	# Прочность (Unbreaking): износ проходит с шансом 1 / (уровень + 1).
+	var unbreaking := Enchantments.level_of(datas[slot], Enchantments.UNBREAKING)
+	if unbreaking > 0 and randi() % (unbreaking + 1) != 0:
+		return false
+	datas[slot] = Enchantments.with_damage(datas[slot], Enchantments.damage_of(datas[slot]) + amount)
+	if Enchantments.damage_of(datas[slot]) >= max_d:
 		ids[slot] = 0
 		counts[slot] = 0
 		datas[slot] = 0

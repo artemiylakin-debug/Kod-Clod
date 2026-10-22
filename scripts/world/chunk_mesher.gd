@@ -80,7 +80,7 @@ var _py := 1
 var _py_end := 1
 var _solid := Surface.new()
 var _trans := Surface.new()
-const PREP_STEPS := 4
+const PREP_STEPS := 5
 var _input: Dictionary = {}
 var _prep := 0
 var _vol_top := 0
@@ -182,6 +182,7 @@ func prepare(deadline_usec: int) -> bool:
 					_light.resize(_vol.size())
 			3:
 				_compute_heightmap(_vol_top)
+			4:
 				@warning_ignore("integer_division")
 				var layers := _vol.size() / SY
 				_kinds = _row_kinds(layers)
@@ -241,10 +242,14 @@ func _spread_border_light() -> void:
 	var queue := PackedInt32Array()
 	for py in range(1, layers):
 		var base := py * SY
+		# Слой без света от блоков (почти все слои) пропускаем целиком — проверка встроенной функцией.
+		if light.slice(base, base + SY).count(0) == SY:
+			continue
 		for pz in PS:
+			var edge_row := pz < 2 or pz >= PS - 2
 			for px in PS:
 				# Клетки рамки и прилегающие к ней клетки центра.
-				if px > 1 and px < PS - 2 and pz > 1 and pz < PS - 2:
+				if not edge_row and px > 1 and px < PS - 2:
 					continue
 				var i := base + pz * SZ + px
 				if light[i] > 1:
@@ -297,11 +302,17 @@ func _blk(j: int) -> float:
 	return block_curve[_light[j]]
 
 
+## Самые частые непрозрачные блоки толщи: по ним (встроенным подсчётом) узнаём сплошные строки.
+const SOLID_COMMON := [Blocks.STONE, Blocks.DIRT, Blocks.GRASS, Blocks.SAND, Blocks.GRAVEL, Blocks.BEDROCK,
+	Blocks.SANDSTONE, Blocks.COAL_ORE, Blocks.IRON_ORE, Blocks.NETHERRACK, Blocks.END_STONE, Blocks.CLAY,
+	Blocks.SOUL_SAND, Blocks.MYCELIUM, Blocks.SNOW]
+
+
 ## Для каждой строки из 18 блоков: 0 — смешанная, 1 — только воздух, 2 — только непрозрачные.
+## Строка, где встречаются редкие непрозрачные блоки, считается смешанной — это только чуть медленнее.
 func _row_kinds(layers: int) -> PackedByteArray:
 	var kinds := PackedByteArray()
 	kinds.resize(layers * PS)
-	var transparent := Blocks.non_opaque_ids
 	for py in layers:
 		for pz in PS:
 			var start := py * SY + pz * SZ
@@ -310,12 +321,14 @@ func _row_kinds(layers: int) -> PackedByteArray:
 			if air == PS:
 				kinds[py * PS + pz] = 1
 				continue
-			var see_through := air
-			for id in transparent:
-				if id != Blocks.AIR:
-					see_through += row.count(id)
-			if see_through == 0:
-				kinds[py * PS + pz] = 2
+			if air > 0:
+				continue
+			var solid := 0
+			for id: int in SOLID_COMMON:
+				solid += row.count(id)
+				if solid == PS:
+					kinds[py * PS + pz] = 2
+					break
 	return kinds
 
 

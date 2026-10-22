@@ -798,7 +798,7 @@ func _apply_done_meshes() -> void:
 			if not all_done:
 				i += 1
 				continue
-		elif applied >= MESH_APPLY_PER_FRAME:
+		elif applied >= (1 if _no_threads else MESH_APPLY_PER_FRAME):
 			i += 1
 			continue
 		else:

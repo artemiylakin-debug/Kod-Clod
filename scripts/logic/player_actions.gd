@@ -56,7 +56,19 @@ func attack(player: Player) -> bool:
 		if block_dist < float(hit["dist"]):
 			return false
 	var item := player.inventory.selected_id()
+	var idata := player.inventory.selected_data()
 	var dmg := Items.attack_damage(item)
+	# Острота, небесная кара (нежить), бич членистоногих: + случайно до 3 (4) за уровень, как в 1.2.
+	var mob_type := int(hit["entity"].get("type")) if hit["entity"] is Object and hit["entity"].get("type") != null else -1
+	var bonus := Enchantments.level_of(idata, Enchantments.SHARPNESS) * 3
+	if mob_type in [51, 54, 57]:
+		bonus += Enchantments.level_of(idata, Enchantments.SMITE) * 4
+	if mob_type in [52, 59, 60]:
+		bonus += Enchantments.level_of(idata, Enchantments.BANE_OF_ARTHROPODS) * 4
+	if bonus > 0:
+		dmg += rng.randi_range(0, bonus)
+		if hit["entity"] is Node3D:
+			_effect("magic_crit", (hit["entity"] as Node3D).position + Vector3(0, 1.0, 0))
 	if player.effects.has(Potions.STRENGTH):
 		dmg += 3 << int(player.effects[Potions.STRENGTH][0])
 	if player.effects.has(Potions.WEAKNESS):
@@ -69,6 +81,18 @@ func attack(player: Player) -> bool:
 		if target != null:
 			_effect("crit", target.position + Vector3(0, 1.0, 0))
 	entities.attack(hit["entity"], maxi(dmg, 0))
+	if target != null:
+		# Отбрасывание и заговор огня.
+		var kb := Enchantments.level_of(idata, Enchantments.KNOCKBACK)
+		if kb > 0 and target.get("velocity") is Vector3:
+			var dir := (target.position - player.position) * Vector3(1, 0, 1)
+			target.set("velocity", (target.get("velocity") as Vector3) + dir.normalized() * 5.0 * kb + Vector3(0, 1.5, 0))
+		var fa := Enchantments.level_of(idata, Enchantments.FIRE_ASPECT)
+		if fa > 0:
+			for prop: String in ["fire_time", "fire"]:
+				if target.get(prop) is float:
+					target.set(prop, maxf(float(target.get(prop)), 4.0 * fa))
+					break
 	player.add_exhaustion(0.3)
 	if Items.is_damageable(item) and not player.creative:
 		player.inventory.damage_slot(player.inventory.selected, 1 if Items.is_sword(item) else 2)
@@ -94,7 +118,22 @@ func on_block_break(player: Player, pos: Vector3i, id: int, meta: int) -> void:
 		world.set_block(pos.x, pos.y, pos.z, Blocks.AIR)
 		entities.spawn_mob(60, Vector3(pos) + Vector3(0.5, 0, 0.5))
 		return
+	var idata := player.inventory.selected_data()
+	# Шёлковое касание: блок выпадает целиком (камень, руды, стекло, трава, лёд, полки…).
+	if Enchantments.level_of(idata, Enchantments.SILK_TOUCH) > 0 and _silk_drop(id) and Blocks.can_harvest(id, tool, tier):
+		logic._remove_with_partner(pos, id, meta)
+		var m := meta & 3 if id == Blocks.LEAVES else (0 if id == Blocks.LIT_REDSTONE_ORE else meta)
+		entities.spawn_drop(Blocks.REDSTONE_ORE if id == Blocks.LIT_REDSTONE_ORE else id, 1, m, Vector3(pos) + Vector3(0.5, 0.5, 0.5))
+		return
 	logic.break_naturally(pos, tool, tier)
+	# Удача: дополнительные предметы из руд.
+	var fortune := Enchantments.level_of(idata, Enchantments.FORTUNE)
+	if fortune > 0 and id in [Blocks.COAL_ORE, Blocks.DIAMOND_ORE, Blocks.LAPIS_ORE, Blocks.REDSTONE_ORE, Blocks.LIT_REDSTONE_ORE, Blocks.GLOWSTONE] \
+			and Blocks.can_harvest(id, tool, tier):
+		var extra := maxi(rng.randi_range(0, fortune + 1) - 1, 0)
+		if extra > 0:
+			for d: Array in Blocks.drops(id, meta, tool, tier, rng):
+				entities.spawn_drop(int(d[0]), int(d[1]) * extra, int(d[2]), Vector3(pos) + Vector3(0.5, 0.5, 0.5))
 	# Опыт за руду.
 	if Blocks.can_harvest(id, tool, tier):
 		var xp := 0
@@ -533,6 +572,15 @@ func _place(player: Player, id: int, data: int, t: Dictionary) -> bool:
 	return true
 
 
+## Блоки, которые шёлковое касание добывает целиком.
+static func _silk_drop(id: int) -> bool:
+	return id in [Blocks.STONE, Blocks.GRASS, Blocks.MYCELIUM, Blocks.COAL_ORE, Blocks.IRON_ORE, Blocks.GOLD_ORE,
+		Blocks.DIAMOND_ORE, Blocks.LAPIS_ORE, Blocks.REDSTONE_ORE, Blocks.LIT_REDSTONE_ORE, Blocks.GLASS, Blocks.GLASS_PANE,
+		Blocks.ICE, Blocks.BOOKSHELF, Blocks.CLAY, Blocks.GLOWSTONE, Blocks.SNOW, Blocks.LEAVES, Blocks.MELON,
+		Blocks.BROWN_MUSHROOM_BLOCK, Blocks.RED_MUSHROOM_BLOCK, Blocks.TALLGRASS, Blocks.DEADBUSH, Blocks.WEB,
+		Blocks.GRAVEL, Blocks.MONSTER_EGG]
+
+
 func _consume(player: Player) -> void:
 	if not player.creative:
 		player.inventory.consume_selected(1)
@@ -638,12 +686,23 @@ func shoot_bow(player: Player, charge: float) -> void:
 	if power < 0.1:
 		return
 	var inv := player.inventory
+	var bdata := inv.selected_data()
 	if not player.creative:
-		if not inv.remove_item(Items.ARROW, 1):
+		# Бесконечность: нужна хотя бы одна стрела, но она не тратится.
+		if Enchantments.level_of(bdata, Enchantments.INFINITY) > 0:
+			if inv.count_of(Items.ARROW) <= 0:
+				return
+		elif not inv.remove_item(Items.ARROW, 1):
 			return
 		inv.damage_slot(inv.selected)
 	var dir := player.look_dir()
 	var pos := player.eye_position() + dir * 0.5
 	var dmg := 6.0 if power >= 1.0 else 4.0 * power + 1.0
-	entities.spawn_projectile("arrow", pos, dir * (power * 55.0), player, dmg)
+	var pw := Enchantments.level_of(bdata, Enchantments.POWER)
+	if pw > 0:
+		dmg += pw * 0.5 + 0.5
+	var arrow := entities.spawn_projectile("arrow", pos, dir * (power * 55.0), player, dmg)
+	if arrow != null:
+		arrow.set_meta("punch", Enchantments.level_of(bdata, Enchantments.PUNCH))
+		arrow.set_meta("flame", Enchantments.level_of(bdata, Enchantments.FLAME) > 0)
 	_sound("bow", pos, 0.6)

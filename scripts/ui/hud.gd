@@ -252,6 +252,8 @@ func _on_inventory_changed() -> void:
 		_last_slot = player.inventory.selected
 		if id != 0:
 			_item_name.text = Items.name_of(id, player.inventory.selected_data())
+			if Enchantments.is_enchanted(player.inventory.selected_data()):
+				_item_name.text += " (%s)" % Enchantments.describe(player.inventory.selected_data())
 			_item_time = 2.0
 		else:
 			_item_time = 0.0

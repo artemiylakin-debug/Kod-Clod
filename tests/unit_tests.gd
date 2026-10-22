@@ -49,6 +49,7 @@ func _run() -> void:
 	TextureFactory.ensure_initialized()
 	_test_blocks()
 	_test_items_and_recipes()
+	_test_enchantments()
 	_test_textures()
 	_test_worldgen()
 	_test_mesher()
@@ -149,6 +150,46 @@ func _test_items_and_recipes() -> void:
 	check(not smelt.is_empty() and smelt[0] == Items.IRON_INGOT, "переплавка железной руды")
 	check(Recipes.smelt_result(Blocks.LOG, 0)[0] == Items.COAL and Recipes.smelt_result(Blocks.LOG, 0)[2] == 1, "бревно → древесный уголь")
 	check(Potions.brew(0, Items.NETHER_WART) == 16 and Potions.brew(16, Items.SUGAR) > 0, "зельеварение: адский нарост → неуклюжее зелье")
+
+
+func _test_enchantments() -> void:
+	print("Зачарования")
+	var d := Enchantments.with_damage(0, 37)
+	d = Enchantments.add(d, Enchantments.SHARPNESS, 4)
+	d = Enchantments.add(d, Enchantments.UNBREAKING, 3)
+	check(Enchantments.damage_of(d) == 37 and Enchantments.level_of(d, Enchantments.SHARPNESS) == 4
+		and Enchantments.level_of(d, Enchantments.UNBREAKING) == 3 and Enchantments.level_of(d, Enchantments.SMITE) == 0,
+		"зачарования хранятся в данных предмета вместе с износом")
+	check(Enchantments.describe(d) == "Острота IV, Прочность III", "названия: %s" % Enchantments.describe(d))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var top := 0
+	var bad := 0
+	for i in 200:
+		var lv := Enchantments.table_levels(Items.DIAMOND_PICKAXE, 15, rng)
+		top = maxi(top, lv[2])
+		if lv[0] < 1 or lv[0] > lv[1] or lv[1] > lv[2] or lv[2] > 50:
+			bad += 1
+	check(bad == 0 and top >= 45, "стол с 15 полками: уровни до %d (максимум 50)" % top)
+	check(Enchantments.table_levels(Blocks.DIRT, 15, rng) == [0, 0, 0], "землю не зачаровать")
+	var wrong := 0
+	var any := 0
+	for i in 100:
+		var e := Enchantments.enchant(Items.DIAMOND_SWORD, 0, 30, rng)
+		for en: Array in Enchantments.list(e):
+			any += 1
+			if not Enchantments.applies(int(en[0]), Items.DIAMOND_SWORD):
+				wrong += 1
+	check(any >= 100 and wrong == 0, "меч получает только зачарования для оружия (%d)" % any)
+	var inv := Inventory.new()
+	inv.set_slot(0, Items.IRON_PICKAXE, 1, Enchantments.add(0, Enchantments.UNBREAKING, 3))
+	for i in 400:
+		inv.damage_slot(0, 1)
+	var dmg := Enchantments.damage_of(inv.datas[0])
+	check(dmg > 50 and dmg < 160, "прочность III: износ около четверти (%d из 400)" % dmg)
+	inv.set_slot(Inventory.ARMOR_START + 3, Items.DIAMOND_BOOTS, 1, Enchantments.add(0, Enchantments.FEATHER_FALLING, 4))
+	check(Enchantments.protection_factor(inv, "fall") < 0.5 and is_equal_approx(Enchantments.protection_factor(inv, "mob"), 1.0),
+		"невесомость IV снижает урон от падения больше чем вдвое")
 
 
 func _test_textures() -> void:

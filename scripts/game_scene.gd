@@ -455,9 +455,6 @@ func open_inventory() -> void:
 func open_container(kind: String, pos: Vector3i) -> void:
 	if not gameplay_active():
 		return
-	if kind == "enchanting":
-		hud.show_toast("Стол зачарований: зачарование появится в следующей версии", 2.5)
-		return
 	inventory_ui.open(kind, pos, false)
 	_ui_state_changed()
 

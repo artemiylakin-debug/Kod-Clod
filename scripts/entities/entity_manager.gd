@@ -148,6 +148,19 @@ func projectile_hit(proj: Node3D, who: Variant) -> void:
 		"arrow":
 			var dmg := int(ceil(float(proj.get("damage")) * clampf(vel.length() / 50.0, 0.2, 1.2)))
 			_damage_target(who, maxi(dmg, 1), "arrow", proj.get("shooter"), vel)
+			# Зачарования лука: откидывание и горящие стрелы.
+			var target := who as Node3D
+			if target != null:
+				var punch := int(proj.get_meta("punch", 0))
+				if punch > 0 and target.get("velocity") is Vector3:
+					var dir := Vector3(vel.x, 0.0, vel.z).normalized()
+					target.set("velocity", (target.get("velocity") as Vector3) + dir * 6.0 * punch + Vector3(0, 1.5, 0))
+				if bool(proj.get_meta("flame", false)):
+					for prop: String in ["fire_time", "fire"]:
+						if target.get(prop) is float:
+							target.set(prop, maxf(float(target.get(prop)), 5.0))
+							break
+			_fx_sound("arrow_hit", proj.position, 0.6)
 			proj.queue_free()
 		"snowball", "egg":
 			_damage_target(who, 0, "arrow", proj.get("shooter"), vel)

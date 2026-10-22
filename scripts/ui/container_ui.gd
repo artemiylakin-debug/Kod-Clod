@@ -36,6 +36,11 @@ var _progress: Control
 var _creative_page := 0
 var _creative_items: Array = []
 var _pointer := Vector2.ZERO
+## Стол зачарований: уровни трёх вариантов, кнопки, число полок.
+var _ench_levels: Array[int] = [0, 0, 0]
+var _ench_buttons: Array[Button] = []
+var _shelves := 0
+var _ench_rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
@@ -108,6 +113,11 @@ func open(kind: String, pos: Vector3i, p_creative: bool) -> void:
 						_bes.append(world.get_block_entity(q))
 					break
 		_load_container()
+	if mode == "enchanting":
+		_cont = Inventory.new(1)
+		_shelves = Enchantments.count_shelves(world, pos)
+		_ench_rng.randomize()
+		_roll_enchant()
 	_build()
 	visible = true
 	refresh()
@@ -149,6 +159,10 @@ func close_ui() -> void:
 		if _craft.counts[i] > 0:
 			_give(_craft.ids[i], _craft.counts[i], _craft.datas[i])
 	_craft.clear()
+	# Предмет со стола зачарований не хранится в блоке — возвращаем игроку.
+	if mode == "enchanting" and _cont.size > 0 and _cont.counts[0] > 0:
+		_give(_cont.ids[0], _cont.counts[0], _cont.datas[0])
+		_cont.set_slot(0, 0, 0)
 	if int(_cursor[1]) > 0 and not (mode == "creative"):
 		_give(int(_cursor[0]), int(_cursor[1]), int(_cursor[2]))
 	_cursor = [0, 0, 0]
@@ -195,7 +209,8 @@ func _label(text: String) -> Label:
 func _build() -> void:
 	_clear()
 	var titles := {"inventory": "Инвентарь", "creative": "Креативный инвентарь", "crafting": "Верстак", "furnace": "Печь",
-		"chest": "Большой сундук" if _bes.size() > 1 else "Сундук", "dispenser": "Раздатчик", "brewing": "Варочная стойка"}
+		"chest": "Большой сундук" if _bes.size() > 1 else "Сундук", "dispenser": "Раздатчик", "brewing": "Варочная стойка",
+		"enchanting": "Стол зачарований"}
 	_title.text = titles.get(mode, "Инвентарь")
 	_info.text = "Тап — взять/положить, удержание — половина или по одному, двойной тап — быстрый перенос." \
 		if Game.is_touch_enabled() else "ЛКМ — взять/положить, ПКМ — половина или по одному, Shift+клик — быстрый перенос."
@@ -210,6 +225,8 @@ func _build() -> void:
 			_build_furnace_top()
 		"brewing":
 			_build_brewing_top()
+		"enchanting":
+			_build_enchanting_top()
 		"chest", "dispenser":
 			_body.add_child(_label(_title.text))
 			var g := _grid(COLS if mode == "chest" else 3)
@@ -314,6 +331,71 @@ func _build_brewing_top() -> void:
 	_body.add_child(col)
 
 
+func _build_enchanting_top() -> void:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 20)
+	var left := VBoxContainer.new()
+	left.alignment = BoxContainer.ALIGNMENT_CENTER
+	left.add_child(_slot("cont", 0, SLOT * 1.2))
+	left.add_child(_label("Полок: %d" % _shelves))
+	row.add_child(left)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	_ench_buttons.clear()
+	for k in 3:
+		var b := UITheme.button("", 360, 18)
+		b.custom_minimum_size.y = 44
+		b.pressed.connect(_apply_enchant.bind(k))
+		col.add_child(b)
+		_ench_buttons.append(b)
+	row.add_child(col)
+	_body.add_child(row)
+
+
+## Новые варианты уровней для предмета на столе.
+func _roll_enchant() -> void:
+	var item := _cont.ids[0] if _cont.size > 0 and _cont.counts[0] > 0 else 0
+	if item == 0 or Enchantments.is_enchanted(_cont.datas[0]):
+		_ench_levels = [0, 0, 0]
+		return
+	_ench_levels = Enchantments.table_levels(item, _shelves, _ench_rng)
+
+
+func _apply_enchant(k: int) -> void:
+	var lvl := _ench_levels[k]
+	if lvl <= 0 or _cont.counts[0] <= 0:
+		return
+	if not player.creative and player.xp_level < lvl:
+		return
+	var data := Enchantments.enchant(_cont.ids[0], _cont.datas[0], lvl, _ench_rng)
+	if not Enchantments.is_enchanted(data):
+		return
+	_cont.datas[0] = data
+	if not player.creative:
+		player.remove_levels(lvl)
+	_roll_enchant()
+	var g := get_tree().current_scene
+	if g != null and g.has_method("play_sound"):
+		g.call("play_sound", "levelup", player.position, 0.5)
+	_info.text = "Зачаровано: %s" % Enchantments.describe(data)
+	refresh()
+
+
+func _update_enchant_buttons() -> void:
+	for k in _ench_buttons.size():
+		var b := _ench_buttons[k]
+		if not is_instance_valid(b):
+			continue
+		var lvl := _ench_levels[k]
+		if lvl <= 0:
+			b.text = "—"
+			b.disabled = true
+			continue
+		b.text = "Зачаровать: уровень %d" % lvl
+		b.disabled = not player.creative and player.xp_level < lvl
+
+
 func _build_creative() -> void:
 	var per_page := COLS * 5
 	var pages := ceili(_creative_items.size() / float(per_page))
@@ -380,6 +462,8 @@ func refresh() -> void:
 	_cursor_view.queue_redraw()
 	if _progress != null:
 		_progress.queue_redraw()
+	if mode == "enchanting":
+		_update_enchant_buttons()
 
 
 func _process(_delta: float) -> void:
@@ -431,7 +515,9 @@ func _on_hover(v: SlotView) -> void:
 		var n := Items.name_of(v.item_id, v.data)
 		var max_d := Items.max_damage(v.item_id)
 		if max_d > 0:
-			n += "  (прочность %d/%d)" % [max_d - v.data, max_d]
+			n += "  (прочность %d/%d)" % [max_d - Enchantments.damage_of(v.data), max_d]
+			if Enchantments.is_enchanted(v.data):
+				n += "\n" + Enchantments.describe(v.data)
 		_info.text = n
 
 
@@ -464,10 +550,13 @@ func _set_stack(v: SlotView, s: Array) -> void:
 			_craft.counts[v.slot] = cnt
 			_craft.datas[v.slot] = d
 		"cont":
+			var changed := _cont.ids[v.slot] != id or _cont.datas[v.slot] != d
 			_cont.ids[v.slot] = id
 			_cont.counts[v.slot] = cnt
 			_cont.datas[v.slot] = d
 			_save_container()
+			if mode == "enchanting" and changed:
+				_roll_enchant()
 
 
 ## Можно ли положить предмет в слот (броня — только в свой слот, результат печи — только забрать).
@@ -487,6 +576,8 @@ func _accepts(v: SlotView, id: int) -> bool:
 
 func _max_in(v: SlotView, id: int) -> int:
 	if v.section == "player" and v.slot >= Inventory.ARMOR_START:
+		return 1
+	if v.section == "cont" and mode == "enchanting":
 		return 1
 	if v.section == "cont" and mode == "brewing" and v.slot < 3:
 		return 1
@@ -566,7 +657,7 @@ func _quick_move(v: SlotView) -> void:
 		if armor >= 0 and v.slot < Inventory.ARMOR_START and player.inventory.counts[Inventory.ARMOR_START + armor] == 0:
 			player.inventory.set_slot(Inventory.ARMOR_START + armor, id, 1, data)
 			left = count - 1
-		elif mode in ["chest", "dispenser"] or (mode == "furnace") or (mode == "brewing"):
+		elif mode in ["chest", "dispenser", "furnace", "brewing", "enchanting"]:
 			left = _insert_container(id, count, data)
 		elif v.slot < Inventory.HOTBAR_SIZE:
 			left = _insert_range(player.inventory, Inventory.HOTBAR_SIZE, Inventory.SIZE, id, count, data)
@@ -580,6 +671,12 @@ func _quick_move(v: SlotView) -> void:
 
 
 func _insert_container(id: int, count: int, data: int) -> int:
+	if mode == "enchanting":
+		if _cont.counts[0] > 0:
+			return count
+		_cont.set_slot(0, id, 1, data)
+		_roll_enchant()
+		return count - 1
 	if mode == "furnace":
 		var slot := 1 if Items.fuel_ticks(id) > 0 and Recipes.smelt_result(id, data).is_empty() else 0
 		return _insert_range(_cont, slot, slot + 1, id, count, data, true)

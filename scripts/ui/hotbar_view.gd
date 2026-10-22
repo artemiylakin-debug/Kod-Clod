@@ -57,8 +57,11 @@ func _draw() -> void:
 		if cnt > 0 and id > 0:
 			draw_texture_rect(TextureFactory.icon(id, inventory.datas[i]), r.grow(-5.0), false)
 			var max_d := Items.max_damage(id)
-			if max_d > 0 and inventory.datas[i] > 0:
-				SlotView.draw_durability(self, r, inventory.datas[i], max_d)
+			var dmg := Enchantments.damage_of(inventory.datas[i])
+			if max_d > 0 and dmg > 0:
+				SlotView.draw_durability(self, r, dmg, max_d)
+			if Enchantments.is_enchanted(inventory.datas[i]):
+				SlotView.draw_glint(self, r)
 			if not creative and cnt > 1:
 				draw_count(self, font, r, cnt)
 	var sel := slot_rect(inventory.selected).grow(1.0)

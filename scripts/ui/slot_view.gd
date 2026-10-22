@@ -103,8 +103,10 @@ func _draw() -> void:
 	if item_id > 0 and count > 0:
 		draw_texture_rect(TextureFactory.icon(item_id, data), r.grow(-5.0), false)
 		var max_d := Items.max_damage(item_id)
-		if max_d > 0 and data > 0:
-			draw_durability(self, r, data, max_d)
+		if max_d > 0 and Enchantments.damage_of(data) > 0:
+			draw_durability(self, r, Enchantments.damage_of(data), max_d)
+		if Enchantments.is_enchanted(data):
+			draw_glint(self, r)
 		if show_count and count > 1:
 			HotbarView.draw_count(self, get_theme_default_font(), r.grow(-2.0), count)
 	elif placeholder != "":
@@ -112,6 +114,14 @@ func _draw() -> void:
 		draw_string(font, Vector2(0, size.y * 0.62), placeholder, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, Color(1, 1, 1, 0.35))
 	if highlighted:
 		draw_rect(r.grow(-1.5), Color(1.0, 0.86, 0.25), false, 3.0)
+
+
+## Отблеск зачарованного предмета (переливающаяся фиолетовая рамка).
+static func draw_glint(ci: CanvasItem, r: Rect2) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	var a := 0.18 + 0.1 * sin(t * 3.0)
+	ci.draw_rect(r.grow(-4.0), Color(0.65, 0.35, 1.0, a))
+	ci.draw_rect(r.grow(-3.0), Color(0.8, 0.55, 1.0, 0.55), false, 2.0)
 
 
 ## Полоска прочности инструмента (зелёная → красная).

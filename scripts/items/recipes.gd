@@ -311,6 +311,7 @@ static func match_grid(grid: Array, size: int) -> Array:
 	if items.size() == 2 and int(items[0][0]) == int(items[1][0]) and Items.is_damageable(int(items[0][0])):
 		var id := int(items[0][0])
 		var max_d := Items.max_damage(id)
-		var left := (max_d - int(items[0][1])) + (max_d - int(items[1][1])) + max_d / 10
+		@warning_ignore("integer_division")
+		var left := (max_d - Enchantments.damage_of(int(items[0][1]))) + (max_d - Enchantments.damage_of(int(items[1][1]))) + max_d / 10
 		return [id, 1, maxi(max_d - left, 0)]
 	return []

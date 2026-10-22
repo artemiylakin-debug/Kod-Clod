@@ -619,8 +619,16 @@ func held_tier() -> int:
 func dig_time(id: int) -> float:
 	var item := inventory.selected_id()
 	var tool := Items.tool_kind(item)
-	var t := Blocks.break_time(id, tool, Items.tool_tier(item), Items.tool_speed(item))
-	if (head_in_water) or (not on_ground and not flying and not on_ladder):
+	var speed := Items.tool_speed(item)
+	# Эффективность ускоряет добычу подходящим инструментом.
+	var eff := Enchantments.level_of(inventory.selected_data(), Enchantments.EFFICIENCY)
+	if eff > 0 and Blocks.tool_matches(id, tool):
+		speed += eff * eff + 1
+	var t := Blocks.break_time(id, tool, Items.tool_tier(item), speed)
+	var aqua := Enchantments.armor_level(inventory, Enchantments.AQUA_AFFINITY) > 0
+	if head_in_water and not aqua:
+		t *= 5.0
+	if not on_ground and not flying and not on_ladder and not head_in_water:
 		t *= 5.0
 	return t
 
@@ -801,6 +809,8 @@ func take_damage(amount: int, source := "generic", attacker: Node3D = null) -> v
 		if armor > 0:
 			inventory.damage_armor(amount)
 			amount = int(round(amount * (25.0 - armor) / 25.0))
+	if not source in ["void", "starve", "magic", "poison"]:
+		amount = int(round(amount * Enchantments.protection_factor(inventory, source)))
 	if amount <= 0:
 		return
 	add_exhaustion(0.3)
@@ -910,7 +920,10 @@ func _update_survival(dt: float) -> void:
 		return
 	# Воздух под водой.
 	if head_in_water:
-		air -= int(dt * 20.0 + 0.5)
+		# Подводное дыхание: воздух расходуется реже.
+		var resp := Enchantments.armor_level(inventory, Enchantments.RESPIRATION)
+		if resp == 0 or randi() % (resp + 1) == 0:
+			air -= int(dt * 20.0 + 0.5)
 		if air <= -20:
 			air = 0
 			take_damage(2, "drown")
