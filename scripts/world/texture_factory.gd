@@ -1,11 +1,13 @@
 class_name TextureFactory
 extends RefCounted
-## Процедурные пиксельные текстуры 16×16, изометрические иконки блоков, шейдеры и общие меши.
+## Текстурный массив из тайлов TexturePainter, значки предметов (изометрические — для блоков,
+## плоские — для остальных), меши предметов в руке и на земле, шейдеры.
 ## Никаких внешних ассетов: всё рисуется при запуске игры.
 
 const TILE := 16
 const ICON_SIZE := 48
 
+## Мир: небесный свет (UV2.y) × освещённость дня и свет от блоков (COLOR.a) тёплого оттенка.
 const CHUNK_SHADER := """
 shader_type spatial;
 render_mode unshaded, cull_back;
@@ -15,12 +17,15 @@ uniform vec3 fog_color : source_color = vec3(0.68, 0.82, 1.0);
 uniform float fog_start = 48.0;
 uniform float fog_end = 96.0;
 uniform float daylight = 1.0;
+uniform float min_light = 0.07;
 
 varying float v_dist;
 varying flat float v_layer;
+varying float v_sky;
 
 void vertex() {
 	v_layer = UV2.x;
+	v_sky = UV2.y;
 	v_dist = length((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz);
 }
 
@@ -29,7 +34,9 @@ void fragment() {
 	if (tex.a < 0.5) {
 		discard;
 	}
-	vec3 col = tex.rgb * COLOR.rgb * daylight;
+	vec3 light = max(vec3(v_sky * daylight), vec3(COLOR.a) * vec3(1.0, 0.9, 0.75));
+	light = max(light, vec3(min_light));
+	vec3 col = tex.rgb * COLOR.rgb * light;
 	float fog = clamp((v_dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
 	ALBEDO = mix(col, fog_color, fog);
 }
@@ -37,25 +44,34 @@ void fragment() {
 
 const WATER_SHADER := """
 shader_type spatial;
-render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
+render_mode unshaded, cull_back, blend_mix, depth_draw_never;
 
 uniform sampler2DArray atlas : source_color, filter_nearest_mipmap, repeat_enable;
 uniform vec3 fog_color : source_color = vec3(0.68, 0.82, 1.0);
 uniform float fog_start = 48.0;
 uniform float fog_end = 96.0;
 uniform float daylight = 1.0;
+uniform float min_light = 0.07;
 
 varying float v_dist;
 varying flat float v_layer;
+varying float v_sky;
 
 void vertex() {
 	v_layer = UV2.x;
+	v_sky = UV2.y;
 	v_dist = length((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz);
 }
 
 void fragment() {
-	vec4 tex = texture(atlas, vec3(UV, v_layer));
-	vec3 col = tex.rgb * COLOR.rgb * daylight;
+	vec2 uv = UV;
+	if (v_layer == float(%d)) {
+		uv += vec2(TIME * 0.03, TIME * 0.05);
+	}
+	vec4 tex = texture(atlas, vec3(uv, v_layer));
+	vec3 light = max(vec3(v_sky * daylight), vec3(COLOR.a) * vec3(1.0, 0.9, 0.75));
+	light = max(light, vec3(min_light));
+	vec3 col = tex.rgb * COLOR.rgb * light;
 	float fog = clamp((v_dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
 	ALBEDO = mix(col, fog_color, fog);
 	ALPHA = mix(tex.a, 1.0, fog);
@@ -76,18 +92,31 @@ void fragment() {
 }
 """
 
-## Блок в руке рисуется поверх мира (без теста глубины), поэтому не «проваливается» в стены.
-const HAND_SHADER := """
+## Предметы и блоки вне сетки чанков (в руке, на земле, падающий песок): освещение задаётся
+## параметрами материала объекта (небесный свет и свет от блоков в клетке, где он находится).
+## Параметры экземпляра (instance uniform) веб-рендер не поддерживает, поэтому у каждого
+## объекта своя копия материала — см. instance_material() и set_light().
+const ENTITY_SHADER := """
 shader_type spatial;
-render_mode unshaded, cull_back, blend_mix, depth_test_disabled, depth_draw_never;
+render_mode unshaded, cull_back%s;
 
-uniform sampler2DArray atlas : source_color, filter_nearest;
+uniform sampler2DArray atlas : source_color, filter_nearest_mipmap, repeat_enable;
 uniform float daylight = 1.0;
+uniform vec3 fog_color : source_color = vec3(0.68, 0.82, 1.0);
+uniform float fog_start = 48.0;
+uniform float fog_end = 96.0;
+uniform float local_sky = 1.0;
+uniform float local_block = 0.0;
+uniform float hurt = 0.0;
 
 varying flat float v_layer;
+varying float v_shade;
+varying float v_dist;
 
 void vertex() {
 	v_layer = UV2.x;
+	v_shade = UV2.y;
+	v_dist = length((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz);
 }
 
 void fragment() {
@@ -95,24 +124,69 @@ void fragment() {
 	if (tex.a < 0.5) {
 		discard;
 	}
-	ALBEDO = tex.rgb * COLOR.rgb * daylight;
+	vec3 light = max(vec3(local_sky * daylight), vec3(local_block) * vec3(1.0, 0.9, 0.75));
+	light = max(light, vec3(0.07)) * v_shade;
+	vec3 col = tex.rgb * COLOR.rgb * light;
+	col = mix(col, vec3(1.0, 0.1, 0.1) * max(light.r, 0.3), hurt * 0.55);
+	float fog = clamp((v_dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
+	ALBEDO = mix(col, fog_color, fog);
 	ALPHA = 1.0;
+}
+"""
+
+## Существа: обычная текстура (развёртка-«скин»), освещение — параметрами экземпляра.
+const MOB_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_back;
+
+uniform sampler2D skin : source_color, filter_nearest, repeat_disable;
+uniform float daylight = 1.0;
+uniform vec3 fog_color : source_color = vec3(0.68, 0.82, 1.0);
+uniform float fog_start = 48.0;
+uniform float fog_end = 96.0;
+uniform float local_sky = 1.0;
+uniform float local_block = 0.0;
+uniform float hurt = 0.0;
+uniform vec4 tint : source_color = vec4(1.0);
+
+varying float v_dist;
+
+void vertex() {
+	v_dist = length((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz);
+}
+
+void fragment() {
+	vec4 tex = texture(skin, UV);
+	if (tex.a < 0.5) {
+		discard;
+	}
+	vec3 light = max(vec3(local_sky * daylight), vec3(local_block) * vec3(1.0, 0.9, 0.75));
+	light = max(light, vec3(0.07)) * COLOR.rgb;
+	vec3 col = tex.rgb * tint.rgb * light;
+	col = mix(col, vec3(1.0, 0.1, 0.1) * max(light.r, 0.3), hurt * 0.55);
+	float fog = clamp((v_dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
+	ALBEDO = mix(col, fog_color, fog);
 }
 """
 
 static var tiles: Array[Image] = []
 static var atlas: Texture2DArray
-static var icons: Array[Texture2D] = []
 static var background: Texture2D
 static var chunk_material: ShaderMaterial
 static var water_material: ShaderMaterial
 static var crack_material: ShaderMaterial
+## Блок/предмет в руке: поверх мира, без теста глубины.
 static var hand_material: ShaderMaterial
+## Предметы на земле, падающие блоки.
+static var entity_material: ShaderMaterial
+static var mob_shader: Shader
 static var selection_material: StandardMaterial3D
 
-static var _rng := RandomNumberGenerator.new()
-static var _cube_meshes: Dictionary = {}
+static var _icons: Dictionary = {}
+static var _item_meshes: Dictionary = {}
 static var _selection_mesh: ArrayMesh
+## Копии материалов отдельных объектов; освобождённые удаляются в set_environment().
+static var _instance_materials: Array[ShaderMaterial] = []
 static var _initialized := false
 
 
@@ -120,9 +194,8 @@ static func ensure_initialized() -> void:
 	if _initialized:
 		return
 	_initialized = true
-	_build_tiles()
+	tiles = TexturePainter.paint_all()
 	_build_atlas()
-	_build_icons()
 	_build_background()
 	_build_materials()
 
@@ -130,14 +203,17 @@ static func ensure_initialized() -> void:
 ## Освобождает ресурсы, хранящиеся в статических переменных (вызывается при выходе).
 static func release() -> void:
 	tiles.clear()
-	icons.clear()
-	_cube_meshes.clear()
+	_icons.clear()
+	_item_meshes.clear()
+	_instance_materials.clear()
 	atlas = null
 	background = null
 	chunk_material = null
 	water_material = null
 	crack_material = null
 	hand_material = null
+	entity_material = null
+	mob_shader = null
 	selection_material = null
 	_selection_mesh = null
 	_initialized = false
@@ -147,12 +223,15 @@ static func release() -> void:
 
 static func _build_materials() -> void:
 	chunk_material = _shader_material(CHUNK_SHADER)
-	water_material = _shader_material(WATER_SHADER)
+	water_material = _shader_material(WATER_SHADER % Tex.WATER)
 	water_material.render_priority = 1
 	crack_material = _shader_material(CRACK_SHADER)
 	crack_material.render_priority = 2
-	hand_material = _shader_material(HAND_SHADER)
+	entity_material = _shader_material(ENTITY_SHADER % "")
+	hand_material = _shader_material(ENTITY_SHADER % ", depth_test_disabled, depth_draw_never")
 	hand_material.render_priority = 100
+	mob_shader = Shader.new()
+	mob_shader.code = MOB_SHADER
 	selection_material = StandardMaterial3D.new()
 	selection_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	selection_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -170,22 +249,132 @@ static func _shader_material(code: String) -> ShaderMaterial:
 	return m
 
 
+## Материал существа с текстурой-скином: свой у каждого существа (свет, покраснение от урона).
+static func mob_material(skin: Texture2D) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = mob_shader
+	m.set_shader_parameter("skin", skin)
+	_instance_materials.append(m)
+	_apply_environment(m)
+	return m
+
+
+## Копия материала для одного объекта (освещение задаётся через set_light).
+static func instance_material(base: ShaderMaterial) -> ShaderMaterial:
+	var m := base.duplicate() as ShaderMaterial
+	if base != hand_material:
+		_instance_materials.append(m)
+	return m
+
+
+## Освещение объекта: небесный свет (0–1), свет блоков (0–1) и покраснение от урона.
+static func set_light(mi: GeometryInstance3D, sky: float, block: float, hurt := 0.0) -> void:
+	var m := mi.material_override as ShaderMaterial
+	if m == null:
+		return
+	var key := Vector3(snappedf(sky, 0.01), snappedf(block, 0.01), snappedf(hurt, 0.01))
+	if mi.has_meta("light") and mi.get_meta("light") == key:
+		return
+	mi.set_meta("light", key)
+	m.set_shader_parameter("local_sky", key.x)
+	m.set_shader_parameter("local_block", key.y)
+	m.set_shader_parameter("hurt", key.z)
+
+
+static var _env := [Color(0.68, 0.82, 1.0), 48.0, 96.0, 1.0]
+
+
+static func _apply_environment(m: ShaderMaterial) -> void:
+	m.set_shader_parameter("fog_color", _env[0])
+	m.set_shader_parameter("fog_start", _env[1])
+	m.set_shader_parameter("fog_end", _env[2])
+	m.set_shader_parameter("daylight", _env[3])
+
+
 static func set_environment(fog_color: Color, fog_start: float, fog_end: float, daylight: float) -> void:
-	for m: ShaderMaterial in [chunk_material, water_material]:
-		m.set_shader_parameter("fog_color", fog_color)
-		m.set_shader_parameter("fog_start", fog_start)
-		m.set_shader_parameter("fog_end", fog_end)
-		m.set_shader_parameter("daylight", daylight)
-	hand_material.set_shader_parameter("daylight", maxf(daylight, 0.45))
+	_env = [fog_color, fog_start, fog_end, daylight]
+	for m: ShaderMaterial in [chunk_material, water_material, entity_material]:
+		_apply_environment(m)
+	hand_material.set_shader_parameter("daylight", daylight)
+	hand_material.set_shader_parameter("fog_start", 1000.0)
+	hand_material.set_shader_parameter("fog_end", 2000.0)
+	var alive: Array[ShaderMaterial] = []
+	for m in _instance_materials:
+		# Ссылки держат только этот список и цикл — объект удалён.
+		if m.get_reference_count() > 2:
+			_apply_environment(m)
+			alive.append(m)
+	_instance_materials = alive
 
 
-static func block_mesh(id: int) -> ArrayMesh:
-	if _cube_meshes.has(id):
-		return _cube_meshes[id]
+## Меш предмета для руки и земли: блок — объёмный, остальное — выдавленный спрайт.
+static func item_mesh(id: int, data: int = 0) -> ArrayMesh:
+	var key := id * 65536 + (data & 0xFFFF)
+	if _item_meshes.has(key):
+		return _item_meshes[key]
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, ChunkMesher.cube_arrays(id))
-	_cube_meshes[id] = mesh
+	var arrays: Array = []
+	if Items.is_block(id) and not Items.is_flat_block(id):
+		var meta := data & 15
+		if id == Blocks.CHEST or id == Blocks.FURNACE or id == Blocks.DISPENSER or id == Blocks.PUMPKIN \
+				or id == Blocks.JACK_O_LANTERN or Blocks.is_stairs(id):
+			meta = 0
+		if id == Blocks.SNOW_LAYER:
+			meta = 0
+		arrays = ChunkMesher.block_arrays(id, meta)
+	if arrays.is_empty():
+		arrays = _sprite_arrays(id, data)
+	if not arrays.is_empty():
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_item_meshes[key] = mesh
 	return mesh
+
+
+## Совместимость со старым кодом: меш блока.
+static func block_mesh(id: int, meta: int = 0) -> ArrayMesh:
+	return item_mesh(id, meta)
+
+
+## Выдавленный спрайт 16×16 (как предметы в оригинале): лицевая и задняя грани + бортики.
+static func _sprite_arrays(id: int, data: int) -> Array:
+	var layer := Items.sprite_tile(id, data)
+	var img: Image = tiles[layer]
+	var tint := Items.sprite_tint(id, data)
+	var surf := ChunkMesher.Surface.new()
+	var px := 1.0 / TILE
+	var depth := px
+	var s := Vector3(-0.5, -0.5, 0.0)
+	var front := [s + Vector3(0, 0, depth / 2), s + Vector3(1, 0, depth / 2), s + Vector3(1, 1, depth / 2), s + Vector3(0, 1, depth / 2)]
+	var back := [s + Vector3(1, 0, -depth / 2), s + Vector3(0, 0, -depth / 2), s + Vector3(0, 1, -depth / 2), s + Vector3(1, 1, -depth / 2)]
+	surf.quad(front, [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)], layer, 1.0, 0.0, tint)
+	surf.quad(back, [Vector2(1, 1), Vector2(0, 1), Vector2(0, 0), Vector2(1, 0)], layer, 0.8, 0.0, tint)
+	var ov := Items.overlay(id, data)
+	if ov.size() == 2:
+		var lift := Vector3(0, 0, 0.002)
+		surf.quad([front[0] + lift, front[1] + lift, front[2] + lift, front[3] + lift],
+			[Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)], int(ov[0]), 1.0, 0.0, ov[1])
+	# Бортики по краям непрозрачных пикселей.
+	for y in TILE:
+		for x in TILE:
+			if img.get_pixel(x, y).a < 0.5:
+				continue
+			var x0 := x * px - 0.5
+			var x1 := x0 + px
+			var y1 := 0.5 - y * px
+			var y0 := y1 - px
+			var zf := depth / 2
+			var zb := -depth / 2
+			var uv_c := Vector2((x + 0.5) * px, (y + 0.5) * px)
+			var uv := [uv_c, uv_c, uv_c, uv_c]
+			if x == TILE - 1 or img.get_pixel(x + 1, y).a < 0.5:
+				surf.quad([Vector3(x1, y0, zf), Vector3(x1, y0, zb), Vector3(x1, y1, zb), Vector3(x1, y1, zf)], uv, layer, 0.6, 0.0, tint)
+			if x == 0 or img.get_pixel(x - 1, y).a < 0.5:
+				surf.quad([Vector3(x0, y0, zb), Vector3(x0, y0, zf), Vector3(x0, y1, zf), Vector3(x0, y1, zb)], uv, layer, 0.6, 0.0, tint)
+			if y == 0 or img.get_pixel(x, y - 1).a < 0.5:
+				surf.quad([Vector3(x0, y1, zf), Vector3(x1, y1, zf), Vector3(x1, y1, zb), Vector3(x0, y1, zb)], uv, layer, 0.9, 0.0, tint)
+			if y == TILE - 1 or img.get_pixel(x, y + 1).a < 0.5:
+				surf.quad([Vector3(x0, y0, zb), Vector3(x1, y0, zb), Vector3(x1, y0, zf), Vector3(x0, y0, zf)], uv, layer, 0.5, 0.0, tint)
+	return surf.to_arrays()
 
 
 ## Рамка выделения блока: 12 тонких брусков (линии в 1 пиксель плохо видны на телефонах).
@@ -228,43 +417,11 @@ static func _add_box(st: SurfaceTool, lo: Vector3, hi: Vector3) -> void:
 
 # --- Текстуры --------------------------------------------------------------
 
-static func _build_tiles() -> void:
-	_rng.seed = 20241022
-	tiles.clear()
-	tiles.resize(Blocks.TEXTURE_COUNT)
-	var grass_top := _paint_grass_top()
-	var dirt := _paint_dirt()
-	var stone := _paint_stone()
-	var planks := _paint_planks()
-	tiles[Blocks.T_GRASS_TOP] = grass_top
-	tiles[Blocks.T_GRASS_SIDE] = _paint_grass_side(dirt, grass_top)
-	tiles[Blocks.T_DIRT] = dirt
-	tiles[Blocks.T_STONE] = stone
-	tiles[Blocks.T_COBBLE] = _paint_cobble()
-	tiles[Blocks.T_LOG_SIDE] = _paint_log_side()
-	tiles[Blocks.T_LOG_TOP] = _paint_log_top()
-	tiles[Blocks.T_LEAVES] = _paint_leaves()
-	tiles[Blocks.T_PLANKS] = planks
-	tiles[Blocks.T_SAND] = _paint_speckled(Color(0.86, 0.8, 0.58), 0.05, Color(0.76, 0.69, 0.48), 0.1)
-	tiles[Blocks.T_GLASS] = _paint_glass()
-	tiles[Blocks.T_BEDROCK] = _paint_bedrock()
-	tiles[Blocks.T_WATER] = _paint_water()
-	tiles[Blocks.T_COAL_ORE] = _paint_ore(stone, Color(0.1, 0.1, 0.1))
-	tiles[Blocks.T_IRON_ORE] = _paint_ore(stone, Color(0.85, 0.66, 0.52))
-	tiles[Blocks.T_BRICKS] = _paint_bricks()
-	tiles[Blocks.T_SNOW] = _paint_speckled(Color(0.95, 0.97, 1.0), 0.025, Color(0.84, 0.9, 0.98), 0.07)
-	tiles[Blocks.T_GRAVEL] = _paint_gravel()
-	tiles[Blocks.T_STONE_BRICKS] = _paint_stone_bricks()
-	tiles[Blocks.T_BOOKSHELF] = _paint_bookshelf(planks)
-	var cracks := _paint_cracks()
-	for s in Blocks.CRACK_STAGES:
-		tiles[Blocks.T_CRACK_0 + s] = cracks[s]
-
-
 static func _build_atlas() -> void:
 	var images: Array[Image] = []
 	for t in tiles:
 		var im: Image = t.duplicate()
+		_bleed_transparent(im)
 		im.generate_mipmaps()
 		images.append(im)
 	atlas = Texture2DArray.new()
@@ -273,8 +430,29 @@ static func _build_atlas() -> void:
 		push_error("Не удалось создать текстурный массив: %s" % err)
 
 
+## Прозрачные пиксели получают цвет соседних непрозрачных — иначе мипмапы темнеют по краям.
+static func _bleed_transparent(img: Image) -> void:
+	var src: Image = img.duplicate()
+	for y in TILE:
+		for x in TILE:
+			var c := src.get_pixel(x, y)
+			if c.a >= 0.5:
+				continue
+			var sum := Color(0, 0, 0, 0)
+			var n := 0
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var q := src.get_pixel(clampi(x + dx, 0, TILE - 1), clampi(y + dy, 0, TILE - 1))
+					if q.a >= 0.5:
+						sum += q
+						n += 1
+			if n > 0:
+				var avg := sum / n
+				img.set_pixel(x, y, Color(avg.r, avg.g, avg.b, c.a))
+
+
 static func _build_background() -> void:
-	var img: Image = tiles[Blocks.T_DIRT].duplicate()
+	var img: Image = tiles[Tex.DIRT].duplicate()
 	for y in TILE:
 		for x in TILE:
 			img.set_pixel(x, y, _shade(img.get_pixel(x, y), 0.42))
@@ -282,381 +460,135 @@ static func _build_background() -> void:
 	background = ImageTexture.create_from_image(img)
 
 
-static func _new_tile() -> Image:
-	return Image.create(TILE, TILE, false, Image.FORMAT_RGBA8)
-
-
 static func _shade(c: Color, f: float) -> Color:
 	return Color(clampf(c.r * f, 0.0, 1.0), clampf(c.g * f, 0.0, 1.0), clampf(c.b * f, 0.0, 1.0), c.a)
 
 
-static func _vary(c: Color, amount: float) -> Color:
-	return _shade(c, 1.0 + _rng.randf_range(-amount, amount))
+static func _mul(c: Color, t: Color) -> Color:
+	return Color(c.r * t.r, c.g * t.g, c.b * t.b, c.a)
 
 
-static func _paint_grass_top() -> Image:
-	var img := _new_tile()
-	var base := Color(0.4, 0.66, 0.24)
-	for y in TILE:
-		for x in TILE:
-			var f := _rng.randf_range(0.84, 1.1)
-			if _rng.randf() < 0.12:
-				f *= 0.8
-			img.set_pixel(x, y, _shade(base, f))
-	return img
+# --- Значки ----------------------------------------------------------------
+
+## Значок предмета (кэшируется).
+static func icon(id: int, data: int = 0) -> Texture2D:
+	if Items.is_damageable(id):
+		data = 0
+	var key := id * 65536 + (data & 0xFFFF)
+	if _icons.has(key):
+		return _icons[key]
+	var img: Image
+	if Items.is_block(id) and not Items.is_flat_block(id):
+		img = _block_icon(id, data)
+	else:
+		img = _flat_icon(id, data)
+	var tex := ImageTexture.create_from_image(img)
+	_icons[key] = tex
+	return tex
 
 
-static func _paint_dirt() -> Image:
-	var img := _new_tile()
-	var base := Color(0.55, 0.39, 0.26)
-	for y in TILE:
-		for x in TILE:
-			var c := _vary(base, 0.1)
-			var r := _rng.randf()
-			if r < 0.1:
-				c = _vary(Color(0.42, 0.29, 0.19), 0.06)
-			elif r < 0.15:
-				c = _vary(Color(0.66, 0.5, 0.36), 0.05)
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_grass_side(dirt: Image, grass: Image) -> Image:
-	var img: Image = dirt.duplicate()
-	for x in TILE:
-		var depth := 3 + _rng.randi_range(0, 1)
-		if _rng.randf() < 0.3:
-			depth += 1
-		if _rng.randf() < 0.12:
-			depth += 2
-		for y in depth:
-			img.set_pixel(x, y, _shade(grass.get_pixel(x, y), 0.93))
-	return img
-
-
-static func _paint_stone() -> Image:
-	var img := _new_tile()
-	var base := Color(0.5, 0.5, 0.5)
-	for y in TILE:
-		for x in TILE:
-			img.set_pixel(x, y, _shade(base, _rng.randf_range(0.9, 1.07)))
-	for i in 9:
-		var sx := _rng.randi_range(0, TILE - 1)
-		var sy := _rng.randi_range(0, TILE - 1)
-		var f := 0.78 if i % 3 != 0 else 1.13
-		for k in _rng.randi_range(2, 4):
-			img.set_pixel((sx + k) % TILE, sy, _shade(base, f))
-	return img
-
-
-static func _paint_cobble() -> Image:
-	var img := _new_tile()
-	var pts: Array[Vector2] = []
-	var shades: Array[float] = []
-	for i in 9:
-		pts.append(Vector2(_rng.randf() * TILE, _rng.randf() * TILE))
-		shades.append(_rng.randf_range(0.42, 0.64))
-	for y in TILE:
-		for x in TILE:
-			var d1 := 1e9
-			var d2 := 1e9
-			var idx := 0
-			for i in pts.size():
-				var dx := absf(x + 0.5 - pts[i].x)
-				var dy := absf(y + 0.5 - pts[i].y)
-				dx = minf(dx, TILE - dx)
-				dy = minf(dy, TILE - dy)
-				var d := sqrt(dx * dx + dy * dy)
-				if d < d1:
-					d2 = d1
-					d1 = d
-					idx = i
-				elif d < d2:
-					d2 = d
-			var c: Color
-			if d2 - d1 < 1.0:
-				c = _vary(Color(0.27, 0.27, 0.27), 0.08)
-			else:
-				var s := shades[idx] * (1.12 if d1 < 1.6 else 1.0)
-				c = _vary(Color(s, s, s), 0.06)
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_log_side() -> Image:
-	var img := _new_tile()
-	var base := Color(0.42, 0.32, 0.19)
-	var col_f: Array[float] = []
-	for x in TILE:
-		col_f.append(0.74 if x % 4 == 1 else _rng.randf_range(0.88, 1.1))
-	for y in TILE:
-		for x in TILE:
-			img.set_pixel(x, y, _shade(base, col_f[x] * _rng.randf_range(0.93, 1.05)))
-	for i in 3:
-		var kx := _rng.randi_range(0, TILE - 2)
-		var ky := _rng.randi_range(0, TILE - 1)
-		img.set_pixel(kx, ky, _shade(base, 0.6))
-		img.set_pixel(kx + 1, ky, _shade(base, 0.65))
-	return img
-
-
-static func _paint_log_top() -> Image:
-	var img := _new_tile()
-	for y in TILE:
-		for x in TILE:
-			var c: Color
-			if x == 0 or y == 0 or x == TILE - 1 or y == TILE - 1:
-				c = _vary(Color(0.4, 0.3, 0.18), 0.08)
-			else:
-				var cheb := maxf(absf(x - 7.5), absf(y - 7.5))
-				c = Color(0.72, 0.58, 0.36) if int(cheb) % 2 == 0 else Color(0.62, 0.48, 0.29)
-				c = _vary(c, 0.04)
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_leaves() -> Image:
-	var img := _new_tile()
-	var base := Color(0.23, 0.5, 0.15)
-	for y in TILE:
-		for x in TILE:
-			if _rng.randf() < 0.18:
-				# Прозрачный пиксель хранит цвет листвы, чтобы мипмапы не темнели.
-				var hole := _shade(base, 0.6)
-				hole.a = 0.0
-				img.set_pixel(x, y, hole)
-			else:
-				var f := _rng.randf_range(0.72, 1.15)
-				img.set_pixel(x, y, _shade(base, f))
-	return img
-
-
-static func _paint_planks() -> Image:
-	var img := _new_tile()
-	var base := Color(0.7, 0.54, 0.32)
-	for y in TILE:
-		var board := y >> 2
-		var row_f := _rng.randf_range(0.93, 1.06)
-		var joint := (board * 5 + 3) % TILE
-		for x in TILE:
-			var c: Color
-			if y % 4 == 3:
-				c = _shade(base, 0.66)
-			elif x == joint:
-				c = _shade(base, 0.72)
-			else:
-				c = _shade(base, row_f * _rng.randf_range(0.95, 1.04))
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_speckled(base: Color, amount: float, speck: Color, chance: float) -> Image:
-	var img := _new_tile()
-	for y in TILE:
-		for x in TILE:
-			var c := _vary(base, amount)
-			if _rng.randf() < chance:
-				c = _vary(speck, amount)
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_glass() -> Image:
-	var img := _new_tile()
-	var clear := Color(0.8, 0.92, 0.96, 0.0)
-	var edge := Color(0.8, 0.92, 0.96, 1.0)
-	for y in TILE:
-		for x in TILE:
-			var c := clear
-			if x == 0 or y == 0 or x == TILE - 1 or y == TILE - 1:
-				c = _vary(edge, 0.04)
-			elif (x + y == 7 and x >= 2 and x <= 5) or (x + y == 8 and x >= 3 and x <= 5):
-				c = Color(1, 1, 1, 1)
-			elif x + y == 20 and x >= 9 and x <= 12:
-				c = Color(1, 1, 1, 1)
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_bedrock() -> Image:
-	var img := _new_tile()
-	var tones := [0.16, 0.27, 0.38, 0.5]
-	for y in TILE:
-		for x in TILE:
-			var t: float = tones[_rng.randi_range(0, 3)]
-			img.set_pixel(x, y, _vary(Color(t, t, t), 0.05))
-	return img
-
-
-static func _paint_water() -> Image:
-	var img := _new_tile()
-	var base := Color(0.22, 0.42, 0.86, 0.72)
-	for y in TILE:
-		for x in TILE:
-			var w := sin((x + y * 0.5) * 0.8) * 0.5 + 0.5
-			var c := _shade(base, 0.9 + w * 0.15 + _rng.randf_range(-0.03, 0.03))
-			c.a = 0.72
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_ore(stone: Image, color: Color) -> Image:
-	var img: Image = stone.duplicate()
-	for i in 5:
-		var cx := _rng.randi_range(1, 12)
-		var cy := _rng.randi_range(1, 12)
-		for k in _rng.randi_range(4, 6):
-			var px := (cx + _rng.randi_range(0, 2)) % TILE
-			var py := (cy + _rng.randi_range(0, 2)) % TILE
-			img.set_pixel(px, py, _vary(color, 0.12))
-	return img
-
-
-static func _paint_bricks() -> Image:
-	var img := _new_tile()
-	var mortar := Color(0.68, 0.65, 0.6)
-	var brick := Color(0.62, 0.28, 0.21)
-	for y in TILE:
-		var row := y >> 2
-		var off := 4 if row % 2 == 1 else 0
-		for x in TILE:
-			if y % 4 == 3 or (x + off) % 8 == 7:
-				img.set_pixel(x, y, _vary(mortar, 0.04))
-			else:
-				img.set_pixel(x, y, _vary(brick, 0.1))
-	return img
-
-
-static func _paint_gravel() -> Image:
-	var img := _new_tile()
-	var tones := [Color(0.52, 0.5, 0.49), Color(0.4, 0.38, 0.37), Color(0.63, 0.61, 0.59), Color(0.48, 0.43, 0.39)]
-	for by in TILE >> 1:
-		for bx in TILE >> 1:
-			var c: Color = tones[_rng.randi_range(0, 3)]
-			for k in 4:
-				img.set_pixel(bx * 2 + (k & 1), by * 2 + (k >> 1), _vary(c, 0.07))
-	return img
-
-
-static func _paint_stone_bricks() -> Image:
-	var img := _new_tile()
-	var base := Color(0.5, 0.5, 0.5)
-	var mortar := Color(0.3, 0.3, 0.3)
-	for y in TILE:
-		var row := y >> 3
-		var ly := y % 8
-		var seam_x := TILE - 1 if row == 0 else 7
-		for x in TILE:
-			var c: Color
-			if ly == 7 or x == seam_x:
-				c = _vary(mortar, 0.05)
-			elif ly == 0 or x == (seam_x + 1) % TILE:
-				c = _vary(_shade(base, 1.16), 0.03)
-			else:
-				c = _vary(base, 0.06)
-			img.set_pixel(x, y, c)
-	return img
-
-
-static func _paint_bookshelf(planks: Image) -> Image:
-	var img: Image = planks.duplicate()
-	var colors := [Color(0.62, 0.16, 0.13), Color(0.18, 0.3, 0.62), Color(0.2, 0.5, 0.22),
-		Color(0.55, 0.4, 0.15), Color(0.45, 0.2, 0.5), Color(0.75, 0.66, 0.3)]
-	for shelf: int in [2, 9]:
-		for yy in range(shelf, shelf + 5):
-			for x in TILE:
-				img.set_pixel(x, yy, Color(0.16, 0.11, 0.07))
-		var x := 0
-		while x < TILE:
-			var w := _rng.randi_range(1, 2)
-			var col: Color = colors[_rng.randi_range(0, colors.size() - 1)]
-			var top := shelf + _rng.randi_range(0, 1)
-			for xx in w:
-				if x + xx >= TILE:
-					break
-				for yy in range(top, shelf + 5):
-					var f := 1.2 if yy == top else (0.85 if xx == w - 1 else 1.0)
-					img.set_pixel(x + xx, yy, _shade(col, f))
-			x += w + (1 if _rng.randf() < 0.25 else 0)
-	return img
-
-
-static func _paint_cracks() -> Array[Image]:
-	var pts: Array = []
-	for line in 7:
-		var ang := line * TAU / 7.0 + _rng.randf_range(-0.3, 0.3)
-		var p := Vector2(7.5, 7.5)
-		for step in 14:
-			ang += _rng.randf_range(-0.55, 0.55)
-			p += Vector2(cos(ang), sin(ang)) * 0.9
-			var ip := Vector2i(int(p.x), int(p.y))
-			if ip.x < 0 or ip.y < 0 or ip.x >= TILE or ip.y >= TILE:
-				break
-			pts.append([Vector2(ip).distance_to(Vector2(7.5, 7.5)) + step * 0.15, ip])
-	pts.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
-	var out: Array[Image] = []
-	for s in Blocks.CRACK_STAGES:
-		var img := _new_tile()
-		var n := int(ceil(pts.size() * (s + 1) / float(Blocks.CRACK_STAGES)))
-		for i in n:
-			var ip: Vector2i = pts[i][1]
-			img.set_pixel(ip.x, ip.y, Color(0.1, 0.1, 0.1, 0.9))
-		out.append(img)
-	return out
-
-
-# --- Иконки ----------------------------------------------------------------
-
-static func _build_icons() -> void:
-	icons.clear()
-	for id in Blocks.COUNT:
-		if id == Blocks.AIR:
-			icons.append(ImageTexture.create_from_image(Image.create(ICON_SIZE, ICON_SIZE, false, Image.FORMAT_RGBA8)))
-		else:
-			icons.append(_make_icon(id))
-
-
-## Изометрический куб: верх, левая (+Z) и правая (+X) грани с разной яркостью.
-static func _make_icon(id: int) -> Texture2D:
+static func _flat_icon(id: int, data: int) -> Image:
 	var img := Image.create(ICON_SIZE, ICON_SIZE, false, Image.FORMAT_RGBA8)
-	var top: Image = tiles[Blocks.texture_of(id, 2)]
-	var left: Image = tiles[Blocks.texture_of(id, 4)]
-	var right: Image = tiles[Blocks.texture_of(id, 0)]
-	var w := ICON_SIZE - 4.0
-	var side_h := w * 0.56
-	var o := Vector2(ICON_SIZE / 2.0, (ICON_SIZE - (w * 0.5 + side_h)) / 2.0)
+	var src: Image = tiles[Items.sprite_tile(id, data)]
+	var tint := Items.sprite_tint(id, data)
+	var ov := Items.overlay(id, data)
+	var k := ICON_SIZE / TILE
+	for y in TILE:
+		for x in TILE:
+			var c := _mul(src.get_pixel(x, y), tint)
+			if ov.size() == 2:
+				var o: Color = (tiles[int(ov[0])] as Image).get_pixel(x, y)
+				if o.a >= 0.5:
+					c = _mul(o, ov[1])
+			if c.a < 0.5:
+				continue
+			c.a = 1.0
+			img.fill_rect(Rect2i(x * k, y * k, k, k), c)
+	return img
+
+
+## Изометрический значок блока любой формы: верх, южная (слева) и восточная (справа) грани
+## всех параллелепипедов формы, с буфером глубины.
+static func _block_icon(id: int, data: int) -> Image:
+	var img := Image.create(ICON_SIZE, ICON_SIZE, false, Image.FORMAT_RGBA8)
+	var meta := data & 15
+	if Blocks.is_stairs(id):
+		meta = 2
+	elif id in [Blocks.CHEST, Blocks.FURNACE, Blocks.DISPENSER, Blocks.PUMPKIN, Blocks.JACK_O_LANTERN, Blocks.LIT_FURNACE]:
+		meta = 0
+	var conn := 0
+	if Blocks.shapes[id] == Blocks.SH_FENCE:
+		conn = 2 | 8
+	var boxes: Array[AABB] = Blocks.shape_boxes(id, meta, conn)
+	if Blocks.shapes[id] == Blocks.SH_CUBE or boxes.is_empty():
+		boxes = [AABB(Vector3.ZERO, Vector3.ONE)]
+	var depth := PackedFloat32Array()
+	depth.resize(ICON_SIZE * ICON_SIZE)
+	depth.fill(-INF)
+	var w := ICON_SIZE - 6.0
 	var ax := Vector2(w / 2.0, w / 4.0)
 	var bx := Vector2(-w / 2.0, w / 4.0)
-	var cx := Vector2(0.0, side_h)
-	for py in ICON_SIZE:
-		for px in ICON_SIZE:
-			var p := Vector2(px + 0.5, py + 0.5)
-			var c := Color(0, 0, 0, 0)
-			var st := _solve(p - o, ax, bx)
-			if _inside(st):
-				c = _shade(_sample(top, st.x, st.y), 1.0)
-			else:
-				st = _solve(p - o - ax, bx, cx)
-				if _inside(st):
-					c = _shade(_sample(right, 1.0 - st.x, st.y), 0.62)
-				else:
-					st = _solve(p - o - bx, ax, cx)
-					if _inside(st):
-						c = _shade(_sample(left, st.x, st.y), 0.82)
-			if c.a >= 0.5:
-				c.a = 1.0
-				img.set_pixel(px, py, c)
-	return ImageTexture.create_from_image(img)
+	var side_h := w * 0.56
+	var origin := Vector2(ICON_SIZE / 2.0, (ICON_SIZE - (w * 0.5 + side_h)) / 2.0)
+	# Проекция: (x, y, z) блока → экран. Вершина (0, 1, 0) — верхний угол значка.
+	var proj := func(p: Vector3) -> Vector2:
+		return origin + ax * p.x + bx * p.z + Vector2(0, side_h) * (1.0 - p.y)
+	for box in boxes:
+		var lo := box.position
+		var hi := box.end
+		# Верх (y = hi.y): параметры (x, z).
+		_icon_face(img, depth, id, meta, 2, proj, [Vector3(lo.x, hi.y, lo.z), Vector3(hi.x, hi.y, lo.z), Vector3(lo.x, hi.y, hi.z)],
+			Vector2(lo.x, lo.z), Vector2(hi.x, hi.z), 1.0)
+		# Юг (z = hi.z): параметры (x, y).
+		_icon_face(img, depth, id, meta, 4, proj, [Vector3(lo.x, hi.y, hi.z), Vector3(hi.x, hi.y, hi.z), Vector3(lo.x, lo.y, hi.z)],
+			Vector2(lo.x, 1.0 - hi.y), Vector2(hi.x, 1.0 - lo.y), 0.82)
+		# Восток (x = hi.x): параметры (1 - z, y).
+		_icon_face(img, depth, id, meta, 0, proj, [Vector3(hi.x, hi.y, hi.z), Vector3(hi.x, hi.y, lo.z), Vector3(hi.x, lo.y, hi.z)],
+			Vector2(1.0 - hi.z, 1.0 - hi.y), Vector2(1.0 - lo.z, 1.0 - lo.y), 0.62)
+	return img
 
 
-static func _solve(v: Vector2, a: Vector2, b: Vector2) -> Vector2:
-	var det := a.x * b.y - a.y * b.x
-	return Vector2((v.x * b.y - v.y * b.x) / det, (a.x * v.y - a.y * v.x) / det)
-
-
-static func _inside(st: Vector2) -> bool:
-	return st.x >= 0.0 and st.x < 1.0 and st.y >= 0.0 and st.y < 1.0
-
-
-static func _sample(img: Image, u: float, v: float) -> Color:
-	return img.get_pixel(clampi(int(u * TILE), 0, TILE - 1), clampi(int(v * TILE), 0, TILE - 1))
+## Растеризация грани-параллелограмма: p — [начало, конец по u, конец по v] в координатах блока,
+## uv0/uv1 — область текстуры.
+static func _icon_face(img: Image, depth: PackedFloat32Array, id: int, meta: int, face: int, proj: Callable, p: Array,
+		uv0: Vector2, uv1: Vector2, shade: float) -> void:
+	var o: Vector2 = proj.call(p[0])
+	var eu: Vector2 = proj.call(p[1]) - o
+	var ev: Vector2 = proj.call(p[2]) - o
+	var det := eu.x * ev.y - eu.y * ev.x
+	if absf(det) < 1e-6:
+		return
+	var tile: Image = tiles[Blocks.texture_of(id, face, meta)]
+	var tint := Color.WHITE
+	if Blocks.tinted[id] == 1 and not (id == Blocks.GRASS and face != 2):
+		tint = Items.sprite_tint(id, meta)
+	var corners := [o, o + eu, o + ev, o + eu + ev]
+	var mn := Vector2(INF, INF)
+	var mx := -mn
+	for c: Vector2 in corners:
+		mn = mn.min(c)
+		mx = mx.max(c)
+	var p0: Vector3 = p[0]
+	var du: Vector3 = p[1] - p0
+	var dv: Vector3 = p[2] - p0
+	for py in range(maxi(int(mn.y), 0), mini(int(ceil(mx.y)), ICON_SIZE)):
+		for px in range(maxi(int(mn.x), 0), mini(int(ceil(mx.x)), ICON_SIZE)):
+			var q := Vector2(px + 0.5, py + 0.5) - o
+			var s := (q.x * ev.y - q.y * ev.x) / det
+			var t := (eu.x * q.y - eu.y * q.x) / det
+			if s < 0.0 or s >= 1.0 or t < 0.0 or t >= 1.0:
+				continue
+			var wp := p0 + du * s + dv * t
+			var dpt := wp.x + wp.y + wp.z
+			var di := px + py * ICON_SIZE
+			if dpt <= depth[di]:
+				continue
+			var u := lerpf(uv0.x, uv1.x, s)
+			var v := lerpf(uv0.y, uv1.y, t)
+			var c := tile.get_pixel(clampi(int(u * TILE), 0, TILE - 1), clampi(int(v * TILE), 0, TILE - 1))
+			if c.a < 0.5:
+				continue
+			c = _shade(_mul(c, tint), shade)
+			c.a = 1.0
+			img.set_pixel(px, py, c)
+			depth[di] = dpt

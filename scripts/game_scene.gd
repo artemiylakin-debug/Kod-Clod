@@ -1,11 +1,10 @@
 extends Node3D
-## Игровая сцена: связывает мир, игрока и интерфейс; смена дня и ночи, выпавшие предметы,
-## автосохранение (каждые 15 секунд, при паузе, сворачивании и выходе).
+## Игровая сцена: связывает мир, логику блоков, существ, игрока и интерфейс; смена дня и ночи,
+## сон, смерть и возрождение, автосохранение (каждые 15 секунд, при паузе, сворачивании и выходе).
 
 const DAY_LENGTH := 1200.0
 const AUTOSAVE_INTERVAL := 15.0
-const PICKUP_RADIUS := 2.2
-const CLOUD_HEIGHT := 110.0
+const CLOUD_HEIGHT := 128.0
 
 const DAY_TOP := Color(0.32, 0.55, 0.96)
 const DAY_HORIZON := Color(0.68, 0.82, 1.0)
@@ -13,6 +12,7 @@ const NIGHT_TOP := Color(0.01, 0.015, 0.05)
 const NIGHT_HORIZON := Color(0.05, 0.06, 0.12)
 const DUSK_HORIZON := Color(0.98, 0.58, 0.32)
 const WATER_FOG := Color(0.08, 0.2, 0.48)
+const LAVA_FOG := Color(0.6, 0.12, 0.0)
 
 const CLOUD_SHADER := """
 shader_type spatial;
@@ -40,10 +40,13 @@ void fragment() {
 """
 
 var world: World
+var logic: BlockLogic
+var entities: EntityManager
+var actions: PlayerActions
 var player: Player
 var hud: HUD
 var touch: TouchControls
-var inventory_ui: InventoryUI
+var inventory_ui: ContainerUI
 var pause_menu: PauseMenu
 var settings_panel: SettingsPanel
 var meta: Dictionary = {}
@@ -51,11 +54,11 @@ var world_dir := ""
 var time_of_day := 0.08
 var loading := true
 var creative := true
+var difficulty := 2
 
 var _env: Environment
 var _sky: ProceduralSkyMaterial
 var _sun: DirectionalLight3D
-var _drops: Node3D
 var _selection: MeshInstance3D
 var _crack: MeshInstance3D
 var _clouds: MeshInstance3D
@@ -65,6 +68,9 @@ var _sky_time := -1.0
 var _was_captured := false
 var _capture_requested_at := -1.0
 var _needs_spawn := false
+var _legacy := false
+var _daylight := 1.0
+var _sleep_fade := 0.0
 
 
 func _ready() -> void:
@@ -76,7 +82,10 @@ func _ready() -> void:
 		Game.goto_main_menu.call_deferred()
 		return
 	creative = bool(meta.get("creative", true))
+	difficulty = int(meta.get("difficulty", 2))
 	time_of_day = float(meta.get("time", 0.08))
+	_legacy = int(meta.get("version", 1)) < 2
+	meta["version"] = 2
 	_build_environment()
 
 	world = World.new()
@@ -86,22 +95,34 @@ func _ready() -> void:
 	world.sync_budget_usec = 40000
 	add_child(world)
 
-	_drops = Node3D.new()
-	_drops.name = "Drops"
-	_drops.process_mode = Node.PROCESS_MODE_PAUSABLE
-	add_child(_drops)
+	logic = BlockLogic.new()
+	logic.name = "BlockLogic"
+	logic.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(logic)
+	logic.setup(world, self)
 
 	player = Player.new()
 	player.name = "Player"
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	player.world = world
 	player.creative = creative
+	player.difficulty = difficulty
 	add_child(player)
+
+	entities = EntityManager.new()
+	entities.name = "Entities"
+	entities.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(entities)
+	entities.setup(world, logic, player, self)
+
+	actions = PlayerActions.new(self, world, logic, entities)
+	player.actions = actions
+
 	if meta.get("player") is Dictionary:
-		player.from_dict(meta["player"])
+		player.from_dict(meta["player"], _legacy)
 	else:
-		var col := world.generator.find_spawn_column()
-		var h := world.generator.get_height(col.x, col.y)
+		var col: Vector2i = world.generator.call("find_spawn_column")
+		var h: int = world.generator.call("get_height", col.x, col.y)
 		player.position = Vector3(col.x + 0.5, h + 1.001, col.y + 0.5)
 		player.spawn_point = player.position
 		_needs_spawn = true
@@ -114,7 +135,7 @@ func _ready() -> void:
 	_selection.visible = false
 	add_child(_selection)
 	_crack = MeshInstance3D.new()
-	_crack.mesh = TextureFactory.block_mesh(Blocks.STONE)
+	_crack.mesh = TextureFactory.item_mesh(Blocks.STONE)
 	_crack.material_override = TextureFactory.crack_material
 	_crack.scale = Vector3.ONE * 1.006
 	_crack.visible = false
@@ -122,8 +143,7 @@ func _ready() -> void:
 	_build_clouds()
 
 	_build_ui()
-	_restore_drops()
-	player.block_broken.connect(_on_block_broken)
+	_restore_legacy_drops()
 	player.died.connect(_on_player_died)
 	player.flying_changed.connect(func(on: bool) -> void:
 		hud.show_toast("Полёт включён" if on else "Полёт выключен", 1.2))
@@ -187,10 +207,29 @@ func _build_clouds() -> void:
 	add_child(_clouds)
 
 
+## Освещённость дня 0..1 (ночью около 0.3).
+func _day_factor() -> float:
+	var s := sin(time_of_day * TAU)
+	return clampf(s * 2.5 + 0.35, 0.0, 1.0)
+
+
+## Уровень небесного света сейчас (0–15): ночью около 4, как в оригинале.
+func sky_light_level() -> int:
+	return clampi(int(round(lerpf(4.0, 15.0, _day_factor()))), 0, 15)
+
+
+func is_night() -> bool:
+	return sky_light_level() < 8
+
+
+func focus_position() -> Vector3:
+	return player.position if player != null else Vector3.ZERO
+
+
 func _update_sky() -> void:
 	var a := time_of_day * TAU
 	var s := sin(a)
-	var day := clampf(s * 2.5 + 0.35, 0.0, 1.0)
+	var day := _day_factor()
 	var dusk := clampf(1.0 - absf(s) * 3.5, 0.0, 1.0) * clampf(day * 2.0, 0.0, 1.0)
 	var top := NIGHT_TOP.lerp(DAY_TOP, day)
 	var horizon := NIGHT_HORIZON.lerp(DAY_HORIZON, day).lerp(DUSK_HORIZON, dusk * 0.45)
@@ -206,18 +245,18 @@ func _update_sky() -> void:
 		var sun_dir := Vector3(cos(a), s, 0.3).normalized()
 		_sun.basis = Basis.looking_at(-sun_dir, Vector3.BACK)
 		_sun.light_energy = clampf(s * 4.0, 0.0, 1.0)
-	var daylight := lerpf(0.3, 1.0, day)
+	_daylight = lerpf(0.22, 1.0, day)
+	var daylight := _daylight * (1.0 - _sleep_fade * 0.9)
 	var rd := float(world.render_distance * WorldGen.CHUNK_SIZE)
-	var underwater := player.head_in_water
-	if underwater:
-		var water_fog := WATER_FOG * daylight
-		TextureFactory.set_environment(water_fog, 1.0, 18.0, daylight)
+	if player.head_in_water or player.in_lava:
+		var fog := WATER_FOG * daylight if player.head_in_water else LAVA_FOG
+		TextureFactory.set_environment(fog, 0.5 if player.in_lava else 1.0, 3.0 if player.in_lava else 18.0, daylight)
 		_env.background_mode = Environment.BG_COLOR
-		_env.background_color = water_fog
+		_env.background_color = fog
 	else:
-		TextureFactory.set_environment(horizon, rd * 0.7, rd - 6.0, daylight)
+		TextureFactory.set_environment(horizon * (1.0 - _sleep_fade), rd * 0.7, rd - 6.0, daylight)
 		_env.background_mode = Environment.BG_SKY
-	_clouds.visible = not underwater
+	_clouds.visible = not player.head_in_water
 	player.camera.far = rd + 96.0
 	_cloud_material.set_shader_parameter("daylight", daylight)
 	_cloud_material.set_shader_parameter("fade_start", rd * 0.6)
@@ -253,12 +292,12 @@ func _build_ui() -> void:
 	menus.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	menus.theme = Game.ui_theme
 	layer.add_child(menus)
-	inventory_ui = InventoryUI.new()
+	inventory_ui = ContainerUI.new()
 	menus.add_child(inventory_ui)
-	inventory_ui.setup(player)
+	inventory_ui.setup(player, world, logic)
 	inventory_ui.closed.connect(_ui_state_changed)
-	inventory_ui.overflow.connect(func(id: int, count: int) -> void:
-		spawn_drop(id, count, player.position + Vector3(0, 1.2, 0), Vector3.ZERO, 1.5))
+	inventory_ui.overflow.connect(func(id: int, count: int, data: int) -> void:
+		spawn_drop(id, count, data, player.position + Vector3(0, 1.2, 0), Vector3.ZERO, 1.5))
 	pause_menu = PauseMenu.new()
 	menus.add_child(pause_menu)
 	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative)
@@ -293,7 +332,7 @@ func _apply_settings() -> void:
 
 func gameplay_active() -> bool:
 	return not loading and not player.dead and not inventory_ui.visible \
-		and not pause_menu.visible and not settings_panel.visible
+		and not pause_menu.visible and not settings_panel.visible and not player.sleeping
 
 
 func _ui_state_changed() -> void:
@@ -336,7 +375,18 @@ func _check_browser_pointer_lock() -> void:
 func open_inventory() -> void:
 	if not gameplay_active():
 		return
-	inventory_ui.open(creative)
+	inventory_ui.open("inventory", Vector3i.ZERO, creative)
+	_ui_state_changed()
+
+
+## Окно блока-контейнера (верстак, печь, сундук, раздатчик, варочная стойка).
+func open_container(kind: String, pos: Vector3i) -> void:
+	if not gameplay_active():
+		return
+	if kind == "enchanting":
+		hud.show_toast("Стол зачарований: зачарование появится в следующей версии", 2.5)
+		return
+	inventory_ui.open(kind, pos, false)
 	_ui_state_changed()
 
 
@@ -344,12 +394,12 @@ func open_pause() -> void:
 	if loading or pause_menu.visible:
 		return
 	if inventory_ui.visible:
-		inventory_ui.close_inventory()
+		inventory_ui.close_ui()
 	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative)
 	pause_menu.visible = true
 	get_tree().paused = true
 	_ui_state_changed()
-	save_game()
+	save_game(true)
 
 
 func resume() -> void:
@@ -374,6 +424,46 @@ func set_creative(value: bool) -> void:
 	hud.show_toast("Режим игры: %s" % ("Креатив" if value else "Выживание"))
 
 
+func show_toast(text: String, duration := 2.5) -> void:
+	hud.show_toast(text, duration)
+
+
+func show_item_info(id: int) -> void:
+	match id:
+		Items.COMPASS:
+			var d := Vector2(player.spawn_point.x - player.position.x, player.spawn_point.z - player.position.z)
+			hud.show_toast("Компас: точка появления в %d блоках" % roundi(d.length()), 3.0)
+		Items.CLOCK:
+			var hours := int(fposmod(time_of_day * 24.0 + 6.0, 24.0))
+			hud.show_toast("Часы: %s (%02d:00)" % ["день" if not is_night() else "ночь", hours], 3.0)
+		Items.MAP:
+			hud.show_toast("Карта: X %d, Z %d" % [floori(player.position.x), floori(player.position.z)], 3.0)
+
+
+func play_note(_p: Vector3i, note: int) -> void:
+	hud.show_toast("♪ нота %d" % note, 1.0)
+
+
+func edit_sign(_p: Vector3i) -> void:
+	pass
+
+
+func check_end_portal(_p: Vector3i) -> void:
+	pass
+
+
+func use_fishing_rod() -> void:
+	hud.show_toast("Рыбалка: закиньте удочку в воду", 1.5)
+
+
+func on_item_picked(_id: int, _count: int) -> void:
+	pass
+
+
+func on_item_crafted(_id: int) -> void:
+	pass
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if loading or player == null:
 		return
@@ -381,15 +471,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		if settings_panel.visible:
 			settings_panel.close_panel()
 		elif inventory_ui.visible:
-			inventory_ui.close_inventory()
+			inventory_ui.close_ui()
 		elif pause_menu.visible:
 			resume()
+		elif player.sleeping:
+			_wake_up()
 		elif not player.dead:
 			open_pause()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory"):
 		if inventory_ui.visible:
-			inventory_ui.close_inventory()
+			inventory_ui.close_ui()
 		else:
 			open_inventory()
 		get_viewport().set_input_as_handled()
@@ -413,14 +505,14 @@ func _notification(what: int) -> void:
 		return
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
-			save_game()
+			save_game(true)
 			if not Game.test_mode and gameplay_active():
 				open_pause()
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			if settings_panel.visible:
 				settings_panel.close_panel()
 			elif inventory_ui.visible:
-				inventory_ui.close_inventory()
+				inventory_ui.close_ui()
 			elif pause_menu.visible:
 				resume()
 			else:
@@ -441,15 +533,16 @@ func _process(delta: float) -> void:
 	if paused:
 		return
 	time_of_day = fposmod(time_of_day + delta / DAY_LENGTH, 1.0)
+	_update_sleep(delta)
 	_check_browser_pointer_lock()
 	_update_sky()
 	_update_selection()
-	_update_drops(delta)
+	entities.update(delta)
 	hud.set_underwater(player.head_in_water)
 	_autosave += delta
 	if _autosave >= AUTOSAVE_INTERVAL:
 		_autosave = 0.0
-		save_game()
+		save_game(false)
 
 
 func _update_loading() -> void:
@@ -468,14 +561,14 @@ func _update_loading() -> void:
 	player.frozen = false
 	hud.show_loading(false)
 	_ui_state_changed()
-	save_game()
+	save_game(true)
 
 
 ## Новая точка появления: ближайшая колонка с землёй/травой и свободным местом над ней.
 func _find_safe_spawn() -> void:
 	var base := Vector2i(floori(player.position.x), floori(player.position.z))
-	var ground := [Blocks.GRASS, Blocks.DIRT, Blocks.SAND, Blocks.SNOW, Blocks.STONE, Blocks.GRAVEL]
-	for r in range(0, 12):
+	var ground := [Blocks.GRASS, Blocks.DIRT, Blocks.SAND, Blocks.SNOW, Blocks.STONE, Blocks.GRAVEL, Blocks.MYCELIUM]
+	for r in range(0, 16):
 		for dz in range(-r, r + 1):
 			for dx in range(-r, r + 1):
 				if maxi(absi(dx), absi(dz)) != r:
@@ -495,11 +588,8 @@ func _find_safe_spawn() -> void:
 
 
 func _unstuck_player() -> void:
-	var x := floori(player.position.x)
-	var z := floori(player.position.z)
-	var y := floori(player.position.y)
-	if Blocks.is_solid(world.get_block(x, y, z)) or Blocks.is_solid(world.get_block(x, y + 1, z)):
-		player.position.y = world.top_solid_y(x, z) + 1.001
+	if BodyPhysics.collides(world, player.position, Player.HALF_WIDTH, Player.HEIGHT):
+		player.position.y = world.top_solid_y(floori(player.position.x), floori(player.position.z)) + 1.001
 
 
 func _update_selection() -> void:
@@ -507,65 +597,42 @@ func _update_selection() -> void:
 	_selection.visible = not t.is_empty()
 	if _selection.visible:
 		var p: Vector3i = t["pos"]
-		_selection.position = Vector3(p) + Vector3(0.5, 0.5, 0.5)
+		var boxes := world.block_boxes(p, false)
+		var box := AABB(Vector3(p), Vector3.ONE)
+		if not boxes.is_empty():
+			box = boxes[0]
+			for b in boxes:
+				box = box.merge(b)
+		_selection.position = box.get_center()
+		_selection.scale = box.size.max(Vector3(0.05, 0.05, 0.05))
 	_crack.visible = player.break_progress > 0.0 and not player.creative
 	if _crack.visible:
 		_crack.position = Vector3(player.break_pos) + Vector3(0.5, 0.5, 0.5)
 		var stage := clampi(int(player.break_progress * Blocks.CRACK_STAGES), 0, Blocks.CRACK_STAGES - 1)
-		TextureFactory.crack_material.set_shader_parameter("layer", float(Blocks.T_CRACK_0 + stage))
+		TextureFactory.crack_material.set_shader_parameter("layer", float(Tex.CRACK_0 + stage))
 
 
 # --- Предметы --------------------------------------------------------------
 
-func spawn_drop(id: int, count: int, pos: Vector3, vel: Vector3, pickup_delay: float = 0.0) -> ItemDrop:
-	var d := ItemDrop.new()
-	d.setup(world, id, count, pos, vel)
-	d.age = -pickup_delay
-	_drops.add_child(d)
-	return d
-
-
-func _on_block_broken(pos: Vector3i, id: int) -> void:
-	if creative:
-		return
-	var drop := Blocks.drop_of(id)
-	if drop != Blocks.AIR:
-		var vel := Vector3(randf_range(-1.2, 1.2), 3.5, randf_range(-1.2, 1.2))
-		spawn_drop(drop, 1, Vector3(pos) + Vector3(0.5, 0.25, 0.5), vel)
+func spawn_drop(id: int, count: int, data: int, pos: Vector3, vel := Vector3.INF, pickup_delay := 0.0) -> ItemDrop:
+	return entities.spawn_drop(id, count, data, pos, vel, pickup_delay)
 
 
 func _drop_selected() -> void:
-	var id := player.inventory.get_selected_block()
-	if id == Blocks.AIR:
+	var id := player.inventory.selected_id()
+	if id == 0:
 		return
+	var data := player.inventory.selected_data()
 	if not creative:
 		player.inventory.consume_selected(1)
-	var dir := -player.camera.global_transform.basis.z
-	spawn_drop(id, 1, player.camera.global_position + dir * 0.4 - Vector3(0, 0.35, 0), dir * 5.0 + Vector3(0, 1.5, 0), 1.5)
+	var dir := player.look_dir()
+	spawn_drop(id, 1, data, player.eye_position() + dir * 0.4 - Vector3(0, 0.35, 0), dir * 5.0 + Vector3(0, 1.5, 0), 1.5)
 
 
-func _update_drops(delta: float) -> void:
-	if player.dead:
-		return
-	var center := player.position + Vector3(0, 0.8, 0)
-	for n in _drops.get_children():
-		var d := n as ItemDrop
-		if d == null or d.is_queued_for_deletion() or not d.can_pickup():
-			continue
-		var dist := d.position.distance_to(center)
-		if dist < 0.9:
-			var left := player.inventory.add_item(d.item_id, d.count)
-			if left == 0:
-				d.queue_free()
-			else:
-				d.count = left
-		elif dist < PICKUP_RADIUS:
-			d.position = d.position.move_toward(center, delta * 7.0)
-			d.velocity = Vector3.ZERO
-
-
-func _restore_drops() -> void:
+## Предметы, сохранённые в meta.json старой версией (до хранения в чанках).
+func _restore_legacy_drops() -> void:
 	var list: Variant = meta.get("drops", [])
+	meta.erase("drops")
 	if not list is Array:
 		return
 	for item: Variant in list:
@@ -573,24 +640,73 @@ func _restore_drops() -> void:
 			continue
 		var p: Array = item.get("pos", [0, 0, 0])
 		var id := int(item.get("id", 0))
-		if id <= Blocks.AIR or id >= Blocks.COUNT or p.size() != 3:
+		if _legacy:
+			id = Inventory.V1_IDS[id] if id >= 0 and id < Inventory.V1_IDS.size() else 0
+		if not Items.exists(id) or p.size() != 3:
 			continue
-		spawn_drop(id, int(item.get("count", 1)), Vector3(float(p[0]), float(p[1]), float(p[2])), Vector3.ZERO)
+		spawn_drop(id, int(item.get("count", 1)), 0, Vector3(float(p[0]), float(p[1]), float(p[2])), Vector3.ZERO)
+
+
+func explosion_damage(center: Vector3, power: float, source: Node) -> void:
+	entities.explosion_damage(center, power, source)
+
+
+# --- Сон -------------------------------------------------------------------
+
+func try_sleep(p: Vector3i) -> void:
+	if world.dimension != 0:
+		logic.explode(Vector3(p) + Vector3(0.5, 0.5, 0.5), 5.0, true)
+		return
+	if not is_night():
+		player.spawn_point = Vector3(p) + Vector3(0.5, 0.6, 0.5)
+		hud.show_toast("Спать можно только ночью. Точка появления установлена.", 2.5)
+		return
+	if entities.mobs != null and bool(entities.mobs.call("monsters_near", player.position, 8.0)):
+		hud.show_toast("Нельзя спать: рядом монстры", 2.5)
+		return
+	player.spawn_point = Vector3(p) + Vector3(0.5, 0.6, 0.5)
+	player.sleeping = true
+	player.velocity = Vector3.ZERO
+	player.position = Vector3(p) + Vector3(0.5, 0.6, 0.5)
+	_sleep_fade = 0.0
+	hud.show_toast("Сон…", 2.0)
+	_ui_state_changed()
+
+
+func _update_sleep(delta: float) -> void:
+	if not player.sleeping:
+		_sleep_fade = maxf(_sleep_fade - delta, 0.0)
+		return
+	_sleep_fade = minf(_sleep_fade + delta / 2.5, 1.0)
+	if _sleep_fade >= 1.0:
+		time_of_day = 0.0
+		_wake_up()
+		hud.show_toast("Доброе утро!", 2.0)
+
+
+func _wake_up() -> void:
+	player.sleeping = false
+	player.position.y += 0.6
+	_unstuck_player()
+	_ui_state_changed()
 
 
 # --- Смерть и возрождение --------------------------------------------------
 
 func _on_player_died() -> void:
-	# Всё содержимое инвентаря выпадает на месте гибели.
+	# Всё содержимое инвентаря и часть опыта выпадают на месте гибели.
 	var inv := player.inventory
-	for i in Inventory.SIZE:
+	for i in Inventory.TOTAL:
 		if inv.counts[i] > 0:
 			var vel := Vector3(randf_range(-2.0, 2.0), randf_range(2.0, 4.0), randf_range(-2.0, 2.0))
-			spawn_drop(inv.ids[i], inv.counts[i], player.position + Vector3(0, 1.0, 0), vel, 1.0)
+			spawn_drop(inv.ids[i], inv.counts[i], inv.datas[i], player.position + Vector3(0, 1.0, 0), vel, 1.0)
 	inv.clear()
+	entities.spawn_xp(player.position + Vector3(0, 0.5, 0), mini(player.xp_level * 7, 100))
+	if inventory_ui.visible:
+		inventory_ui.close_ui()
 	hud.show_death(true)
 	_ui_state_changed()
-	save_game()
+	save_game(true)
 
 
 func _respawn() -> void:
@@ -602,7 +718,8 @@ func _respawn() -> void:
 
 # --- Сохранение ------------------------------------------------------------
 
-func save_game() -> void:
+## full — вместе с существами и предметами на земле (при паузе и выходе).
+func save_game(full := true) -> void:
 	if world == null or player == null or _needs_spawn:
 		return
 	var pd := player.to_dict()
@@ -613,19 +730,21 @@ func save_game() -> void:
 	meta["player"] = pd
 	meta["time"] = time_of_day
 	meta["creative"] = creative
+	meta["difficulty"] = difficulty
 	meta["last_played"] = Time.get_unix_time_from_system()
-	var drops := []
-	for n in _drops.get_children():
-		var d := n as ItemDrop
-		if d != null and not d.is_queued_for_deletion():
-			drops.append(d.to_dict())
-	meta["drops"] = drops
 	WorldStorage.save_meta(world_dir, meta)
-	if world.save_dirty_chunks() > 0:
+	if full:
+		entities.save_into_chunks()
+	var n := world.save_dirty_chunks()
+	if full:
+		entities.clear_saved_lists()
+	if n > 0:
 		hud.flash_saved()
 
 
 func quit_to_menu() -> void:
-	save_game()
+	if inventory_ui.visible:
+		inventory_ui.close_ui()
+	save_game(true)
 	world.wait_for_jobs()
 	Game.goto_main_menu()

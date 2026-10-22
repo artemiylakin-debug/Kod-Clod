@@ -157,7 +157,8 @@ func create_world(world_name: String, creative: bool, seed_text: String) -> Stri
 		"created": now,
 		"last_played": now,
 		"time": 0.08,
-		"version": 1,
+		"version": 2,
+		"difficulty": 2,
 	}
 	WorldStorage.save_meta(WorldStorage.world_dir(id), meta)
 	return id

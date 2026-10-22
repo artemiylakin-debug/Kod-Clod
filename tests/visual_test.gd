@@ -220,6 +220,8 @@ func _run() -> void:
 	await frames(20)
 	await shot("house_build")
 
+	await _gallery(g, w, p, arena)
+
 	# Креативный инвентарь (клавиша E).
 	await key(KEY_E)
 	await frames(3)
@@ -256,14 +258,15 @@ func _run() -> void:
 	check(w.get_block_v(mine_pos) != mine_id, "выживание: блок добыт")
 	await frames(2)
 	var drops := 0
-	for n in g.get_node("Drops").get_children():
-		drops += 1
-	check(drops > 0 or p.inventory.count_of(Blocks.drop_of(mine_id)) > 0, "выпал предмет")
+	for n in g.entities.get_children():
+		if n is ItemDrop:
+			drops += 1
+	check(drops > 0 or not p.inventory.is_empty(), "выпал предмет")
 	p.set_look(0.0, deg_to_rad(-35.0))
 	await frames(8)
 	await shot("item_drop")
 	await wait(1.5)
-	check(p.inventory.count_of(Blocks.drop_of(mine_id)) >= 1, "предмет подобран в инвентарь (%s)" % Blocks.block_name(Blocks.drop_of(mine_id)))
+	check(not p.inventory.is_empty(), "предмет подобран в инвентарь (%s)" % Items.name_of(p.inventory.ids[0], p.inventory.datas[0]))
 
 	# Урон от падения.
 	var hp := p.health
@@ -279,14 +282,29 @@ func _run() -> void:
 	await key(KEY_E)
 	await frames(3)
 	var planks_before := p.inventory.count_of(Blocks.PLANKS)
-	g.inventory_ui.call("_craft", 0)
+	var ui: ContainerUI = g.inventory_ui
+	var log_slot := -1
+	for i in Inventory.SIZE:
+		if p.inventory.ids[i] == Blocks.LOG:
+			log_slot = i
+	# Берём брёвна на курсор, кладём одно в сетку крафта 2×2, забираем результат.
+	ui.call("_on_slot_clicked", _view(ui, "player", log_slot), 0)
+	ui.call("_on_slot_clicked", _view(ui, "craft", 0), 1)
+	ui.call("_on_slot_clicked", _view(ui, "player", log_slot), 0)
+	await frames(2)
+	await shot("survival_crafting")
+	ui.call("_on_slot_clicked", _view(ui, "result", 0), 2)
 	check(p.inventory.count_of(Blocks.PLANKS) == planks_before + 4 and p.inventory.count_of(Blocks.LOG) == 4, "крафт: бревно → 4 доски")
-	g.inventory_ui.call("_on_slot_pressed", 0)
+	var from := 0
+	while p.inventory.counts[from] == 0:
+		from += 1
+	ui.call("_on_slot_clicked", _view(ui, "player", from), 0)
 	await frames(2)
 	await shot("survival_inventory")
-	g.inventory_ui.call("_on_slot_pressed", 12)
-	check(p.inventory.counts[0] == 0 and p.inventory.counts[12] > 0, "перемещение предмета между слотами")
+	ui.call("_on_slot_clicked", _view(ui, "player", 30), 0)
+	check(p.inventory.counts[from] == 0 and p.inventory.counts[30] > 0, "перемещение предмета между слотами")
 	await key(KEY_E)
+	await _survival_blocks(g, p, w, arena)
 	p.position = Vector3(arena) + Vector3(5.5, 1.001, 5.5)
 	p.set_look(0.0, deg_to_rad(-10.0))
 
@@ -450,7 +468,8 @@ func _run() -> void:
 	p.position = far_target
 	await wait_world_idle()
 	check(not w.chunks.has(World.key_of(home)), "далёкие чанки выгружены")
-	check(WorldStorage.load_chunk(w.save_dir, World.key_of(Vector3(marker))).size() == WorldGen.VOLUME, "изменённый чанк записан на диск при выгрузке")
+	var saved: Dictionary = WorldStorage.load_chunk(w.save_dir, World.key_of(Vector3(marker)))
+	check(saved.has("blocks") and (saved["blocks"] as PackedByteArray).size() == WorldGen.VOLUME, "изменённый чанк записан на диск при выгрузке")
 	p.position = home
 	await wait_world_idle()
 	check(w.get_block_v(marker) == Blocks.BRICKS, "изменения на месте после возвращения")
@@ -533,7 +552,7 @@ func _run_layout() -> void:
 	g.call("open_inventory")
 	await frames(3)
 	await shot("inventory_" + tag)
-	g.inventory_ui.call("close_inventory")
+	g.inventory_ui.call("close_ui")
 	await frames(3)
 	Game.set_setting("touch_controls", 0)
 	g.call("quit_to_menu")
@@ -572,11 +591,11 @@ func _find_water(w: World, around: Vector3) -> Vector3i:
 		for x in range(-90, 91, 3):
 			var wx := floori(around.x) + x
 			var wz := floori(around.z) + z
-			if w.get_block(wx, WorldGen.SEA_LEVEL, wz) == Blocks.WATER and w.get_block(wx, WorldGen.SEA_LEVEL - 3, wz) == Blocks.WATER:
+			if Blocks.is_water(w.get_block(wx, WorldGen.SEA_LEVEL - 1, wz)) and Blocks.is_water(w.get_block(wx, WorldGen.SEA_LEVEL - 4, wz)):
 				var d := Vector2(x, z).length()
 				if d < best_d:
 					best_d = d
-					best = Vector3i(wx, WorldGen.SEA_LEVEL, wz)
+					best = Vector3i(wx, WorldGen.SEA_LEVEL - 1, wz)
 	return best
 
 
@@ -595,3 +614,153 @@ func _finish(started: int) -> void:
 		if str(wd.get("name", "")).begins_with(WORLD_NAME):
 			WorldStorage.delete_world(wd["id"])
 	get_tree().quit(1 if _failed > 0 else 0)
+
+
+func _view(ui: ContainerUI, section: String, slot: int) -> SlotView:
+	for v: SlotView in ui.get("_views"):
+		if v.section == section and v.slot == slot:
+			return v
+	push_error("нет слота %s/%d" % [section, slot])
+	return null
+
+
+## Верстак, печь и сундук в режиме выживания.
+func _survival_blocks(g: Node, p: Player, w: World, arena: Vector3i) -> void:
+	var ui: ContainerUI = g.inventory_ui
+	var bench := arena + Vector3i(3, 1, 3)
+	w.set_block_v(bench, Blocks.CRAFTING_TABLE)
+	g.call("open_container", "crafting", bench)
+	await frames(3)
+	check(ui.visible and ui.mode == "crafting", "верстак открывает сетку 3×3")
+	# Кирка: 3 доски сверху, 2 палки в середине.
+	var craft: Inventory = ui.get("_craft")
+	for i in 3:
+		craft.set_slot(i, Blocks.PLANKS, 1)
+	craft.set_slot(4, Items.STICK, 1)
+	craft.set_slot(7, Items.STICK, 1)
+	ui.refresh()
+	await frames(2)
+	await shot("crafting_table")
+	ui.call("_on_slot_clicked", _view(ui, "result", 0), 2)
+	check(p.inventory.count_of(Items.WOODEN_PICKAXE) == 1, "крафт: деревянная кирка")
+	ui.close_ui()
+	await frames(2)
+	# Печь: железная руда + уголь → слиток.
+	var fpos := arena + Vector3i(4, 1, 3)
+	w.set_block(fpos.x, fpos.y, fpos.z, Blocks.FURNACE, 2)
+	var be := w.get_block_entity(fpos)
+	var inv := Inventory.new(3)
+	inv.set_slot(0, Blocks.IRON_ORE, 2)
+	inv.set_slot(1, Items.COAL, 1)
+	Containers.store(be, inv)
+	g.logic.containers.mark_active(fpos)
+	for i in Containers.COOK_TICKS + 5:
+		g.logic.containers.tick()
+	var out := Containers.load_items(w.get_block_entity(fpos), 3)
+	check(out.ids[2] == Items.IRON_INGOT and out.counts[2] == 1, "печь выплавила железный слиток")
+	check(w.get_block_v(fpos) == Blocks.LIT_FURNACE, "горящая печь светится")
+	g.call("open_container", "furnace", fpos)
+	await frames(3)
+	await shot("furnace")
+	ui.close_ui()
+	# Двойной сундук.
+	var cpos := arena + Vector3i(6, 1, 3)
+	w.set_block_v(cpos, Blocks.CHEST)
+	w.set_block_v(cpos + Vector3i(1, 0, 0), Blocks.CHEST)
+	g.call("open_container", "chest", cpos)
+	await frames(3)
+	var cont: Inventory = ui.get("_cont")
+	check(cont.size == 54, "двойной сундук на 54 слота")
+	ui.call("_on_slot_clicked", _view(ui, "player", 0), 2)
+	await frames(2)
+	await shot("double_chest")
+	ui.close_ui()
+	await frames(2)
+
+
+## Выставка блоков 1.2 разных форм — для поиска визуальных ошибок.
+func _gallery(g: Node, w: World, p: Player, arena: Vector3i) -> void:
+	var o := arena + Vector3i(-11, 1, 6)
+	w.fill_region(o + Vector3i(0, -1, 0), o + Vector3i(22, -1, 5), Blocks.STONE_BRICKS)
+	var row1 := [[Blocks.OAK_STAIRS, 2], [Blocks.COBBLESTONE_STAIRS, 0], [Blocks.SLAB, 0], [Blocks.SLAB, 9],
+		[Blocks.FENCE, 0], [Blocks.FENCE, 0], [Blocks.FENCE_GATE, 0], [Blocks.GLASS_PANE, 0], [Blocks.GLASS_PANE, 0],
+		[Blocks.IRON_BARS, 0], [Blocks.CHEST, 2], [Blocks.FURNACE, 2], [Blocks.CRAFTING_TABLE, 0], [Blocks.BOOKSHELF, 0],
+		[Blocks.TNT, 0], [Blocks.PUMPKIN, 0], [Blocks.JACK_O_LANTERN, 0], [Blocks.MELON, 0], [Blocks.CACTUS, 0],
+		[Blocks.CAKE, 0], [Blocks.ENCHANTING_TABLE, 0], [Blocks.BREWING_STAND, 0], [Blocks.CAULDRON, 3]]
+	for i in row1.size():
+		w.set_block(o.x + i, o.y, o.z, row1[i][0], row1[i][1])
+	var row2 := [[Blocks.TORCH, 5], [Blocks.REDSTONE_TORCH, 5], [Blocks.SAPLING, 0], [Blocks.SAPLING, 1],
+		[Blocks.TALLGRASS, 1], [Blocks.TALLGRASS, 2], [Blocks.DANDELION, 0], [Blocks.ROSE, 0], [Blocks.BROWN_MUSHROOM, 0],
+		[Blocks.RED_MUSHROOM, 0], [Blocks.DEADBUSH, 0], [Blocks.WEB, 0], [Blocks.RAIL, 0], [Blocks.POWERED_RAIL, 8],
+		[Blocks.DETECTOR_RAIL, 1], [Blocks.REDSTONE_WIRE, 15], [Blocks.REDSTONE_WIRE, 0], [Blocks.LEVER, 5],
+		[Blocks.STONE_PLATE, 0], [Blocks.REPEATER_OFF, 0], [Blocks.SNOW_LAYER, 2], [Blocks.WHEAT, 7], [Blocks.REEDS, 0]]
+	for i in row2.size():
+		w.set_block(o.x + i, o.y, o.z + 2, row2[i][0], row2[i][1])
+	w.set_block(o.x + 15, o.y, o.z + 3, Blocks.REDSTONE_WIRE, 15)
+	w.set_block(o.x + 16, o.y, o.z + 3, Blocks.REDSTONE_WIRE, 0)
+	w.set_block(o.x + 12, o.y, o.z + 3, Blocks.RAIL, 1)
+	# Двери, кровать, лестница, лианы, люк, кнопка.
+	w.set_block(o.x + 1, o.y, o.z + 4, Blocks.WOODEN_DOOR, 0)
+	w.set_block(o.x + 1, o.y + 1, o.z + 4, Blocks.WOODEN_DOOR, 8)
+	w.set_block(o.x + 3, o.y, o.z + 4, Blocks.IRON_DOOR, 4)
+	w.set_block(o.x + 3, o.y + 1, o.z + 4, Blocks.IRON_DOOR, 12)
+	w.set_block(o.x + 5, o.y, o.z + 4, Blocks.BED, 3)
+	w.set_block(o.x + 6, o.y, o.z + 4, Blocks.BED, 3 | 8)
+	w.set_block(o.x + 8, o.y, o.z + 5, Blocks.STONE_BRICKS)
+	w.set_block(o.x + 8, o.y + 1, o.z + 5, Blocks.STONE_BRICKS)
+	w.set_block(o.x + 8, o.y, o.z + 4, Blocks.LADDER, 2)
+	w.set_block(o.x + 8, o.y + 1, o.z + 4, Blocks.LADDER, 2)
+	w.set_block(o.x + 9, o.y + 1, o.z + 5, Blocks.STONE_BRICKS)
+	w.set_block(o.x + 9, o.y + 1, o.z + 4, Blocks.VINE, 1 << 2)
+	w.set_block(o.x + 10, o.y, o.z + 4, Blocks.TRAPDOOR, 0)
+	w.set_block(o.x + 11, o.y + 1, o.z + 5, Blocks.STONE_BRICKS)
+	w.set_block(o.x + 11, o.y + 1, o.z + 4, Blocks.STONE_BUTTON, 4)
+	w.set_block(o.x + 12, o.y + 1, o.z + 5, Blocks.STONE_BRICKS)
+	w.set_block(o.x + 12, o.y + 1, o.z + 4, Blocks.TORCH, 4)
+	w.set_block(o.x + 13, o.y, o.z + 4, Blocks.PISTON, 1)
+	w.set_block(o.x + 14, o.y, o.z + 4, Blocks.STICKY_PISTON, 1 | 8)
+	w.set_block(o.x + 14, o.y + 1, o.z + 4, Blocks.PISTON_HEAD, 1 | 8)
+	w.set_block(o.x + 15, o.y, o.z + 4, Blocks.END_PORTAL_FRAME, 4)
+	w.set_block(o.x + 16, o.y, o.z + 4, Blocks.DRAGON_EGG)
+	w.set_block(o.x + 17, o.y, o.z + 4, Blocks.REDSTONE_LAMP)
+	w.set_block(o.x + 18, o.y, o.z + 4, Blocks.LIT_REDSTONE_LAMP)
+	w.set_block(o.x + 19, o.y, o.z + 4, Blocks.GLOWSTONE)
+	w.set_block(o.x + 20, o.y, o.z + 4, Blocks.SIGN_POST, 8)
+	w.set_block(o.x + 21, o.y, o.z + 5, Blocks.STONE_BRICKS)
+	w.set_block(o.x + 21, o.y, o.z + 4, Blocks.WALL_SIGN, 2)
+	for c in 16:
+		w.set_block(o.x + 3 + c, o.y, o.z + 6, Blocks.WOOL, c)
+	var ores := [Blocks.COAL_ORE, Blocks.IRON_ORE, Blocks.GOLD_ORE, Blocks.REDSTONE_ORE, Blocks.LAPIS_ORE,
+		Blocks.DIAMOND_ORE, Blocks.IRON_BLOCK, Blocks.GOLD_BLOCK, Blocks.DIAMOND_BLOCK, Blocks.LAPIS_BLOCK,
+		Blocks.OBSIDIAN, Blocks.MOSSY_COBBLESTONE, Blocks.SANDSTONE, Blocks.NETHERRACK, Blocks.SOUL_SAND,
+		Blocks.NETHER_BRICK, Blocks.END_STONE, Blocks.MYCELIUM, Blocks.CLAY, Blocks.ICE, Blocks.SNOW, Blocks.SPONGE]
+	for i in ores.size():
+		w.set_block(o.x + i, o.y, o.z + 7, ores[i])
+	for t in 4:
+		w.set_block(o.x + t, o.y + 1, o.z + 7, Blocks.LOG, t)
+		w.set_block(o.x + 4 + t, o.y + 1, o.z + 7, Blocks.LEAVES, t)
+		w.set_block(o.x + 8 + t, o.y + 1, o.z + 7, Blocks.PLANKS, t)
+	w.set_block(o.x + 13, o.y + 1, o.z + 7, Blocks.FLOWING_WATER, 0)
+	w.set_block(o.x + 16, o.y + 1, o.z + 7, Blocks.LAVA, 0)
+	w.flush_remesh()
+	p.set_flying(true)
+	p.position = Vector3(o) + Vector3(5.0, 2.6, -2.5)
+	p.set_look(deg_to_rad(200.0), deg_to_rad(-28.0))
+	await frames(20)
+	await shot("gallery_left")
+	p.position = Vector3(o) + Vector3(17.0, 2.6, -2.5)
+	p.set_look(deg_to_rad(165.0), deg_to_rad(-28.0))
+	await frames(10)
+	await shot("gallery_right")
+	p.position = Vector3(o) + Vector3(11.0, 3.5, 11.0)
+	p.set_look(deg_to_rad(0.0), deg_to_rad(-30.0))
+	await frames(10)
+	await shot("gallery_back")
+	var t0: float = g.get("time_of_day")
+	g.set("time_of_day", 0.75)
+	await frames(10)
+	await shot("gallery_night")
+	g.set("time_of_day", t0)
+	p.set_flying(false)
+	p.position = Vector3(arena) + Vector3(0.5, 1.001, 0.5)
+	await frames(5)

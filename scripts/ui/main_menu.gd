@@ -142,7 +142,7 @@ func _refresh_worlds() -> void:
 		h.add_theme_constant_override("separation", 12)
 		row.add_child(h)
 		var icon := TextureRect.new()
-		icon.texture = TextureFactory.icons[Blocks.BRICKS if bool(meta.get("creative", false)) else Blocks.GRASS]
+		icon.texture = TextureFactory.icon(Blocks.BRICKS if bool(meta.get("creative", false)) else Blocks.GRASS)
 		icon.custom_minimum_size = Vector2(56, 56)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

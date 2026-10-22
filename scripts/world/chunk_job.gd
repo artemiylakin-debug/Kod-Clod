@@ -11,18 +11,20 @@ var key := Vector2i.ZERO
 var task_id := -1
 var done := false
 
-# Генерация.
+# Генерация: результат — словарь {blocks, meta, biomes, block_entities, entities} + свет и пр.
 var seed_value := 0
 var save_dir := ""
-var blocks := PackedByteArray()
+var generator_script: Script
+var data: Dictionary = {}
 var from_disk := false
 var computed_top := 0
+var light := PackedByteArray()
+var heightmap := PackedInt32Array()
+var tickers: Dictionary = {}
 
 # Построение меша.
 var chunk: Chunk
-var neighbors: Array = []
-var top_y := 0
-var vol_top := 0
+var mesh_input: Dictionary = {}
 var mesh_gen := 0
 var result: Dictionary = {}
 ## Задачи, которые нужно применить в одном кадре (правка блока на границе чанков).
@@ -34,7 +36,7 @@ var completed := false
 
 var _stage := 0
 var _row := 0
-var _gen: WorldGen
+var _gen: Object
 var _mesher: ChunkMesher
 
 
@@ -58,32 +60,41 @@ static func _out_of_time(deadline_usec: int) -> bool:
 func _step_generate(deadline_usec: int) -> bool:
 	if _stage == 0:
 		_stage = 1
-		blocks = WorldStorage.load_chunk(save_dir, key)
-		from_disk = not blocks.is_empty()
+		data = WorldStorage.load_chunk(save_dir, key)
+		from_disk = not data.is_empty()
 		if from_disk:
-			computed_top = Chunk.compute_top(blocks)
-			return true
-		_gen = WorldGen.new(seed_value)
-		_gen.begin_chunk(key.x, key.y)
+			_stage = 3
+		else:
+			_gen = generator_script.new(seed_value) if generator_script != null else WorldGen.new(seed_value)
+			_gen.call("begin_chunk", key.x, key.y)
+			if _out_of_time(deadline_usec):
+				return false
+	if _stage == 1:
+		while _row < WorldGen.CHUNK_SIZE:
+			_gen.call("fill_rows", _row, _row + 1)
+			_row += 1
+			if _row < WorldGen.CHUNK_SIZE and _out_of_time(deadline_usec):
+				return false
+		data = _gen.call("finish_chunk")
+		_gen = null
+		_stage = 3
 		if _out_of_time(deadline_usec):
 			return false
-	while _row < WorldGen.CHUNK_SIZE:
-		_gen.fill_rows(_row, _row + 1)
-		_row += 1
-		if _row < WorldGen.CHUNK_SIZE and _out_of_time(deadline_usec):
-			return false
-	blocks = _gen.finish_chunk()
-	_gen = null
+	# Свет, высоты и тикающие блоки — тоже в рабочем потоке.
+	var blocks: PackedByteArray = data["blocks"]
 	computed_top = Chunk.compute_top(blocks)
+	light = ChunkLight.compute(blocks)
+	heightmap = Chunk.compute_heightmap(blocks, computed_top)
+	tickers = Chunk.scan_tickers(blocks)
 	return true
 
 
 func _step_mesh(deadline_usec: int) -> bool:
 	if _mesher == null:
-		_mesher = ChunkMesher.begin(neighbors, top_y, vol_top)
-		neighbors.clear()
-		if _out_of_time(deadline_usec):
-			return false
+		_mesher = ChunkMesher.begin(mesh_input)
+		mesh_input = {}
+	if not _mesher.prepare(deadline_usec) or _out_of_time(deadline_usec):
+		return false
 	while not _mesher.mesh_layers(1):
 		if _out_of_time(deadline_usec):
 			return false

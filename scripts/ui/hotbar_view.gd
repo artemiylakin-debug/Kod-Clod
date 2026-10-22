@@ -55,7 +55,10 @@ func _draw() -> void:
 		var id := inventory.ids[i]
 		var cnt := inventory.counts[i]
 		if cnt > 0 and id > 0:
-			draw_texture_rect(TextureFactory.icons[id], r.grow(-5.0), false)
+			draw_texture_rect(TextureFactory.icon(id, inventory.datas[i]), r.grow(-5.0), false)
+			var max_d := Items.max_damage(id)
+			if max_d > 0 and inventory.datas[i] > 0:
+				SlotView.draw_durability(self, r, inventory.datas[i], max_d)
 			if not creative and cnt > 1:
 				draw_count(self, font, r, cnt)
 	var sel := slot_rect(inventory.selected).grow(1.0)

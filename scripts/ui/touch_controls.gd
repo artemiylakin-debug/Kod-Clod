@@ -283,9 +283,9 @@ func _draw_button(role: int) -> void:
 		R_BREAK:
 			_draw_pickaxe(c, ic)
 		R_PLACE:
-			var id := player.inventory.get_selected_block()
+			var id := player.inventory.selected_id()
 			if id != Blocks.AIR:
-				draw_texture_rect(TextureFactory.icons[id], Rect2(c - Vector2(26, 26), Vector2(52, 52)), false)
+				draw_texture_rect(TextureFactory.icon(id, player.inventory.selected_data()), Rect2(c - Vector2(26, 26), Vector2(52, 52)), false)
 			else:
 				draw_rect(Rect2(c - Vector2(16, 16), Vector2(32, 32)), ic, false, 3.0)
 		R_FLY:

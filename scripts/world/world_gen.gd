@@ -2,13 +2,14 @@ class_name WorldGen
 extends RefCounted
 ## Детерминированная генерация ландшафта по сиду.
 ## Не трогает дерево сцены, поэтому экземпляр можно создавать в рабочем потоке.
+## Результат генерации чанка — словарь {blocks, meta, biomes, block_entities, entities}.
 
 const CHUNK_SIZE := 16
-const CHUNK_HEIGHT := 128
+const CHUNK_HEIGHT := 256
 const LAYER := CHUNK_SIZE * CHUNK_SIZE
 const VOLUME := LAYER * CHUNK_HEIGHT
-const SEA_LEVEL := 40
-const SNOW_LINE := 92
+const SEA_LEVEL := 63
+const SNOW_LINE := 115
 const TREE_CELL := 6
 
 var seed_value := 0
@@ -21,6 +22,8 @@ var _cave_b := FastNoiseLite.new()
 
 # Состояние порционной генерации: begin_chunk → fill_rows → finish_chunk.
 var _data := PackedByteArray()
+var _meta := PackedByteArray()
+var _biomes := PackedByteArray()
 var _ox := 0
 var _oz := 0
 var _heights := PackedInt32Array()
@@ -67,7 +70,18 @@ func get_height(wx: int, wz: int) -> int:
 	return clampi(int(h), 4, CHUNK_HEIGHT - 16)
 
 
-func generate_chunk(cx: int, cz: int) -> PackedByteArray:
+func biome_at(wx: int, wz: int) -> int:
+	var h := get_height(wx, wz)
+	if h <= SEA_LEVEL - 3:
+		return Biomes.OCEAN
+	if h <= SEA_LEVEL + 1:
+		return Biomes.BEACH
+	if h >= SNOW_LINE:
+		return Biomes.ICE_MOUNTAINS
+	return Biomes.FOREST if _forest.get_noise_2d(wx, wz) > 0.1 else Biomes.PLAINS
+
+
+func generate_chunk(cx: int, cz: int) -> Dictionary:
 	begin_chunk(cx, cz)
 	fill_rows(0, CHUNK_SIZE)
 	return finish_chunk()
@@ -77,6 +91,10 @@ func generate_chunk(cx: int, cz: int) -> PackedByteArray:
 func begin_chunk(cx: int, cz: int) -> void:
 	_data = PackedByteArray()
 	_data.resize(VOLUME)
+	_meta = PackedByteArray()
+	_meta.resize(VOLUME)
+	_biomes = PackedByteArray()
+	_biomes.resize(LAYER)
 	_ox = cx * CHUNK_SIZE
 	_oz = cz * CHUNK_SIZE
 	_heights = PackedInt32Array()
@@ -86,6 +104,7 @@ func begin_chunk(cx: int, cz: int) -> void:
 		for x in CHUNK_SIZE:
 			var h := get_height(_ox + x, _oz + z)
 			_heights[x + z * CHUNK_SIZE] = h
+			_biomes[x + z * CHUNK_SIZE] = biome_at(_ox + x, _oz + z)
 			max_h = maxi(max_h, h)
 	# image[z].pixel(x, y) = noise(x, y, z).
 	var cave_h := maxi(max_h - 4, 1)
@@ -120,7 +139,7 @@ func fill_rows(z0: int, z1: int) -> void:
 				top_block = Blocks.SNOW
 				filler = Blocks.STONE
 			for y in range(0, h + 1):
-				var b := Blocks.STONE
+				var b: int = Blocks.STONE
 				if y == 0:
 					b = Blocks.BEDROCK
 				elif y < 4 and hash3(wx, y, wz, seed_value) % 3 == 0:
@@ -131,10 +150,18 @@ func fill_rows(z0: int, z1: int) -> void:
 					b = filler
 				else:
 					var r := hash3(wx, y, wz, seed_value + 5) % 1000
-					if r < 11 and y < 96:
+					if r < 11 and y < 128:
 						b = Blocks.COAL_ORE
-					elif r < 18 and y < 52:
+					elif r < 18 and y < 64:
 						b = Blocks.IRON_ORE
+					elif r < 20 and y < 32:
+						b = Blocks.GOLD_ORE
+					elif r < 22 and y < 16:
+						b = Blocks.REDSTONE_ORE
+					elif r < 23 and y < 16:
+						b = Blocks.DIAMOND_ORE
+					elif r < 24 and y < 32:
+						b = Blocks.LAPIS_ORE
 					# Пещеры-«спагетти»: пересечение двух тонких изоповерхностей шума.
 					if y > 4 and y < h - 4:
 						var ci := x + y * CHUNK_SIZE
@@ -147,11 +174,13 @@ func fill_rows(z0: int, z1: int) -> void:
 				data[col + y * LAYER] = Blocks.WATER
 
 
-## Завершение: деревья. Возвращает готовые блоки чанка.
-func finish_chunk() -> PackedByteArray:
+## Завершение: деревья. Возвращает готовый чанк.
+func finish_chunk() -> Dictionary:
 	_place_trees(_data, _ox, _oz)
-	var out := _data
+	var out := {"blocks": _data, "meta": _meta, "biomes": _biomes, "block_entities": {}, "entities": []}
 	_data = PackedByteArray()
+	_meta = PackedByteArray()
+	_biomes = PackedByteArray()
 	_heights = PackedInt32Array()
 	_imgs_a = []
 	_imgs_b = []

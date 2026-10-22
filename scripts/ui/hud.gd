@@ -51,6 +51,7 @@ func setup(p_player: Player, p_creative: bool) -> void:
 	hotbar.creative = creative
 	player.inventory.changed.connect(_on_inventory_changed)
 	player.health_changed.connect(func(_h: int) -> void: _hearts.queue_redraw())
+	player.stats_changed.connect(func() -> void: _hearts.queue_redraw())
 	player.damaged.connect(func(_a: int) -> void: _damage.color.a = 0.38)
 	_layout()
 
@@ -226,8 +227,8 @@ func _layout() -> void:
 	var hw := hotbar.slots_width()
 	# Центрируются именно 9 слотов; кнопка меню выступает справа.
 	UITheme.place(hotbar, Vector2(0.5, 1.0), Vector2(-hw / 2.0, -s - bottom), Vector2(w, s))
-	UITheme.place(_hearts, Vector2(0.5, 1.0), Vector2(-hw / 2.0, -s - bottom - 30.0), Vector2(240, 24))
-	UITheme.place(_item_name, Vector2(0.5, 1.0), Vector2(-320, -s - bottom - 74.0), Vector2(640, 34))
+	UITheme.place(_hearts, Vector2(0.5, 1.0), Vector2(-hw / 2.0, -s - bottom - 76.0), Vector2(hw, 74))
+	UITheme.place(_item_name, Vector2(0.5, 1.0), Vector2(-320, -s - bottom - 112.0), Vector2(640, 34))
 	UITheme.place(_crosshair, Vector2(0.5, 0.5), Vector2(-16, -16), Vector2(32, 32))
 	UITheme.place(_toast, Vector2(0.5, 0.0), Vector2(-420, 64.0 + _margins.y), Vector2(840, 40))
 	UITheme.place(_saved, Vector2(1.0, 0.0), Vector2(-360 - _margins.z, 14.0 + _margins.y), Vector2(260, 28))
@@ -238,12 +239,12 @@ func _layout() -> void:
 
 func _on_inventory_changed() -> void:
 	hotbar.queue_redraw()
-	var id := player.inventory.get_selected_block()
+	var id := player.inventory.selected_id()
 	if id != _last_item or player.inventory.selected != _last_slot:
 		_last_item = id
 		_last_slot = player.inventory.selected
-		if id != Blocks.AIR:
-			_item_name.text = Blocks.block_name(id)
+		if id != 0:
+			_item_name.text = Items.name_of(id, player.inventory.selected_data())
 			_item_time = 2.0
 		else:
 			_item_time = 0.0
@@ -274,13 +275,16 @@ func _debug_text() -> String:
 		"Чанк: %d, %d · загружено: %d · задач: %d" % [key.x, key.y, player.world.loaded_count(), player.world.pending_jobs()],
 		"Направление: %s" % facing,
 		"Режим: %s%s" % ["креатив" if player.creative else "выживание", " · полёт" if player.flying else ""],
+		"Биом: %s · свет: небо %d, блоки %d" % [Biomes.name_of(player.world.biome_at(floori(p.x), floori(p.z))),
+			player.world.get_sky_light(Vector3i(floori(p.x), floori(p.y + 1.0), floori(p.z))),
+			player.world.get_block_light(Vector3i(floori(p.x), floori(p.y + 1.0), floori(p.z)))],
 	])
 	var w := player.world
 	if w.sync_job_count > 0:
 		lines.append("Чанки в основном потоке: %d задач, в среднем %.1f мс работы" % [w.sync_job_count, w.sync_job_ms / w.sync_job_count])
 	if not player.target.is_empty():
 		var t: Vector3i = player.target["pos"]
-		lines.append("Блок: %s (%d, %d, %d)" % [Blocks.block_name(player.target["block"]), t.x, t.y, t.z])
+		lines.append("Блок: %s, данные %d (%d, %d, %d)" % [Blocks.block_name(player.target["block"]), int(player.target.get("meta", 0)), t.x, t.y, t.z])
 	return "\n".join(lines)
 
 
@@ -294,19 +298,77 @@ func _paint_crosshair(c: Control) -> void:
 	c.draw_rect(Rect2(ctr.x - 1.0, ctr.y - 10.0, 2.0, 20.0), col)
 
 
+## Состояние игрока над хотбаром: уровень и полоса опыта, сердца и броня слева, еда и воздух справа.
 func _paint_hearts(c: Control) -> void:
 	if player == null or creative:
 		return
+	var w := c.size.x
+	var h := c.size.y
+	# Опыт.
+	var bar := Rect2(0, h - 10.0, w, 8.0)
+	c.draw_rect(bar, Color(0.05, 0.05, 0.05, 0.85))
+	c.draw_rect(Rect2(bar.position + Vector2(1, 1), Vector2((w - 2.0) * clampf(player.xp_progress, 0.0, 1.0), 6.0)), Color(0.5, 0.95, 0.15))
+	if player.xp_level > 0:
+		var font := c.get_theme_default_font()
+		var t := str(player.xp_level)
+		c.draw_string(font, Vector2(1, h - 12.0 + 1), t, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(0, 0, 0))
+		c.draw_string(font, Vector2(0, h - 12.0), t, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(0.55, 1.0, 0.2))
+	var row_y := h - 34.0
+	# Сердца (слева). Отравление — зелёные.
 	var hp := player.health
+	var heart_col := Color(0.86, 0.1, 0.1)
+	if player.effects.has(Potions.POISON):
+		heart_col = Color(0.45, 0.6, 0.15)
 	for i in 10:
-		var center := Vector2(i * 24.0 + 11.0, 12.0)
-		c.draw_colored_polygon(heart_points(center, 11.0, false), Color(0.08, 0.02, 0.02, 0.9))
-		c.draw_colored_polygon(heart_points(center, 8.5, false), Color(0.3, 0.06, 0.06, 0.9))
+		var center := Vector2(i * 22.0 + 11.0, row_y + 12.0)
+		c.draw_colored_polygon(heart_points(center, 10.5, false), Color(0.08, 0.02, 0.02, 0.9))
+		c.draw_colored_polygon(heart_points(center, 8.0, false), Color(0.3, 0.06, 0.06, 0.9))
 		if hp >= (i + 1) * 2:
-			c.draw_colored_polygon(heart_points(center, 8.5, false), Color(0.86, 0.1, 0.1))
+			c.draw_colored_polygon(heart_points(center, 8.0, false), heart_col)
 			c.draw_rect(Rect2(center + Vector2(-5.0, -5.0), Vector2(3.0, 3.0)), Color(1.0, 0.75, 0.75))
 		elif hp == i * 2 + 1:
-			c.draw_colored_polygon(heart_points(center, 8.5, true), Color(0.86, 0.1, 0.1))
+			c.draw_colored_polygon(heart_points(center, 8.0, true), heart_col)
+	# Еда (справа налево). Голод — зеленоватые.
+	var food_col := Color(0.72, 0.42, 0.18)
+	if player.effects.has(Potions.HUNGER):
+		food_col = Color(0.45, 0.55, 0.2)
+	for i in 10:
+		var center := Vector2(w - i * 22.0 - 11.0, row_y + 12.0)
+		_draw_shank(c, center, Color(0.1, 0.06, 0.03, 0.9), 1.15)
+		if player.food >= (i + 1) * 2:
+			_draw_shank(c, center, food_col, 0.85)
+		elif player.food == i * 2 + 1:
+			_draw_shank(c, center + Vector2(2.5, 0), food_col, 0.55)
+	# Броня (над сердцами).
+	var armor := player.inventory.armor_points()
+	if armor > 0:
+		for i in 10:
+			var center := Vector2(i * 22.0 + 11.0, row_y - 14.0)
+			var full := armor >= (i + 1) * 2
+			var half := armor == i * 2 + 1
+			_draw_armor(c, center, Color(0.85, 0.85, 0.9) if full else (Color(0.6, 0.6, 0.65) if half else Color(0.2, 0.2, 0.22, 0.8)))
+	# Воздух (над едой).
+	if player.head_in_water or player.air < Player.MAX_AIR:
+		var bubbles := ceili(player.air * 10.0 / Player.MAX_AIR)
+		for i in bubbles:
+			var center := Vector2(w - i * 22.0 - 11.0, row_y - 14.0)
+			c.draw_circle(center, 8.0, Color(0.1, 0.25, 0.6, 0.9))
+			c.draw_circle(center, 6.0, Color(0.55, 0.8, 1.0))
+			c.draw_circle(center + Vector2(-2, -2), 2.0, Color(1, 1, 1))
+
+
+static func _draw_shank(c: Control, center: Vector2, col: Color, k: float) -> void:
+	c.draw_circle(center + Vector2(2.5, -2.5) * k, 6.5 * k, col)
+	c.draw_line(center + Vector2(-1, 1) * k, center + Vector2(-7, 7) * k, Color(0.95, 0.92, 0.85, col.a), 3.0 * k)
+	c.draw_circle(center + Vector2(-7.5, 7.5) * k, 2.2 * k, Color(0.95, 0.92, 0.85, col.a))
+
+
+static func _draw_armor(c: Control, center: Vector2, col: Color) -> void:
+	var pts := PackedVector2Array([center + Vector2(-8, -7), center + Vector2(-3, -8), center + Vector2(0, -5),
+		center + Vector2(3, -8), center + Vector2(8, -7), center + Vector2(7, 1), center + Vector2(5, 8),
+		center + Vector2(-5, 8), center + Vector2(-7, 1)])
+	c.draw_colored_polygon(pts, col)
+	c.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.05, 0.05, 0.05, 0.9), 1.5)
 
 
 ## Контур сердечка (параметрическая кривая). half — только левая половина.
