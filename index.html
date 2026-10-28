@@ -71,6 +71,11 @@
   .nick{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
   .nick input{font:14px var(--font);padding:8px 10px;border:2px solid var(--line);border-radius:8px;color:var(--ink);background:var(--panel)}
   .nick input:focus-visible{outline:3px solid var(--level);outline-offset:1px}
+  /* iOS увеличивает страницу при вводе в поле со шрифтом мельче 16px */
+  @media (pointer:coarse){.nick input{font-size:16px}}
+  /* поле игры запрещает выделение, а без него iOS не даёт печатать в поля ввода */
+  .panel input{user-select:text;-webkit-user-select:text}
+  .lform{display:flex;flex-direction:column;gap:10px;margin:0}
   .mrow2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .mcol{display:flex;flex-direction:column;gap:8px}
   .mrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -206,8 +211,11 @@ const joy={x:0,y:0};
 let kbUser=false;
 const NO_SCROLL=new Set(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
 addEventListener('keydown',e=>{
-  // в поле ввода (имя в рекордах) клавиши — это просто текст
-  if(e.target instanceof HTMLInputElement)return;
+  // в поле ввода (имя в рекордах, логин) клавиши — это просто текст; Esc из формы входа — назад
+  if(e.target instanceof HTMLInputElement){
+    if(e.code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup'))showMenu(loginBack);
+    return;
+  }
   kbUser=true;
   // пробел на кнопке меню должен её нажимать, поэтому прокрутку гасим только вне кнопок
   if(NO_SCROLL.has(e.code)&&!(e.target instanceof HTMLButtonElement))e.preventDefault();
@@ -393,7 +401,7 @@ let player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,walls
 let score=0,lives=3,emp=1,boost=0,shake=0,time=0,phase='menu',tripFx=null;
 let lvl=0,got=0,threat=1,purge=0,stormT=0,intro=0,lastEmpDrop=0;
 let lvStart={score:0,emp:1,lives:3};
-let menuScreen='main',ready=false,settingsBack='main';
+let menuScreen='main',ready=false,settingsBack='main',loginBack='gate';
 
 function clearField(){
   player={x:W/2,y:H/2,vx:0,vy:0,r:14,cool:0,dashCd:0,dashT:0,face:-Math.PI/2,empCd:0,tripCd:0};
@@ -1625,6 +1633,12 @@ const menuEl=$id('menu'),panelEl=$id('panel');
 function mb(act,label,cls){return '<button type="button" class="mbtn'+(cls?' '+cls:'')+'" data-act="'+act+'">'+label+'</button>';}
 function heartsStr(n){return '♥'.repeat(n)+'♡'.repeat(3-n);}
 function chip(act,label,on){return '<button type="button" class="chip" data-act="'+act+'" aria-pressed="'+on+'">'+label+'</button>';}
+// кнопки входа: настроенные сервисы и свой аккаунт на сайте, для которого никакие компании не нужны
+function loginBtns(){
+  const btns=netProviders().map(p=>mb('login:'+p.id,p.label,'prov prov-'+p.id)).join('');
+  return (btns?'<div class="mcol">'+btns+'</div><p class="lbl2">ИЛИ АККАУНТ НА САЙТЕ</p>':'')+
+    '<div class="mrow2">'+mb('signin','Войти по логину')+mb('signup','Создать аккаунт')+'</div>';
+}
 function panelHTML(s){
   const c=LEVELS[lvl];
   if(s==='main'){
@@ -1658,15 +1672,33 @@ function panelHTML(s){
         '<label class="nick">Имя в таблице рекордов<input id="nick" maxlength="20" autocomplete="nickname"></label>'+
         '<div class="mrow2">'+mb('nick','Сохранить имя')+mb('logout','Выйти')+'</div>';
     }else if(NET_ON){
-      const btns=netProviders().map(p=>mb('login:'+p.id,p.label,'prov prov-'+p.id)).join('');
       body='<p>Войди, чтобы прогресс хранился в аккаунте, открывался на других устройствах и попадал в общую таблицу рекордов. Пока не войдёшь, прогресс хранится в этом браузере.</p>'+
-        '<p class="err" hidden></p>'+
-        (btns?'<div class="mcol">'+btns+'</div>':'<p>Входы ещё не настроены.</p>');
+        '<p class="err" hidden></p>'+loginBtns();
     }else{
       body='<p>'+(IN_CLAUDE?'Сейчас прогресс хранится только в этом браузере. Открой игру, войдя в claude.ai, — прогресс сохранится в аккаунте, а рекорд попадёт в общую таблицу.'
         :'В этой копии игры входа нет: уровни, рекорд и облик хранятся в этом браузере.')+'</p>';
     }
     return '<h2>АККАУНТ</h2>'+ACCT_ROW+stats+body+mb('main','Назад','primary');
+  }
+  // экран входа на сайте: его видит каждый, кто открыл ссылку и ещё не вошёл
+  if(s==='gate'){
+    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+
+      '<p>Войди или создай аккаунт: уровни, рекорд и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
+      '<p class="err" hidden></p>'+loginBtns()+mb('guest','Играть как гость')+
+      '<p class="foot">Гость играет без входа: прогресс хранится только в этом браузере.</p>';
+  }
+  if(s==='signin'||s==='signup'){
+    const up=s==='signup';
+    return '<h2>'+(up?'НОВЫЙ АККАУНТ':'ВХОД ПО ЛОГИНУ')+'</h2>'+
+      '<form class="lform" data-form="'+s+'" novalidate>'+
+      '<label class="nick">Логин<input id="lg-login" name="username" maxlength="20" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>'+
+      '<label class="nick">Пароль<input id="lg-pass" name="password" type="password" maxlength="72" autocomplete="'+(up?'new-password':'current-password')+'"></label>'+
+      (up?'<label class="nick">Пароль ещё раз<input id="lg-pass2" type="password" maxlength="72" autocomplete="new-password"></label>':'')+
+      '<p class="err" hidden></p>'+
+      '<button type="submit" class="mbtn primary">'+(up?'Создать и войти':'Войти')+'</button></form>'+
+      '<div class="mrow2">'+mb(up?'signin':'signup',up?'Уже есть аккаунт':'Создать аккаунт')+mb(loginBack,'Назад')+'</div>'+
+      '<p class="foot">'+(up?'Логин — 3–20 латинских букв, цифр, «_» или «-». Пароль — от 8 символов. Почта не нужна, поэтому восстановить пароль нельзя — запиши его.'
+        :'Пароль восстановить нельзя: при регистрации почта не нужна. Забыл пароль — создай новый аккаунт.')+'</p>';
   }
   if(s==='top'){
     return '<h2>РЕКОРДЫ</h2><p class="top-status">Загружаю…</p><ol class="top"></ol>'+mb('main','Назад','primary');
@@ -1748,9 +1780,12 @@ function showMenu(s,focusAct){
   screenEl.classList.add('menu-open');
   panelEl.scrollTop=0;
   if(kbUser){
-    const b=(focusAct&&panelEl.querySelector('[data-act="'+focusAct+'"]'))||panelEl.querySelector('.primary')||panelEl.querySelector('button:not([disabled])');
+    const b=(focusAct&&panelEl.querySelector('[data-act="'+focusAct+'"]'))||((s==='signin'||s==='signup')&&$id('lg-login'))||panelEl.querySelector('.primary')||panelEl.querySelector('button:not([disabled])');
     if(b)b.focus({preventScroll:true});
   }
+  // текст ошибки входа приходит и от сервера, поэтому только textContent
+  const er=panelEl.querySelector('.err');
+  if(er&&NET.err&&(s==='gate'||s==='acct')){er.textContent=NET.err;er.hidden=false;}
   if(s==='skins')drawPreview();
   if(s==='main'||s==='acct')fillAccount();
   if(s==='top')fillTop();
@@ -1793,6 +1828,8 @@ function act(a){
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
   else if(k==='login')netLogin(a.split(':')[1]);
+  else if(k==='signin'||k==='signup'){if(menuScreen==='gate'||menuScreen==='acct')loginBack=menuScreen;showMenu(k);}
+  else if(k==='guest'){setGuest(true);NET.err='';showMenu('main');}
   else if(k==='logout')netLogout();
   else if(k==='nick'){
     const inp=$id('nick');
@@ -1804,6 +1841,12 @@ function act(a){
 panelEl.addEventListener('click',e=>{
   const b=e.target.closest('button[data-act]');
   if(b&&!b.disabled)act(b.dataset.act);
+});
+// формы входа и регистрации: Enter в поле и кнопка отправляют форму, страница не перезагружается
+panelEl.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target;
+  if(f.dataset&&f.dataset.form)netSiteAuth(f.dataset.form,f);
 });
 
 function pause(){
@@ -1835,6 +1878,9 @@ function onPress(code){
     if(code==='ArrowUp')setSkin(selColor,(selShape+S-1)%S);
     if(code==='ArrowDown')setSkin(selColor,(selShape+1)%S);
   }
+  // экран входа Esc не пропускает: выбрать надо явно — войти или играть гостем
+  if(phase==='menu'&&code==='Escape'&&menuScreen==='gate')return;
+  if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
   // Enter без выбранной кнопки нажимает главную кнопку экрана
   if((code==='Enter'||code==='NumpadEnter')&&!(document.activeElement instanceof HTMLButtonElement)){
@@ -2020,7 +2066,7 @@ const ACCT_TEXT={
   saving:'сохраняю…',
   readonly:'только просмотр: попроси у владельца доступ «Участник»',
   error:'нет связи — сохраню при следующем изменении',
-  netout:'вход не выполнен — открой «Аккаунт»'
+  netout:'прогресс только в этом браузере — войти можно в «Аккаунте»'
 };
 function setAcctState(s){
   acct.state=s;
@@ -2031,8 +2077,6 @@ async function fillAccount(){
   if(!nm)return;
   st.textContent=ACCT_TEXT[acct.state]||'';
   if(acct.kind==='net'){
-    const er=panelEl.querySelector('.err');
-    if(er&&NET.err){er.textContent=NET.err;er.hidden=false;}
     const inp=$id('nick');
     if(inp&&!inp.value)inp.value=nickName();
     if(!NET.user)return;
@@ -2157,7 +2201,17 @@ async function initAccount(){
 // Google и Apple входят через встроенный вход Supabase (токены возвращаются во фрагменте адреса).
 // VK ID и Яндекс ID входят через функцию ru-login (online/ru-login.ts): игра получает от сервиса код,
 // функция проверяет его у VK или Яндекса и выдаёт сессию Supabase. Секретных ключей в игре нет.
-const SESS_KEY='dataout-session',FLOW_KEY='dataout-login';
+// Аккаунт на сайте — логин и пароль без всяких сервисов: регистрирует та же функция, входит игра сама.
+const SESS_KEY='dataout-session',FLOW_KEY='dataout-login',GUEST_KEY='dataout-guest';
+// выбор «гость» живёт до закрытия вкладки: по новой ссылке экран входа покажется снова
+function isGuest(){try{return sessionStorage.getItem(GUEST_KEY)==='1';}catch(_){return false;}}
+function setGuest(on){try{if(on)sessionStorage.setItem(GUEST_KEY,'1');else sessionStorage.removeItem(GUEST_KEY);}catch(_){}}
+function maybeGate(){
+  if(NET.user||phase!=='menu'||menuEl.hidden)return;
+  if(menuScreen!=='main'&&menuScreen!=='acct'&&menuScreen!=='gate')return;
+  if(isGuest()&&!NET.err)return;
+  showMenu('gate');
+}
 const RETURN_URL=location.origin+location.pathname.replace(/index\.html$/,'');
 const PROVIDERS=[
   {id:'vk',label:'Войти через VK ID',on:()=>!!ONLINE.vkAppId,name:'VK ID'},
@@ -2168,15 +2222,23 @@ const PROVIDERS=[
 function netProviders(){return PROVIDERS.filter(p=>p.on());}
 function netProviderName(){
   const u=NET.user||{},m=u.user_metadata||{},a=u.app_metadata||{};
-  const id=m.provider==='vk'||m.provider==='yandex'?m.provider:a.provider;
+  const id=m.provider==='vk'||m.provider==='yandex'||m.provider==='site'?m.provider:a.provider;
+  if(id==='site')return 'логин на сайте';
   const p=PROVIDERS.find(x=>x.id===id);
   return p?p.name:'аккаунт';
 }
 function netHeaders(token){
   return{apikey:ONLINE.supabaseKey,Authorization:'Bearer '+(token||ONLINE.supabaseKey),'Content-Type':'application/json'};
 }
+// сервер, который не отвечает, не должен вешать вход навсегда
 async function netFetch(path,opt){
-  const r=await fetch(ONLINE.supabaseUrl.replace(/\/+$/,'')+path,opt||{});
+  opt=Object.assign({},opt);
+  let tm=0;
+  if(typeof AbortController==='function'){const c=new AbortController();opt.signal=c.signal;tm=setTimeout(()=>c.abort(),15000);}
+  let r;
+  try{r=await fetch(ONLINE.supabaseUrl.replace(/\/+$/,'')+path,opt);}
+  catch(e){const n=new Error('нет связи с сервером');n.status=0;throw n;}
+  finally{clearTimeout(tm);}
   if(!r.ok){
     let t='';try{t=await r.text();}catch(_){}
     const e=new Error(t.slice(0,200)||('HTTP '+r.status));e.status=r.status;throw e;
@@ -2219,7 +2281,7 @@ async function netLogin(id){
     location.href=ONLINE.supabaseUrl.replace(/\/+$/,'')+'/auth/v1/authorize?provider='+id+'&redirect_to='+encodeURIComponent(RETURN_URL);
     return;
   }
-  if(!window.crypto||!crypto.subtle){NET.err='Вход через '+p.name+' работает только на сайте игры (адрес https://…).';showMenu('acct');return;}
+  if(!window.crypto||!crypto.subtle){NET.err='Вход через '+p.name+' работает только на сайте игры (адрес https://…).';showMenu(menuScreen==='gate'?'gate':'acct');return;}
   // PKCE: случайный verifier остаётся в этой вкладке, сервису уходит только его хэш
   const state=randStr(32),verifier=randStr(64);
   const challenge=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
@@ -2252,9 +2314,56 @@ async function netHandleReturn(){
   })});
   saveSess(sessFrom(o));
 }
+// имя в рекордах по умолчанию: у аккаунта на сайте — его логин, у остальных — «Игрок-xxxx»,
+// чтобы настоящее имя из VK, Яндекса или Google не попало в общую таблицу без спроса
 function nickName(){
   const n=(save.nick||'').replace(/\s+/g,' ').trim().slice(0,20);
-  return n||('Игрок-'+(NET.user?String(NET.user.id).slice(0,4):'0000'));
+  if(n)return n;
+  const m=NET.user&&NET.user.user_metadata||{};
+  if(m.provider==='site'&&typeof m.name==='string'&&m.name)return m.name.slice(0,20);
+  return 'Игрок-'+(NET.user?String(NET.user.id).slice(0,4):'0000');
+}
+const LOGIN_RE=/^[a-z0-9_-]{3,20}$/;
+// служебный адрес: Supabase входит по почте, а у игрока её нет; писем на него не шлётся
+function siteEmail(login){return login+'@player.data-out.app';}
+// сервер отвечает JSON с ошибкой — достаём из него текст
+function errMsg(e){
+  let t=String(e&&e.message||e);
+  try{const o=JSON.parse(t);t=String(o.error_description||o.msg||o.message||o.error||t);}catch(_){}
+  return t.slice(0,120);
+}
+function siteErr(mode,e){
+  if(!e||!e.status)return 'Нет связи с сервером. Проверь интернет и попробуй ещё раз.';
+  if(mode==='signup'&&e.status===409)return 'Этот логин уже занят — придумай другой или войди.';
+  if(mode==='signin'&&(e.status===400||e.status===401))return 'Неверный логин или пароль.';
+  if(e.status===429)return 'Слишком много попыток — подожди минуту.';
+  return 'Не получилось: '+errMsg(e);
+}
+// регистрация и вход по логину и паролю; пароль уходит только на сервер игры
+async function netSiteAuth(mode,form){
+  const lg=form.querySelector('#lg-login'),pw=form.querySelector('#lg-pass'),pw2=form.querySelector('#lg-pass2');
+  const er=form.querySelector('.err'),btn=form.querySelector('button[type="submit"]');
+  if(btn.disabled)return;
+  const fail=(t,el)=>{er.textContent=t;er.hidden=false;if(el)el.focus();};
+  const login=lg.value.trim().toLowerCase(),pass=pw.value;
+  if(!LOGIN_RE.test(login))return fail('Логин — от 3 до 20 знаков: латинские буквы, цифры, «_» или «-».',lg);
+  if(pass.length<8)return fail('Пароль — от 8 символов.',pw);
+  if(pw2&&pw2.value!==pass)return fail('Пароли не совпадают.',pw2);
+  const label=btn.textContent;
+  btn.disabled=true;btn.textContent='Подключаюсь…';er.hidden=true;
+  try{
+    const o=mode==='signup'
+      ?await netFetch('/functions/v1/ru-login',{method:'POST',headers:netHeaders(),body:JSON.stringify({provider:'site',login,password:pass})})
+      :await netFetch('/auth/v1/token?grant_type=password',{method:'POST',headers:netHeaders(),body:JSON.stringify({email:siteEmail(login),password:pass})});
+    saveSess(sessFrom(o));
+  }catch(e){
+    if(!panelEl.contains(form))return;
+    btn.disabled=false;btn.textContent=label;
+    return fail(siteErr(mode,e));
+  }
+  NET.err='';setGuest(false);
+  if(phase==='menu')showMenu('main');
+  await netLoadUser();
 }
 async function netSync(){
   if(!NET.user)return;
@@ -2287,11 +2396,19 @@ async function netTop(){
 async function netInit(){
   acct.kind='net';
   try{const s=JSON.parse(localStorage.getItem(SESS_KEY)||'null');if(s&&s.refresh_token)NET.sess=s;}catch(_){}
-  try{await netHandleReturn();}catch(e){NET.err='Не получилось войти: '+String(e&&e.message||e).slice(0,120);}
-  if(!NET.sess){setAcctState('netout');if(NET.err&&phase==='menu')showMenu('acct');return;}
+  // вернулись со страницы VK или Яндекса — пока функция проверяет код, показываем «подключаю»
+  if(/[?&#](code|access_token|error)=/.test(location.search+location.hash))setAcctState('loading');
+  try{await netHandleReturn();}catch(e){NET.err='Не получилось войти: '+errMsg(e);}
+  if(NET.sess)setGuest(false);
+  // экран входа рисуется без сервера, поэтому появляется сразу, даже когда связи нет
+  if(!NET.sess){setAcctState('netout');maybeGate();return;}
+  await netLoadUser();
+}
+async function netLoadUser(){
   setAcctState('loading');
   const tok=await netToken();
-  if(!tok){setAcctState(NET.sess?'error':'netout');return;}
+  // нет связи — играем с тем, что есть в браузере; сессию отозвали — снова экран входа
+  if(!tok){if(NET.sess)setAcctState('error');else{setAcctState('netout');maybeGate();}return;}
   try{
     NET.user=await netFetch('/auth/v1/user',{headers:netHeaders(tok)});
     acct.id=NET.user.id;
@@ -2302,16 +2419,18 @@ async function netInit(){
     }
     await netSync();
   }catch(e){
-    if(e.status===401||e.status===403){saveSess(null);NET.user=null;setAcctState('netout');}
-    else setAcctState('error');
+    if(e.status===401||e.status===403){saveSess(null);NET.user=null;setAcctState('netout');maybeGate();return;}
+    setAcctState('error');
   }
   if(phase==='menu'&&!menuEl.hidden&&(menuScreen==='main'||menuScreen==='acct'))showMenu(menuScreen);
 }
 async function netLogout(){
   const tok=NET.sess&&NET.sess.access_token;
   saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';
+  // имя в рекордах принадлежит аккаунту: следующий вошедший на этом устройстве его не унаследует
+  save.nick='';persist();
   setAcctState('netout');
-  showMenu('acct');
+  showMenu('gate');
   // выход на сервере — по возможности; локально сессия уже стёрта
   if(tok)try{await netFetch('/auth/v1/logout',{method:'POST',headers:netHeaders(tok)});}catch(_){}
 }

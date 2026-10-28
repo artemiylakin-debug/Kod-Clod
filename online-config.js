@@ -3,6 +3,7 @@
 // Секретные ключи (Client secret Google и Яндекса, service_role Supabase) сюда НЕ пиши:
 // они хранятся только в Supabase. Как всё получить — online/SETUP.md.
 // Пока supabaseUrl или supabaseKey пустые, игра работает без аккаунтов, прогресс — в браузере.
+// Когда оба заполнены, сайт при входе просит войти (VK ID, Яндекс ID, логин на сайте) или играть гостем.
 window.DATA_OUT_ONLINE = {
   supabaseUrl: '',      // адрес проекта Supabase, например https://abcd1234.supabase.co
   supabaseKey: '',      // публичный ключ «anon public» (Project Settings → API Keys)
