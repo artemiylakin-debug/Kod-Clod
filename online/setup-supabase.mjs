@@ -45,8 +45,12 @@ async function api(method, path, body, raw) {
 const step = (t) => console.log('• ' + t);
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
-// 1. проект
+// 1. проект: готовый «data-out» берём, а не создаём второй (на бесплатном тарифе их всего два)
 let ref = env('SUPABASE_PROJECT_REF');
+if (!ref) {
+  const mine = (await api('GET', '/v1/projects')).find((p) => p.name === 'data-out');
+  if (mine) { ref = mine.id || mine.ref; step('Беру готовый проект data-out (' + ref + ')'); }
+}
 if (!ref) {
   const orgs = await api('GET', '/v1/organizations');
   const org = orgs.find((o) => o.id === env('SUPABASE_ORG')) || orgs[0];
