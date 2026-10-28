@@ -106,6 +106,29 @@
   .top .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .top .sc{font-weight:bold;color:var(--score);font-variant-numeric:tabular-nums;text-align:right}
   .top small{display:block;font-weight:normal;font-size:10px;color:var(--muted)}
+  /* на сайте строка рекордов — кнопка, открывающая профиль */
+  .top li.btn{display:block;padding:0}
+  .top .trow{display:grid;grid-template-columns:28px 24px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:4px 8px;margin:0;border:0;border-radius:6px;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+  .top .trow:hover{background:var(--keys-bg)}
+  .top li.pay{grid-template-columns:auto minmax(0,1fr) auto}
+  /* редактор уровней, карточки сообщества, профиль */
+  #ed{display:block;width:100%;height:auto;aspect-ratio:8/5;box-sizing:border-box;border:2px solid var(--ink);border-radius:8px;touch-action:none;cursor:crosshair}
+  .nick select{font:14px var(--font);padding:8px 10px;border:2px solid var(--line);border-radius:8px;color:var(--ink);background:var(--panel)}
+  .nick select:focus-visible{outline:3px solid var(--level);outline-offset:1px}
+  @media (pointer:coarse){.nick select{font-size:16px}}
+  .ed-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px}
+  .ed-val{align-self:center;min-width:44px;text-align:center;font-size:15px;color:var(--level)}
+  .panel .ed-note{color:var(--ink)}
+  .lcards{display:flex;flex-direction:column;gap:8px}
+  .lcard{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;text-align:left}
+  .lcard b{font-size:14px;overflow-wrap:anywhere}
+  .lcard small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+  .prof-body{display:flex;flex-direction:column;gap:10px}
+  .panel .lcard p,.panel p.bio{text-align:left;color:var(--ink);font-size:12px;overflow-wrap:anywhere}
+  .panel p.bio{text-align:center;font-size:13px}
+  .lacts{display:flex;flex-wrap:wrap;gap:6px}
+  .mbtn.sm{padding:6px 10px;font-size:12px;border-width:1px}
+  .mbtn.liked{border-color:var(--heart);color:var(--heart)}
   @media (max-height:420px){.panel .intro{display:none}}
   .mbtn{font:bold 14px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--ink);border-radius:8px;padding:10px 12px;cursor:pointer;touch-action:manipulation}
   .mbtn:hover:not(:disabled){background:var(--keys-bg)}
@@ -122,6 +145,7 @@
   .chip:disabled{opacity:.4;cursor:default}
   .sw{width:12px;height:12px;border-radius:50%;flex:none}
   #pv{margin:0 auto;width:180px;height:84px}
+  #pv[hidden]{display:none}
   .chip small{font-weight:normal;font-size:10px;color:var(--muted)}
   .chip.lock{border-style:dashed}
   .panel .coins{font-size:15px;color:var(--ink)}
@@ -375,7 +399,7 @@ let kbUser=false;
 const NO_SCROLL=new Set(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
 addEventListener('keydown',e=>{
   // в поле ввода (имя в рекордах, логин) клавиши — это просто текст; Esc из формы входа — назад
-  if(e.target instanceof HTMLInputElement){
+  if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement||e.target instanceof HTMLSelectElement){
     if(e.code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup'))showMenu(loginBack);
     return;
   }
@@ -824,7 +848,7 @@ function D(){return DIFF[save.diff]||DIFF.easy;}
 function maxLives(){return D().lives;}
 function goalOf(c){return Math.max(6,Math.round(c.goal*D().goal));}
 function timerOf(c){return c.timer?c.timer+D().timer:0;}
-function tripCdMax(){return Math.round((LEVELS[lvl].tripCd||TRIP_CD)*D().trip);}
+function tripCdMax(){return Math.round((cfgNow().tripCd||TRIP_CD)*D().trip);}
 function capOf(c){return Math.max(3,(c.cap||9)-D().cap);}
 
 // ================= КАСТОМИЗАЦИЯ И СОХРАНЕНИЕ =================
@@ -903,7 +927,7 @@ function pastFinal(u,w){return u===100&&w>0&&LEVELS.length>100?101:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:''};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:'',bio:''};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -926,13 +950,14 @@ try{
     save.wins=clampInt(s.wins,0,1e6,0);
     save.unlocked=pastFinal(save.unlocked,save.wins);
     save.nick=typeof s.nick==='string'?s.nick.slice(0,20):'';
+    save.bio=typeof s.bio==='string'?s.bio.slice(0,200):'';
   }
 }catch(_){}
 // аккаунт (см. раздел АККАУНТ ниже); пока не подключён — прогресс только в этом браузере
 // kind: 'claude' — аккаунт claude.ai в артефакте, 'net' — своя база на сайте (Supabase), null — без аккаунта
 const acct={kind:null,state:'guest',db:null,user:null,id:null,top:null,cloudKey:'',scoreKey:'',busy:false,again:false,tm:0};
 // сессия и пользователь своей базы на сайте
-const NET={sess:null,user:null,err:'',sup:false,thanks:false};
+const NET={sess:null,user:null,err:'',sup:false,thanks:false,admin:false,hidden:false};
 function isSupporter(){return !!NET.sup;}
 // что входит в набор «Поддержка» — по списку предметов, чтобы текст не отставал от магазина
 function supList(){
@@ -999,7 +1024,7 @@ function colOf(i,t){
 }
 // биты текущего уровня: копятся в игре и записываются в сохранение на паузе, в меню и в конце уровня
 let runBits=0,lvBits=0;
-function bankBits(){if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
+function bankBits(){if(CUSTOM){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
 
 let Q=QUALITY.high,resScale=1,perfT=0,perfFrames=0;
 function computeQuality(){
@@ -1028,6 +1053,11 @@ let movers=[],solids=[],holes=[],invs=[],strikes=[],strikeT=0;
 let score=0,lives=5,emp=1,boost=0,shake=0,time=0,phase='menu',tripFx=null;
 let lvl=0,got=0,threat=1,purge=0,stormT=0,intro=0,lastEmpDrop=0,debrisT=0;
 let lvStart={score:0,emp:1,lives:3};
+// уровень игрока (из редактора или сообщества): CUSTOM — проверенный конфиг, null — обычная игра.
+// Номер уровня для формул усиления врагов на нём — как в середине игры
+let CUSTOM=null,customBack='community',lvlMain=0;
+const CUSTOM_LVL=60;
+function cfgNow(){return CUSTOM||LEVELS[lvl];}
 let menuScreen='main',ready=false,settingsBack='main',loginBack='gate',lvAct=0,termsBack='terms';
 
 function clearField(){
@@ -1040,12 +1070,14 @@ function clearField(){
     dust.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,s:1+Math.random()*2,a:0.08+Math.random()*0.12});
   }
 }
-function startLevel(i){
+function startLevel(i,cust){
   bankBits();lvBits=0;
-  lvl=i;
-  const c=LEVELS[i];
+  CUSTOM=cust||null;
+  if(!CUSTOM)lvlMain=i;
+  lvl=CUSTOM?CUSTOM_LVL:i;
+  const c=cfgNow();
   clearField();
-  setLayout(c);bgAct=actOf(i);
+  setLayout(c);bgAct=CUSTOM?CUSTOM.theme:actOf(i);
   got=0;threat=1;time=0;debrisT=c.debris?Math.round(c.debris*D().hazard):0;
   strikeT=c.strike?Math.round(c.strike*D().hazard):0;
   purge=timerOf(c)*60;
@@ -1060,7 +1092,7 @@ function startLevel(i){
   phase='game';
   lag=0;last=performance.now();
   if(c.news)msg(c.news,7000);
-  else msg('Уровень '+(i+1)+' · '+c.name+': '+objective(c)+'.');
+  else msg((CUSTOM?'Уровень игрока':'Уровень '+(i+1))+' · '+c.name+': '+objective(c)+'.');
 }
 // стены, потоки, барьеры, зоны лага, роутеры и сканер уровня
 function setLayout(c){
@@ -1089,7 +1121,7 @@ function armDist(px,py,x,y,a,r0,r1){
 function newRun(i){score=0;lives=maxLives();emp=1;startLevel(i);}
 function nextLevel(){lives=Math.min(maxLives(),lives+D().heal);startLevel(lvl+1);}
 // после гибели — все жизни («резервная копия»), при перезапуске из паузы — как было на старте уровня
-function retryLevel(full){score=lvStart.score;emp=lvStart.emp;lives=full?maxLives():Math.min(maxLives(),lvStart.lives);startLevel(lvl);}
+function retryLevel(full){score=lvStart.score;emp=lvStart.emp;lives=full?maxLives():Math.min(maxLives(),lvStart.lives);startLevel(lvl,CUSTOM);}
 
 function msg(t,ms){
   msgEl.textContent=t;
@@ -1192,7 +1224,7 @@ function spawnData(){
   const s=freeSpot(80,30,12);
   data.push({x:s.x,y:s.y,r:7,t:Math.random()*60});
   // троян прикидывается данными; на поле их не больше двух
-  const c=LEVELS[lvl];
+  const c=cfgNow();
   if(c.trojan&&Math.random()<c.trojan*D().trojan&&countType('trojan')<2){
     const q=freeSpot(140,30,12);
     enemies.push({x:q.x,y:q.y,vx:0,vy:0,r:9,type:'trojan',t:Math.random()*60,arm:0,inside:true});
@@ -1223,7 +1255,7 @@ function edgePos(off){
   return p;
 }
 function spawnEnemy(type){
-  const p=edgePos(30),c=LEVELS[lvl];
+  const p=edgePos(30),c=cfgNow();
   const spd=D().speed;
   if(type==='sniper')enemies.push({...p,vx:0,vy:0,r:11,speed:1.3*spd,type,fireT:Math.round(90*D().fire),t:0});
   else if(type==='heavy')enemies.push({...p,vx:0,vy:0,r:19,speed:0.65*spd,type,hp:2,t:0,touchCd:0});
@@ -1250,7 +1282,7 @@ function spawnEnemy(type){
   else enemies.push({...p,vx:0,vy:0,r:11,speed:Math.min(c.fast?2.8:2.3,1.4+threat*0.22+Math.min(lvl,ACT1_END)*0.03+(c.fast?0.3:0))*spd,type:'chaser',t:0});
 }
 function spawnBoss(){
-  const b=LEVELS[lvl].boss;
+  const b=cfgNow().boss;
   // Капча выходит сразу под щитом — иначе первый EMP до её первого хода проходил бы насквозь
   const hp=Math.max(Math.min(D().bossMin,b.hp),b.hp-D().bossHp);
   boss={x:W/2,y:-70,r:b.r||42,t:0,hp,maxHp:hp,vx:0,vy:0,kind:b.kind,name:b.name,ang:0,shield:b.kind==='captcha'};
@@ -1277,11 +1309,13 @@ function hitPlayer(){
   player.vy=(Math.random()-0.5)*14;
   if(lives<=0){
     lives=0;
-    save.best=Math.max(save.best,score);bankBits();persist();
+    if(!CUSTOM)save.best=Math.max(save.best,score);
+    bankBits();persist();
     phase='dead';showMenu('dead');
   }
 }
 function levelClear(){
+  if(CUSTOM){customClear();return;}
   save.best=Math.max(save.best,score);
   runBits+=clearBits(lvl);lvBits+=clearBits(lvl);bankBits();
   if(lvl>=LEVELS.length-1){
@@ -1337,7 +1371,7 @@ function compact(arr,keep){
 function step(){
   time++;if(shake>0)shake--;if(boost>0)boost--;if(intro>0)intro--;
   if(movers.length)moveMovers();
-  const sk=colOf(wornLook().c,time),cfg=LEVELS[lvl];
+  const sk=colOf(wornLook().c,time),cfg=cfgNow();
 
   // движение: вектор нормализован, иначе по диагонали скорость была в 1.41 раза выше
   // в невесомости разгон слабее, а торможение дольше — скорость та же, но всё «скользит»
@@ -1846,7 +1880,7 @@ function step(){
         if(got%D().hp===0)dropPickup('hp');
         if(got%12===0)dropPickup('boost');
       }
-      if(got%D().ramp===0&&!portal){
+      if(got%D().ramp===0&&!portal&&cfg.ramp.length){
         threat++;
         const type=cfg.ramp[(threat-2)%cfg.ramp.length];
         if(activeEnemies()<capOf(cfg)){spawnEnemy(type);msg('УГРОЗА '+threat+': '+RAMP_MSG[type]);}
@@ -1889,7 +1923,7 @@ function step(){
 
 // данные собраны — босс или портал
 function checkGoal(){
-  const c=LEVELS[lvl];
+  const c=cfgNow();
   if(got>=goalOf(c)&&!boss&&!portal){
     if(c.boss)spawnBoss();
     else{spawnPortal();msg('ДАННЫЕ СОБРАНЫ — ПОРТАЛ ОТКРЫТ, ВХОДИ!');}
@@ -1941,7 +1975,7 @@ function bossFire(b,aim){
   const lt=b.kind==='singularity'?b.t%300:b.t;
   if(kind==='singularity'){
     kind=['ring','spiral','kraken','nova','aimed','traffic'][Math.floor(b.t/300)%6];
-    if(b.t%540===270&&activeEnemies()<capOf(LEVELS[lvl]))spawnEnemy(['missile','mirror','thief','miner'][Math.floor(b.t/540)%4]);
+    if(b.t%540===270&&activeEnemies()<capOf(cfgNow()))spawnEnemy(['missile','mirror','thief','miner'][Math.floor(b.t/540)%4]);
   }
   if(kind==='traffic'){
     // Светофор: 2 с зелёный (едет к тебе, EMP его берёт), 1 с жёлтый, 3 с красный — щит и потоки пуль крестом
@@ -1994,16 +2028,16 @@ function bossFire(b,aim){
   if(kind==='omega'){
     // Главный алгоритм: по 5 с каждой атаки прежних боссов, под конец — щит; зовёт ботнет и глитчей
     kind=['ring','spiral','aimed','pack','captcha'][Math.floor(b.t/300)%5];
-    if(b.t%600===300&&activeEnemies()<capOf(LEVELS[lvl]))spawnEnemy(b.t%1200===300?'botnet':'glitch');
+    if(b.t%600===300&&activeEnemies()<capOf(cfgNow()))spawnEnemy(b.t%1200===300?'botnet':'glitch');
   }
   if(kind==='admin'){
     // Админ облака перебирает атаки по 5 с и время от времени зовёт ботнет
     kind=['ring','spiral','aimed','pack'][Math.floor(b.t/300)%4];
-    if(b.t%720===0&&activeEnemies()<capOf(LEVELS[lvl]))spawnEnemy('botnet');
+    if(b.t%720===0&&activeEnemies()<capOf(cfgNow()))spawnEnemy('botnet');
   }
   if(kind==='final'){
     kind=['ring','spiral','aimed'][Math.floor(b.t/300)%3];
-    if(b.t%600===0&&activeEnemies()<capOf(LEVELS[lvl]))enemies.push({x:b.x,y:b.y,vx:0,vy:0,r:9,speed:2*D().speed,type:'chaser',t:0,inside:true});
+    if(b.t%600===0&&activeEnemies()<capOf(cfgNow()))enemies.push({x:b.x,y:b.y,vx:0,vy:0,r:9,speed:2*D().speed,type:'chaser',t:0,inside:true});
   }
   if(kind==='ring'){
     if(b.t%(b.kind==='final'?40:50)===0){
@@ -2670,7 +2704,7 @@ function render(opaque){
   ctx.globalAlpha=1;
   if(phase==='menu'){updateHud();return;}
 
-  const cfg=LEVELS[lvl];
+  const cfg=cfgNow();
   ctx.save();
   if(shake>0&&phase==='game'&&!RM)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
 
@@ -2904,7 +2938,7 @@ function render(opaque){
     ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(0,96,W,114);
     ctx.textAlign='center';
     ctx.fillStyle='#a2a';ctx.font='bold 14px Courier New, monospace';
-    ctx.fillText('УРОВЕНЬ '+(lvl+1)+' ИЗ '+LEVELS.length,W/2,120);
+    ctx.fillText(CUSTOM?'УРОВЕНЬ ИГРОКА'+(CUSTOM.by?' · '+CUSTOM.by:''):'УРОВЕНЬ '+(lvl+1)+' ИЗ '+LEVELS.length,W/2,120);
     ctx.fillStyle='#057';ctx.font='bold 30px Courier New, monospace';
     ctx.fillText(cfg.name,W/2,153);
     ctx.fillStyle='#689';ctx.font='14px Courier New, monospace';
@@ -2931,7 +2965,7 @@ for(let k=0;k<18;k++)PV_TRAIL.push({x:0,y:0,life:k+1,hot:0});
 function drawPreview(){
   const pv=$id('pv');
   if(!pv)return;
-  const c=pv.getContext('2d'),s=pv.height/56,L=previewLook();
+  const c=pv.getContext('2d'),s=pv.height/56,L=pvLook||previewLook();
   c.setTransform(1,0,0,1,0,0);
   c.clearRect(0,0,pv.width,pv.height);
   c.setTransform(s,0,0,s,0,0);
@@ -2948,10 +2982,10 @@ const hudLast={};
 function setHud(k,v){v=String(v);if(hudLast[k]!==v){hudLast[k]=v;hudEl[k].textContent=v;}}
 function setOff(k,off){if(hudLast[k+'Off']!==off){hudLast[k+'Off']=off;hudEl[k].classList.toggle('off',off);}}
 function updateHud(){
-  const c=LEVELS[lvl];
+  const c=cfgNow();
   setHud('data',Math.min(got,goalOf(c))+'/'+goalOf(c));
   setHud('score',score);
-  setHud('level',(lvl+1)+'/'+LEVELS.length);
+  setHud('level',CUSTOM?'★':(lvl+1)+'/'+LEVELS.length);
   setHud('hearts',heartsStr(lives));
   const cd=Math.min(5,Math.ceil(player.dashCd/14));
   setHud('dash','▓'.repeat(5-cd)+'░'.repeat(cd));
@@ -3004,7 +3038,7 @@ function actGift(n){
   return g.length?'<p>Открыто в «Облике»: '+g.join(', ')+'.</p>':'';
 }
 function panelHTML(s){
-  const c=LEVELS[lvl];
+  const c=cfgNow();
   if(s==='main'){
     const cont=save.unlocked>1;
     return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+
@@ -3013,6 +3047,8 @@ function panelHTML(s){
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
+      mb('community','Сообщество · уровни игроков')+
+      (NET.admin?mb('admin','Админ-панель'):'')+
       (CAN_DONATE?mb('donate','♥ Поддержать игру','donate'):'')+
       '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+' · сложность: '+D().name.toLowerCase()+' (меняется в настройках)</p>';
   }
@@ -3038,9 +3074,16 @@ function panelHTML(s){
       body='<p>Аккаунт — это твой вход в claude.ai, отдельный пароль не нужен. Уровни, рекорд и облик хранятся в аккаунте и открываются на любом устройстве. Настройки графики у каждого устройства свои.</p>';
     }else if(NET_ON&&NET.user){
       // имя для таблицы рекордов игрок выбирает сам — настоящее имя из VK, Яндекса или Google никому не показывается
+      const site=(NET.user.user_metadata||{}).provider==='site';
       body='<p>Уровни, рекорд и облик хранятся в аккаунте и открываются на любом устройстве, где ты войдёшь тем же способом.</p>'+
+        (NET.hidden?'<p class="err">Администратор скрыл твой профиль: его не видно в рекордах и сообществе.</p>':'')+
         '<label class="nick">Имя в таблице рекордов<input id="nick" maxlength="20" autocomplete="nickname"></label>'+
-        '<div class="mrow2">'+mb('nick','Сохранить имя')+mb('logout','Выйти')+'</div>';
+        '<label class="nick">О себе — видно в твоём профиле<input id="bio" maxlength="200" placeholder="Например: люблю уровни с роутерами"></label>'+
+        '<div class="mrow2">'+mb('nick','Сохранить профиль')+mb('profile:me','Мой профиль')+'</div>'+
+        (site?'<p class="lbl2">СМЕНИТЬ ПАРОЛЬ</p><label class="nick">Новый пароль<input id="np1" type="password" maxlength="72" autocomplete="new-password"></label>'+
+          '<label class="nick">Новый пароль ещё раз<input id="np2" type="password" maxlength="72" autocomplete="new-password"></label>'+
+          '<p class="pass-msg" hidden></p>'+mb('pass','Сменить пароль'):'')+
+        mb('logout','Выйти');
     }else if(NET_ON){
       body='<p>Войди, чтобы прогресс хранился в аккаунте, открывался на других устройствах и попадал в общую таблицу рекордов. Пока не войдёшь, прогресс хранится в этом браузере.</p>'+
         '<p class="err" hidden></p>'+loginBtns();
@@ -3115,7 +3158,22 @@ function panelHTML(s){
       mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
   }
   if(s==='top'){
-    return '<h2>РЕКОРДЫ</h2><p class="top-status">Загружаю…</p><ol class="top"></ol>'+mb('main','Назад','primary');
+    return '<h2>РЕКОРДЫ</h2><div class="chips">'+TOP_TABS.map(t=>chip('ttab:'+t[0],t[1],topTab===t[0])).join('')+'</div>'+
+      '<p class="top-status">Загружаю…</p><ol class="top"></ol>'+
+      (NET_ON?'<p class="foot">Нажми на игрока, чтобы открыть его профиль.</p>':'')+mb('main','Назад','primary');
+  }
+  if(s==='editor')return edHTML();
+  if(s==='mylevels')return myLevelsHTML();
+  if(s==='community')return comHTML();
+  if(s==='profile')return profHTML();
+  if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
+  if(s==='cclear'){
+    const cc=CUSTOM||{};
+    const like=cc.id&&NET.user&&cc.author!==NET.user.id?mb('clike:'+cc.id,comLiked[cc.id]?'♥ Уже нравится':'♥ Понравился'):'';
+    return '<h2 class="good">УРОВЕНЬ ПРОЙДЕН</h2><p><b>'+escHTML(cc.name||'')+'</b>'+(cc.by?' · автор: '+escHTML(cc.by):'')+'</p>'+
+      '<p>Очки: <b>'+score+'</b>. Уровни игроков не влияют на рекорд, уровни и биты.</p>'+
+      (cc.src==='ed'?'<p class="good">Проверка пройдена — теперь уровень можно опубликовать.</p>':'')+
+      '<div class="mcol">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
   }
   if(s==='skins'){
     const cat=catOf(shopTab),L=previewLook(),cur=L[shopTab],it=cat.list[cur];
@@ -3162,13 +3220,14 @@ function panelHTML(s){
       '<li><b>Океан.</b> Чёрные дыры тянут к себе всех, тёмное ядро ранит. Рывок вытаскивает.</li>'+
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
+      '<li><b>Сообщество.</b> В редакторе можно собрать свой уровень из препятствий, врагов и босса, пройти его и опубликовать. Уровни игроков не влияют на рекорд, уровни и биты.</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули медленнее, данных нужно меньше, боссы слабее; «Средняя» — 4 жизни; «Высокая» — 3 жизни и прежний баланс.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
   }
   if(s==='pause'){
-    return '<h2>ПАУЗА</h2><p>Уровень '+(lvl+1)+' · '+c.name+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p>'+
-      '<div class="mcol">'+mb('resume','Продолжить','primary')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu','Главное меню')+'</div>'+
+    return '<h2>ПАУЗА</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p>'+
+      '<div class="mcol">'+mb('resume','Продолжить','primary')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu',CUSTOM?'Выйти с уровня':'Главное меню')+'</div>'+
       '<p class="foot">P или Esc — продолжить</p>';
   }
   if(s==='clear'){
@@ -3185,8 +3244,8 @@ function panelHTML(s){
       '<div class="mcol">'+mb('next','Дальше','primary')+mb('menu','Главное меню')+'</div>';
   }
   if(s==='dead'){
-    return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>Уровень '+(lvl+1)+' · '+c.name+' · данных спасено: <b>'+score+'</b>'+(lvBits?' · биты: <b>+'+lvBits+'</b>':'')+'</p>'+
-      '<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu','Главное меню')+'</div>'+
+    return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' · данных спасено: <b>'+score+'</b>'+(lvBits&&!CUSTOM?' · биты: <b>+'+lvBits+'</b>':'')+'</p>'+
+      '<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu',CUSTOM?'Назад':'Главное меню')+'</div>'+
       '<p class="foot">R — запустить резервную копию</p>';
   }
   if(s==='win'){
@@ -3214,11 +3273,14 @@ function panelHTML(s){
 }
 function showMenu(s,focusAct){
   if(s!=='skins')tryOn=null;
+  if(s!=='profile')pvLook=null;
+  // перерисовка того же экрана (выбор вкладки, правка в редакторе) не сбрасывает прокрутку
+  const keep=s===menuScreen&&!menuEl.hidden?panelEl.scrollTop:0;
   menuScreen=s;
   panelEl.innerHTML=panelHTML(s);
   menuEl.hidden=false;
   screenEl.classList.add('menu-open');
-  panelEl.scrollTop=0;
+  panelEl.scrollTop=keep;
   if(kbUser){
     const b=(focusAct&&panelEl.querySelector('[data-act="'+focusAct+'"]'))||((s==='signin'||s==='signup')&&$id('lg-login'))||panelEl.querySelector('.primary')||panelEl.querySelector('button:not([disabled])');
     if(b)b.focus({preventScroll:true});
@@ -3230,6 +3292,11 @@ function showMenu(s,focusAct){
   if(s==='skins')drawPreview();
   if(s==='main'||s==='acct')fillAccount();
   if(s==='top')fillTop();
+  if(s==='editor')edBind();
+  if(s==='community'&&NET_ON)fillCommunity();
+  if(s==='profile')fillProfile();
+  if(s==='admin')fillAdmin();
+  if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
 }
 function hideMenu(){
   if(menuEl.contains(document.activeElement))document.activeElement.blur();
@@ -3239,6 +3306,8 @@ function hideMenu(){
 function goMenu(){
   bankBits();
   phase='menu';
+  // с уровня игрока — обратно к своему уровню основной игры (он виден в полосе сверху)
+  if(CUSTOM){CUSTOM=null;lvl=lvlMain;}
   walls=[];flows=[];gates=[];lags=[];tps=[];scan=null;movers=[];solids=[];holes=[];invs=[];strikes=[];bgAct=0;boost=0;shake=0;
   buildBg();
   msgEl.textContent='';
@@ -3271,7 +3340,9 @@ function buyItem(){
   showMenu('skins',id);
 }
 function act(a){
-  const k=a.split(':')[0],n=Number(a.split(':')[1]);
+  const k=a.split(':')[0],arg=a.split(':')[1]||'',n=Number(arg);
+  // удаление и очистка — вторым нажатием на ту же кнопку
+  const sure=armed===a;armed='';
   if((k==='play'||k==='new'||k==='again'||k==='lv')&&needLogin()){showMenu('gate');return;}
   if(k==='play')newRun(save.unlocked-1);
   else if(k==='new'||k==='again')newRun(0);
@@ -3305,11 +3376,59 @@ function act(a){
   else if(k==='logout')netLogout();
   else if(k==='termstext'){if(menuScreen!=='termstext')termsBack=menuScreen;showMenu('termstext');}
   else if(k==='termsok')acceptTerms();
-  else if(k==='nick'){
-    const inp=$id('nick');
-    if(inp){save.nick=inp.value.replace(/\s+/g,' ').trim().slice(0,20);inp.value=nickName();persist();}
+  else if(k==='nick')saveProfile();
+  else if(k==='pass')changePassword();
+  else if(k==='menu'){if(CUSTOM)leaveCustom();else goMenu();}
+  else if(k==='ttab'){if(TOP_ORDER[arg]){topTab=arg;showMenu('top',a);}}
+  else if(k==='profile'){
+    const id=arg==='me'?NET.user&&NET.user.id:arg;
+    if(isUuid(id))openProfile(id,menuScreen==='profile'?profBack:(['top','community','admin','acct'].indexOf(menuScreen)>=0?menuScreen:'main'));
   }
-  else if(k==='menu')goMenu();
+  else if(k==='community'){if(needLogin()){showMenu('gate');return;}showMenu('community');}
+  else if(k==='ctab'){comTab=['new','top','mine'].indexOf(arg)>=0?arg:'new';showMenu('community',a);}
+  else if(k==='cplay'){if(n>0)comPlay(n);}
+  else if(k==='clike'){if(n>0)comLike(n);}
+  else if(k==='cedit'){if(n>0)comEdit(n);}
+  else if(k==='cdel'){if(n>0){if(sure)comDelete(n);else armBtn(a,'Точно удалить?');}}
+  else if(k==='chide'){if(n>0)comHide(n);}
+  else if(k==='admin'){if(NET.admin)showMenu('admin');}
+  else if(k==='atab'){if(ADM_TABS.some(t=>t[0]===arg)){admTab=arg;showMenu('admin',a);}}
+  else if(k==='ahide'||k==='abio'||k==='asup')admAct(k,arg);
+  else if(k==='ednew'){if(needLogin()){showMenu('gate');return;}edTool='wall';edOpen(edBlank(),null,'');}
+  else if(k==='edopen'){const d=draftsLoad().find(x=>x.id===arg);if(d)edOpen(edFromData(d.lv),{id:d.id,pub:Number(d.pub)||null},typeof d.ok==='string'?d.ok:'');}
+  else if(k==='eddel'){
+    if(!sure){armBtn(a,'Точно удалить?');return;}
+    draftsSave(draftsLoad().filter(x=>x.id!==arg));
+    if(edDraft&&edDraft.id===arg){ED=null;edDraft=null;}
+    showMenu('mylevels');
+  }
+  else if(k==='mylevels')showMenu('mylevels');
+  else if(k.slice(0,2)==='ed'&&ED){
+    if(k==='edtool'){if(ED_HINTS[arg]){edTool=arg;edTp=null;edNote='';showMenu('editor',a);}}
+    else if(k==='edundo')edUndo();
+    else if(k==='edclear'){
+      if(!sure){armBtn(a,'Точно очистить?');return;}
+      for(const key of ['walls','gates','flow','lag','inv','holes','tps','mov'])ED[key]=[];
+      edHist=[];edTp=null;edChanged();
+    }
+    else if(k==='edgoal'){ED.goal=Math.max(5,Math.min(30,ED.goal+(n>0?1:-1)));edChanged();showMenu('editor',a);}
+    else if(k==='edcap'){ED.cap=Math.max(3,Math.min(9,ED.cap+(n>0?1:-1)));edChanged();showMenu('editor',a);}
+    else if(k==='edst'&&ED_NAMES[arg]){
+      const c=ED.start.filter(x=>x===arg).length;
+      if(c>=3||ED.start.length>=8)ED.start=ED.start.filter(x=>x!==arg);else ED.start.push(arg);
+      edChanged();showMenu('editor',a);
+    }
+    else if(k==='edrm'&&ED_NAMES[arg]){
+      const i=ED.ramp.indexOf(arg);
+      if(i>=0)ED.ramp.splice(i,1);else if(ED.ramp.length<6)ED.ramp.push(arg);
+      edChanged();showMenu('editor',a);
+    }
+    else if(k==='edflag'&&ED_FLAGS.some(f=>f[0]===arg)){ED[arg]=ED[arg]?0:1;edChanged();showMenu('editor',a);}
+    else if(k==='edscan'){ED.scan=(ED.scan+1)%3;edChanged();showMenu('editor',a);}
+    else if(k==='edtroj'){ED.trojan=(ED.trojan+1)%3;edChanged();showMenu('editor',a);}
+    else if(k==='edtest')edTest();
+    else if(k==='edpub')edPublish();
+  }
   else showMenu(k);
 }
 panelEl.addEventListener('click',e=>{
@@ -3317,7 +3436,24 @@ panelEl.addEventListener('click',e=>{
   if(b&&!b.disabled)act(b.dataset.act);
 });
 // отметка «Я принимаю…» включает кнопку «Продолжить»
+// поля редактора и поиск в админ-панели меняют состояние сразу, без перерисовки экрана
+panelEl.addEventListener('input',e=>{
+  const t=e.target,id=t.id;
+  if(id==='adm-q'){admFilter=t.value;renderAdmPlayers();return;}
+  if(!ED||menuScreen!=='editor')return;
+  if(id==='ed-name'){ED.name=t.value.slice(0,30);edChanged();}
+  else if(id==='ed-descr'){ED.descr=t.value.slice(0,200);edChanged();}
+  else if(id==='ed-bname'&&ED.boss){ED.boss.name=t.value.slice(0,20);edChanged();}
+});
 panelEl.addEventListener('change',e=>{
+  const t=e.target;
+  if(ED&&menuScreen==='editor'&&(t.id==='ed-boss'||t.id==='ed-bhp'||t.id==='ed-theme')){
+    if(t.id==='ed-boss')ED.boss=BOSS_KINDS.some(k=>k[0]===t.value)?{kind:t.value,hp:ED.boss?ED.boss.hp:5,name:''}:null;
+    else if(t.id==='ed-bhp'&&ED.boss)ED.boss.hp=edNum(t.value,3,8,5);
+    else if(t.id==='ed-theme')ED.theme=edNum(t.value,0,ACTS.length-1,0);
+    edChanged();showMenu('editor',t.id);
+    return;
+  }
   if(e.target.id!=='terms-ok')return;
   const b=panelEl.querySelector('[data-act="termsok"]');
   if(b)b.disabled=!e.target.checked;
@@ -3380,6 +3516,10 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='gate'||menuScreen==='terms'))return;
   if(phase==='menu'&&code==='Escape'&&menuScreen==='termstext'){showMenu(termsBack);return;}
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
+  if(phase==='menu'&&code==='Escape'){
+    const back={profile:profBack,editor:'community',mylevels:'community'}[menuScreen];
+    if(back){showMenu(back);return;}
+  }
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
   // Enter без выбранной кнопки нажимает главную кнопку экрана
   if((code==='Enter'||code==='NumpadEnter')&&!(document.activeElement instanceof HTMLButtonElement)){
@@ -3516,7 +3656,7 @@ function frame(now){
   if(sinceRender>=(Q.fps30?2:1)&&(wasGame||phase==='game'||phase==='menu')){
     sinceRender=0;
     render(false);
-    if(phase==='menu'&&menuScreen==='skins')drawPreview();
+    if(phase==='menu'&&(menuScreen==='skins'||menuScreen==='profile'&&pvLook))drawPreview();
     fpsCount++;
     if(now-fpsT>=1000){fpsShown=Math.round(fpsCount*1000/(now-fpsT));fpsCount=0;fpsT=now;}
     // «Авто»: каждые 2 секунды игры сверяем среднюю длину кадра с целью (60 или 30 кадров)
@@ -3536,9 +3676,756 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
+// ================= УРОВНИ ИГРОКОВ: ФОРМАТ И ПРОВЕРКА =================
+// Уровень из редактора хранится в «формате редактора» — числа, флаги и короткие строки; так же он
+// лежит в базе (levels.data). Перед игрой normLevel превращает его в конфиг как у LEVELS. Чужой
+// уровень — чужой ввод, поэтому normLevel заново проверяет и обрезает всё, что в нём есть
+const ED_TYPES=['chaser','sniper','heavy','glitch','worm','botnet','turret','thief','miner','missile','mirror'];
+const ED_NAMES={chaser:'Охотник',sniper:'Снайпер',heavy:'Щитоносец',glitch:'Глитч',worm:'Червь',botnet:'Ботнет',turret:'Турель',thief:'Вор',miner:'Минёр',missile:'Ракета',mirror:'Зеркало'};
+const BOSS_KINDS=[['ring','кольца пуль'],['aimed','стреляет в тебя'],['pack','затягивает'],['charge','таранит'],['spiral','спираль'],['balance','две сферы'],['captcha','щит'],['seeker','самонаведение'],['orbit','кружит'],['cloak','исчезает'],['traffic','светофор'],['kraken','щупальца'],['nova','сверхновая'],['twin','двойник'],['final','всё понемногу'],['admin','зовёт ботнет'],['omega','всё сразу'],['singularity','сингулярность']];
+const ED_MAX={walls:24,gates:8,flow:4,lag:6,inv:6,holes:4,tps:3,mov:6};
+const ED_TOOLS=[['wall','Стена'],['gate','Барьер'],['mov','Блок'],['flow','Поток'],['lag','Лаг'],['inv','Инверсия'],['hole','Дыра'],['tp','Роутер'],['erase','Ластик']];
+const ED_FLAGS=[['dark','Темнота'],['ice','Невесомость'],['storm','Спам-пули'],['debris','Мусор'],['strike','Удары с орбиты'],['timer','Очистка по таймеру']];
+const ED_HINTS={
+  wall:'Стена: протяни по полю — получится прямоугольник; просто нажми — короткая стена.',
+  gate:'Барьер файрвола: мигает и загорается по очереди с остальными. Протяни или нажми.',
+  mov:'Подвижный блок: широкий ездит влево-вправо, высокий — вверх-вниз. Пунктир — его путь.',
+  flow:'Поток: нажми на высоте полосы. Потоки по очереди дуют в разные стороны.',
+  lag:'Зона лага: протяни от центра, чтобы задать размер; просто нажми — средний круг.',
+  inv:'Зона инверсии: протяни от центра, чтобы задать размер; просто нажми — средний круг.',
+  hole:'Чёрная дыра: нажми, куда поставить. Пунктир — докуда она тянет.',
+  tp:'Роутер: нажми два раза — для каждого кольца пары.',
+  erase:'Ластик: нажми на препятствие, чтобы убрать его.'
+};
+// адрес сайта — для копии игры без своей базы (например, в артефакте): сообщество живёт там
+const SITE_URL='https://artemiylakin-debug.github.io/Kod-Clod/';
+// вокруг старта игрока (центр поля) препятствия не ставятся
+const START_R=60;
+function edNum(v,a,b,def){const n=Number(v);return isFinite(n)?Math.max(a,Math.min(b,Math.round(n))):def;}
+// строки уровня попадают и в меню, поэтому без управляющих символов и символов разметки
+function edStr(v,max){return typeof v==='string'?v.replace(/[\u0000-\u001f\u007f<>&"'`\\]/g,'').replace(/\s+/g,' ').trim().slice(0,max):'';}
+function edArr(v,max){return Array.isArray(v)?v.slice(0,max):[];}
+function escHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);}
+function isUuid(v){return typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);}
+function fmtDate(ms){const d=new Date(ms);return ms?String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear():'—';}
+function rectNearStart(q,pad){const cx=Math.max(q.x,Math.min(W/2,q.x+q.w)),cy=Math.max(q.y,Math.min(H/2,q.y+q.h));return Math.hypot(cx-W/2,cy-H/2)<pad;}
+function edRect(q,min){
+  if(!q||typeof q!=='object')return null;
+  const w=edNum(q.w,min,W,0),h=edNum(q.h,min,H,0);
+  if(!w||!h)return null;
+  return{x:edNum(q.x,0,W-w,0),y:edNum(q.y,0,H-h,0),w,h};
+}
+function edCircle(z){return z&&typeof z==='object'?{x:edNum(z.x,0,W,W/2),y:edNum(z.y,0,H,H/2),r:edNum(z.r,30,140,80)}:null;}
+function edPt(p){return p&&typeof p==='object'?{x:edNum(p.x,30,W-30,W/2),y:edNum(p.y,30,H-30,H/2)}:null;}
+// подвижный блок не выезжает за поле: размах не больше, чем места до края
+function edMover(q){
+  const r=edRect(q,10);
+  if(!r)return null;
+  r.ax=edNum(q.ax,0,Math.min(r.x,W-r.x-r.w,200),0);r.ay=edNum(q.ay,0,Math.min(r.y,H-r.y-r.h,200),0);
+  r.sp=Math.max(0.005,Math.min(0.03,Number(q.sp)||0.012));r.ph=Math.max(0,Math.min(7,Number(q.ph)||0));
+  return r;
+}
+function moverZone(m){return{x:m.x-m.ax,y:m.y-m.ay,w:m.w+m.ax*2,h:m.h+m.ay*2};}
+// облик босса берём у первого босса того же вида из основной игры
+function bossPreset(kind){for(const l of LEVELS)if(l.boss&&l.boss.kind===kind)return l.boss;return LEVELS[4].boss;}
+// формат редактора → конфиг уровня; null — это не уровень
+function normLevel(d){
+  if(!d||typeof d!=='object'||Array.isArray(d))return null;
+  const okType=t=>ED_TYPES.indexOf(t)>=0;
+  const c={name:edStr(d.name,30)||'Без названия',descr:edStr(d.descr,200),goal:edNum(d.goal,5,30,15),cap:edNum(d.cap,3,9,6),tripCd:420,
+    start:edArr(d.start,8).filter(okType),ramp:edArr(d.ramp,6).filter(okType),theme:edNum(d.theme,0,ACTS.length-1,0)};
+  const set=(k,v)=>{if(v.length)c[k]=v;};
+  set('walls',edArr(d.walls,ED_MAX.walls).map(q=>edRect(q,10)).filter(q=>q&&!rectNearStart(q,START_R)));
+  set('gates',edArr(d.gates,ED_MAX.gates).map(q=>{const r=edRect(q,10);if(r)r.o=edNum(q.o,0,299,0);return r;}).filter(q=>q&&!rectNearStart(q,START_R)));
+  set('flow',edArr(d.flow,ED_MAX.flow).map(f=>f&&typeof f==='object'?{y:edNum(f.y,0,H-20,0),h:edNum(f.h,20,160,60),dir:f.dir<0?-1:1}:null).filter(Boolean));
+  set('lag',edArr(d.lag,ED_MAX.lag).map(edCircle).filter(Boolean));
+  set('inv',edArr(d.inv,ED_MAX.inv).map(edCircle).filter(Boolean));
+  set('holes',edArr(d.holes,ED_MAX.holes).map(z=>z&&typeof z==='object'?{x:edNum(z.x,20,W-20,W/2),y:edNum(z.y,20,H-20,H/2),R:edNum(z.R,80,200,150),r:15,f:0.085}:null)
+    .filter(h=>h&&Math.hypot(h.x-W/2,h.y-H/2)>=h.r+START_R+40));
+  set('tps',edArr(d.tps,ED_MAX.tps).map(pr=>Array.isArray(pr)&&pr.length===2?[edPt(pr[0]),edPt(pr[1])]:null)
+    .filter(pr=>pr&&pr[0]&&pr[1]&&Math.hypot(pr[0].x-pr[1].x,pr[0].y-pr[1].y)>60&&!pr.some(p=>Math.hypot(p.x-W/2,p.y-H/2)<START_R)));
+  set('mov',edArr(d.mov,ED_MAX.mov).map(edMover).filter(m=>m&&!rectNearStart(moverZone(m),START_R)));
+  if(d.scan===1||d.scan===2)c.scan=d.scan===2?SCANS.two:SCANS.one;
+  if(d.dark)c.dark=220;
+  if(d.ice)c.ice=true;
+  if(d.storm)c.storm=150;
+  if(d.debris)c.debris=200;
+  if(d.strike)c.strike=280;
+  if(d.timer)c.timer=50;
+  const tj=edNum(d.trojan,0,2,0);
+  if(tj)c.trojan=tj*0.15;
+  const b=d.boss;
+  if(b&&typeof b==='object'&&BOSS_KINDS.some(k=>k[0]===b.kind)){
+    const p=bossPreset(b.kind);
+    c.boss=Object.assign({},p,{name:edStr(b.name,20)||p.name,hp:edNum(b.hp,3,8,5)});
+  }
+  return c;
+}
+function newRunCustom(c){score=0;lives=maxLives();emp=1;startLevel(0,c);}
+// уровень игрока пройден: ни уровней, ни рекорда, ни бит — только экран итога
+function customClear(){
+  const c=CUSTOM;
+  if(c.src==='ed'&&ED&&c.edKey===edKey()){edTested=c.edKey;edPersist();}
+  phase='clear';showMenu('cclear');
+}
+function leaveCustom(){const back=customBack;goMenu();showMenu(back);}
+
+// ================= РЕДАКТОР =================
+// черновики живут в этом браузере; опубликованный черновик помнит номер уровня в базе (pub)
+const DRAFT_KEY='dataout-drafts',DRAFT_MAX=30;
+let ED=null,edDraft=null,edTool='wall',edDrag=null,edTp=null,edHist=[],edTested='',edNote='',armed='';
+function edBlank(){return{v:1,name:'',descr:'',goal:15,cap:6,start:['chaser','chaser'],ramp:['chaser','sniper'],walls:[],gates:[],flow:[],lag:[],inv:[],holes:[],tps:[],mov:[],scan:0,dark:0,ice:0,storm:0,debris:0,strike:0,timer:0,trojan:0,theme:0,boss:null};}
+// сохранённый уровень → черновик редактора (через ту же проверку, что и перед игрой)
+function edFromData(d){
+  const c=normLevel(d),e=edBlank();
+  if(!c)return e;
+  e.name=edStr(d.name,30);e.descr=c.descr;e.goal=c.goal;e.cap=c.cap;e.start=c.start;e.ramp=c.ramp;e.theme=c.theme;
+  for(const k of ['walls','gates','flow','lag','inv','tps','mov'])e[k]=c[k]||[];
+  e.holes=(c.holes||[]).map(h=>({x:h.x,y:h.y,R:h.R}));
+  e.scan=c.scan===SCANS.two?2:(c.scan?1:0);
+  for(const f of ED_FLAGS)e[f[0]]=c[f[0]]?1:0;
+  e.trojan=c.trojan?Math.round(c.trojan/0.15):0;
+  e.boss=c.boss?{kind:c.boss.kind,hp:c.boss.hp,name:d.boss&&edStr(d.boss.name,20)||''}:null;
+  return e;
+}
+// «ключ» уровня без названия и описания: пройденный при проверке уровень можно переименовать
+function edKey(){return ED?JSON.stringify(Object.assign({},ED,{name:'',descr:''})):'';}
+function draftsLoad(){
+  try{const a=JSON.parse(localStorage.getItem(DRAFT_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&typeof x.id==='string'&&x.lv&&typeof x.lv==='object').slice(0,DRAFT_MAX):[];}
+  catch(_){return[];}
+}
+function draftsSave(a){try{localStorage.setItem(DRAFT_KEY,JSON.stringify(a.slice(0,DRAFT_MAX)));}catch(_){}}
+// черновик сохраняется сам после каждой правки
+function edPersist(){
+  if(!ED)return;
+  const a=draftsLoad();
+  if(!edDraft){
+    if(a.length>=DRAFT_MAX){edNote='Черновиков уже '+DRAFT_MAX+' — удали ненужные в «Мои уровни», чтобы сохранить этот.';return;}
+    edDraft={id:'d'+Date.now().toString(36)+Math.floor(Math.random()*1e4),pub:null};
+  }
+  edDraft.t=Date.now();edDraft.lv=ED;edDraft.ok=edTested;
+  const i=a.findIndex(x=>x.id===edDraft.id);
+  if(i>=0)a[i]=edDraft;else a.unshift(edDraft);
+  draftsSave(a);
+}
+function edOpen(lv,draft,tested){
+  ED=lv;edDraft=draft;edHist=[];edTp=null;edDrag=null;edNote='';edTested=tested||'';
+  showMenu('editor');
+}
+function edCanPub(){return NET_ON&&!!NET.user&&!!edStr(ED.name,30)&&edTested===edKey();}
+function edPubHint(){
+  if(!NET.user)return 'Чтобы публиковать уровни, войди в аккаунт.';
+  if(!edStr(ED.name,30))return 'Дай уровню название.';
+  if(edTested!==edKey())return 'Сначала пройди уровень сам — «Проверить уровень» до портала. Так в сообществе не бывает непроходимых уровней.';
+  return edDraft&&edDraft.pub?'Уровень опубликован. Правки увидят после «Обновить публикацию».':'Уровень пройден — можно публиковать.';
+}
+function edSay(t){edNote=t;const el=panelEl.querySelector('.ed-note');if(el)el.textContent=t||ED_HINTS[edTool];}
+// после правки: сохранить черновик, перерисовать поле, обновить кнопку публикации
+function edChanged(){
+  edNote='';edPersist();edSay(edNote);edDraw();
+  const b=panelEl.querySelector('[data-act="edpub"]'),h=panelEl.querySelector('.ed-pubhint');
+  if(b)b.disabled=!edCanPub();
+  if(h)h.textContent=edPubHint();
+}
+function edHTML(){
+  if(!ED)ED=edBlank();
+  const cnt=t=>ED.start.filter(x=>x===t).length;
+  const opt=(v,label,on)=>'<option value="'+v+'"'+(on?' selected':'')+'>'+label+'</option>';
+  const tools=ED_TOOLS.map(t=>chip('edtool:'+t[0],t[1],edTool===t[0])).join('');
+  const startChips=ED_TYPES.map(t=>chip('edst:'+t,ED_NAMES[t]+(cnt(t)?' ×'+cnt(t):''),cnt(t)>0)).join('');
+  const rampChips=ED_TYPES.map(t=>chip('edrm:'+t,ED_NAMES[t],ED.ramp.indexOf(t)>=0)).join('');
+  const flags=ED_FLAGS.map(f=>chip('edflag:'+f[0],f[1],!!ED[f[0]])).join('')+
+    chip('edscan',ED.scan===2?'Два луча сканера':'Сканер',ED.scan>0)+chip('edtroj','Трояны'+(ED.trojan?' '+ED.trojan*15+'%':''),ED.trojan>0);
+  const b=ED.boss;
+  const bossSel='<select id="ed-boss">'+opt('','без босса',!b)+BOSS_KINDS.map(k=>opt(k[0],k[1],!!b&&b.kind===k[0])).join('')+'</select>';
+  const hpSel='<select id="ed-bhp"'+(b?'':' disabled')+'>'+[3,4,5,6,7,8].map(n=>opt(n,n+(n<5?' удара':' ударов'),!!b&&b.hp===n)).join('')+'</select>';
+  const themeSel='<select id="ed-theme">'+ACTS.map((a,i)=>opt(i,(i+1)+' · '+a.name,ED.theme===i)).join('')+'</select>';
+  const pub=NET_ON
+    ?'<button type="button" class="mbtn" data-act="edpub"'+(edCanPub()?'':' disabled')+'>'+(edDraft&&edDraft.pub?'Обновить публикацию':'Опубликовать в сообществе')+'</button><p class="foot ed-pubhint">'+escHTML(edPubHint())+'</p>'
+    :'<p class="foot">Публиковать уровни можно на сайте игры: '+escHTML(SITE_URL)+'</p>';
+  return '<h2>РЕДАКТОР УРОВНЯ</h2>'+
+    '<label class="nick">Название<input id="ed-name" maxlength="30" value="'+escHTML(ED.name)+'" placeholder="Например: Лабиринт с дырами"></label>'+
+    '<label class="nick">Описание — что ждёт игрока<input id="ed-descr" maxlength="200" value="'+escHTML(ED.descr)+'"></label>'+
+    '<p class="lbl2">ИНСТРУМЕНТ — НАЖМИ ИЛИ ПРОТЯНИ ПО ПОЛЮ</p><div class="chips">'+tools+'</div>'+
+    '<canvas id="ed" width="'+W+'" height="'+H+'" aria-label="Поле уровня: нажми, чтобы поставить выбранное препятствие"></canvas>'+
+    '<p class="ed-note" aria-live="polite">'+escHTML(edNote||ED_HINTS[edTool])+'</p>'+
+    '<div class="mrow2">'+mb('edundo','Отменить последнее')+mb('edclear',armed==='edclear'?'Точно очистить?':'Очистить поле')+'</div>'+
+    '<p class="lbl2">СКОЛЬКО ДАННЫХ СОБРАТЬ И СКОЛЬКО ВРАГОВ НА ПОЛЕ</p><div class="chips">'+
+    chip('edgoal:-1','−',false)+'<b class="ed-val" title="данных">◆ '+ED.goal+'</b>'+chip('edgoal:1','+',false)+
+    chip('edcap:-1','−',false)+'<b class="ed-val" title="врагов сразу">▲ '+ED.cap+'</b>'+chip('edcap:1','+',false)+'</div>'+
+    '<p class="lbl2">ВРАГИ НА СТАРТЕ — НАЖИМАЙ, ЧТОБЫ ДОБАВИТЬ (ДО 3 ОДНОГО ВИДА, ВСЕГО ДО 8)</p><div class="chips">'+startChips+'</div>'+
+    '<p class="lbl2">ПОДКРЕПЛЕНИЕ — КТО ПРИХОДИТ ПО ХОДУ УРОВНЯ (ДО 6)</p><div class="chips">'+rampChips+'</div>'+
+    '<p class="lbl2">ОПАСНОСТИ</p><div class="chips">'+flags+'</div>'+
+    '<div class="ed-row"><label class="nick">Босс в конце'+bossSel+'</label><label class="nick">Прочность'+hpSel+'</label></div>'+
+    (b?'<label class="nick">Имя босса<input id="ed-bname" maxlength="20" value="'+escHTML(b.name||'')+'" placeholder="'+escHTML(bossPreset(b.kind).name)+'"></label>':'')+
+    '<label class="nick">Оформление поля'+themeSel+'</label>'+
+    '<div class="mcol">'+mb('edtest','▶ Проверить уровень','primary')+pub+'</div>'+
+    '<div class="mrow2">'+mb('mylevels','Мои уровни')+mb('community','Назад')+'</div>';
+}
+// поле редактора: то же, что увидит игрок, только схематично
+function edDraw(){
+  const cv=$id('ed');
+  if(!cv||!ED)return;
+  const g=cv.getContext('2d'),ac=ACTS[ED.theme]||ACTS[0];
+  g.setLineDash([]);g.globalAlpha=1;
+  g.fillStyle=ac.bg;g.fillRect(0,0,W,H);
+  g.strokeStyle=ac.grid;g.lineWidth=1;g.beginPath();
+  for(let x=40;x<W;x+=40){g.moveTo(x,0);g.lineTo(x,H);}
+  for(let y=40;y<H;y+=40){g.moveTo(0,y);g.lineTo(W,y);}
+  g.stroke();
+  g.textAlign='center';
+  for(const f of ED.flow){
+    g.fillStyle='rgba(56,140,220,0.13)';g.fillRect(0,f.y,W,f.h);
+    g.fillStyle='rgba(30,100,180,0.55)';g.font='bold 20px Courier New, monospace';
+    for(let x=60;x<W;x+=120)g.fillText(f.dir>0?'→':'←',x,f.y+f.h/2+7);
+  }
+  const circ=(x,y,r,fill,stroke,label)=>{
+    g.fillStyle=fill;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();
+    g.strokeStyle=stroke;g.lineWidth=2;g.setLineDash([4,5]);g.stroke();g.setLineDash([]);
+    if(label){g.fillStyle=stroke;g.font='bold 13px Courier New, monospace';g.fillText(label,x,y+5);}
+  };
+  for(const z of ED.lag)circ(z.x,z.y,z.r,'rgba(100,110,130,0.13)','#556','ЛАГ');
+  for(const z of ED.inv)circ(z.x,z.y,z.r,'rgba(219,39,119,0.09)','#be185d','ИНВЕРСИЯ');
+  for(const h of ED.holes){circ(h.x,h.y,h.R,'rgba(76,29,149,0.05)','rgba(76,29,149,0.6)','');g.fillStyle='#1e1b4b';g.beginPath();g.arc(h.x,h.y,15,0,TAU);g.fill();}
+  for(const q of ED.walls){g.fillStyle='#cfd8e3';g.fillRect(q.x,q.y,q.w,q.h);g.strokeStyle='#64748b';g.lineWidth=2;g.strokeRect(q.x+1,q.y+1,q.w-2,q.h-2);}
+  for(const q of ED.gates){g.fillStyle='rgba(220,38,38,0.25)';g.fillRect(q.x,q.y,q.w,q.h);g.strokeStyle='#dc2626';g.lineWidth=2;g.strokeRect(q.x+1,q.y+1,q.w-2,q.h-2);}
+  for(const m of ED.mov){
+    const z=moverZone(m);
+    g.strokeStyle='rgba(202,138,4,0.7)';g.lineWidth=1.5;g.setLineDash([3,4]);g.strokeRect(z.x,z.y,z.w,z.h);g.setLineDash([]);
+    g.fillStyle='#e2e9f1';g.fillRect(m.x,m.y,m.w,m.h);g.strokeStyle='#ca8a04';g.lineWidth=3;g.strokeRect(m.x+1.5,m.y+1.5,m.w-3,m.h-3);
+  }
+  ED.tps.forEach((pr,k)=>{
+    const col=['#7a4fd6','#d6408a','#2b8a9e'][k%3];
+    g.strokeStyle=col;g.lineWidth=3;
+    for(const q of pr){g.beginPath();g.arc(q.x,q.y,TP_R,0,TAU);g.stroke();}
+    g.globalAlpha=0.35;g.setLineDash([2,6]);g.beginPath();g.moveTo(pr[0].x,pr[0].y);g.lineTo(pr[1].x,pr[1].y);g.stroke();g.setLineDash([]);g.globalAlpha=1;
+  });
+  if(edTp){g.strokeStyle='#7a4fd6';g.lineWidth=3;g.setLineDash([4,4]);g.beginPath();g.arc(edTp.x,edTp.y,TP_R,0,TAU);g.stroke();g.setLineDash([]);}
+  if(ED.scan){
+    g.strokeStyle='rgba(220,38,38,0.5)';g.lineWidth=2;
+    for(let k=0;k<ED.scan;k++){const a=-Math.PI/2+k*Math.PI;g.beginPath();g.moveTo(W/2+Math.cos(a)*46,H/2+Math.sin(a)*46);g.lineTo(W/2+Math.cos(a)*470,H/2+Math.sin(a)*470);g.stroke();}
+  }
+  g.strokeStyle='#0aa';g.lineWidth=2;g.setLineDash([5,5]);g.beginPath();g.arc(W/2,H/2,START_R,0,TAU);g.stroke();g.setLineDash([]);
+  g.fillStyle='#0cc';g.beginPath();g.arc(W/2,H/2,14,0,TAU);g.fill();
+  g.fillStyle='#057';g.font='bold 13px Courier New, monospace';g.fillText('СТАРТ',W/2,H/2+34);
+  if(edDrag&&edDrag.box){
+    const q=edDrag.box;
+    g.strokeStyle='#a2a';g.lineWidth=2;g.setLineDash([6,4]);
+    if(q.r){g.beginPath();g.arc(q.x,q.y,q.r,0,TAU);g.stroke();}else g.strokeRect(q.x,q.y,q.w,q.h);
+    g.setLineDash([]);
+  }
+}
+const edSnap=v=>Math.round(v/10)*10;
+const ED_SIZE={wall:[100,20],gate:[120,16],mov:[100,24]};
+function edPos(e,cv){const r=cv.getBoundingClientRect();return{x:Math.max(0,Math.min(W,(e.clientX-r.left)/r.width*W)),y:Math.max(0,Math.min(H,(e.clientY-r.top)/r.height*H))};}
+function edBind(){
+  const cv=$id('ed');
+  if(!cv)return;
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();const p=edPos(e,cv);edDrag={x0:p.x,y0:p.y,box:null};try{cv.setPointerCapture(e.pointerId);}catch(_){}});
+  cv.addEventListener('pointermove',e=>{if(!edDrag)return;const p=edPos(e,cv);edDrag.box=edShape(edDrag.x0,edDrag.y0,p.x,p.y);edDraw();});
+  cv.addEventListener('pointerup',e=>{if(!edDrag)return;const p=edPos(e,cv),d=edDrag;edDrag=null;edPlace(d.x0,d.y0,p.x,p.y);});
+  cv.addEventListener('pointercancel',()=>{edDrag=null;edDraw();});
+  edDraw();
+}
+// что получится из нажатия (x0,y0) и отпускания (x1,y1) выбранным инструментом
+function edShape(x0,y0,x1,y1){
+  const t=edTool;
+  if(ED_SIZE[t]){
+    let x,y,w,h;
+    if(Math.abs(x1-x0)<12&&Math.abs(y1-y0)<12){w=ED_SIZE[t][0];h=ED_SIZE[t][1];x=edSnap(x0-w/2);y=edSnap(y0-h/2);}
+    else{x=edSnap(Math.min(x0,x1));y=edSnap(Math.min(y0,y1));w=Math.max(10,edSnap(Math.abs(x1-x0)));h=Math.max(10,edSnap(Math.abs(y1-y0)));}
+    w=Math.min(w,W);h=Math.min(h,H);
+    return{x:Math.max(0,Math.min(W-w,x)),y:Math.max(0,Math.min(H-h,y)),w,h};
+  }
+  if(t==='lag'||t==='inv'){const d=Math.hypot(x1-x0,y1-y0);return{x:edSnap(x0),y:edSnap(y0),r:d<12?80:Math.max(40,Math.min(130,edSnap(d)))};}
+  return null;
+}
+function edFull(k){if(ED[k].length<ED_MAX[k])return false;edSay('Больше '+ED_MAX[k]+' таких не поставить.');edDraw();return true;}
+function edNo(t){edSay(t);edDraw();}
+function edPlace(x0,y0,x1,y1){
+  const t=edTool,s=edShape(x0,y0,x1,y1);
+  let key=null;
+  if(t==='wall'||t==='gate'){
+    key=t==='wall'?'walls':'gates';
+    if(edFull(key))return;
+    if(rectNearStart(s,START_R))return edNo('Слишком близко к старту игрока — отодвинь.');
+    if(t==='gate')s.o=ED.gates.length*100%300;
+    ED[key].push(s);
+  }else if(t==='mov'){
+    key='mov';
+    if(edFull(key))return;
+    const m=Object.assign(s,{ax:0,ay:0,sp:0.012,ph:ED.mov.length*1.6});
+    if(m.w>=m.h)m.ax=Math.max(0,Math.min(120,m.x,W-m.x-m.w));else m.ay=Math.max(0,Math.min(120,m.y,H-m.y-m.h));
+    if(rectNearStart(moverZone(m),START_R))return edNo('Путь блока задевает старт игрока — отодвинь.');
+    ED.mov.push(m);
+  }else if(t==='lag'||t==='inv'){
+    key=t;
+    if(edFull(key))return;
+    ED[key].push(s);
+  }else if(t==='hole'){
+    key='holes';
+    if(edFull(key))return;
+    const x=Math.max(20,Math.min(W-20,edSnap(x1))),y=Math.max(20,Math.min(H-20,edSnap(y1)));
+    if(Math.hypot(x-W/2,y-H/2)<15+START_R+40)return edNo('Чёрная дыра у самого старта — поставь подальше.');
+    ED.holes.push({x,y,R:150});
+  }else if(t==='flow'){
+    key='flow';
+    if(edFull(key))return;
+    const y=Math.max(0,Math.min(H-60,edSnap(y1-30)));
+    if(ED.flow.some(f=>y<f.y+f.h&&f.y<y+60))return edNo('Здесь уже есть поток.');
+    ED.flow.push({y,h:60,dir:ED.flow.length%2?-1:1});
+  }else if(t==='tp'){
+    const p={x:Math.max(30,Math.min(W-30,edSnap(x1))),y:Math.max(30,Math.min(H-30,edSnap(y1)))};
+    if(Math.hypot(p.x-W/2,p.y-H/2)<START_R)return edNo('Роутер на старте не поставить.');
+    if(!edTp){
+      if(edFull('tps'))return;
+      edTp=p;return edNo('Теперь нажми, где будет второе кольцо этой пары.');
+    }
+    if(Math.hypot(p.x-edTp.x,p.y-edTp.y)<=60)return edNo('Кольца пары должны стоять подальше друг от друга.');
+    ED.tps.push([edTp,p]);edTp=null;key='tps';
+  }else if(t==='erase'){
+    const del=edErase(x1,y1);
+    if(!del)return edNo('Здесь нечего стирать.');
+    edHist.push(del);
+  }
+  if(key)edHist.push({k:key});
+  edChanged();
+}
+function edErase(x,y){
+  const inR=q=>x>=q.x&&x<=q.x+q.w&&y>=q.y&&y<=q.y+q.h,inC=z=>Math.hypot(z.x-x,z.y-y)<z.r;
+  const tries=[['tps',pr=>pr.some(q=>Math.hypot(q.x-x,q.y-y)<TP_R+4)],['holes',h=>Math.hypot(h.x-x,h.y-y)<30],['mov',inR],['gates',inR],['walls',inR],['inv',inC],['lag',inC],['flow',f=>y>=f.y&&y<=f.y+f.h]];
+  for(const [k,hit] of tries)for(let i=ED[k].length-1;i>=0;i--)if(hit(ED[k][i]))return{k,i,item:ED[k].splice(i,1)[0]};
+  return null;
+}
+// отмена: поставленное убирается, стёртое возвращается на место
+function edUndo(){
+  const h=edHist.pop();
+  if(!h)return edSay('Отменять нечего.');
+  if(h.item)ED[h.k].splice(Math.min(h.i,ED[h.k].length),0,h.item);
+  else if(ED[h.k].length)ED[h.k].pop();
+  edChanged();
+}
+function edTest(){
+  const c=normLevel(ED);
+  if(!c)return;
+  edPersist();
+  c.src='ed';c.edKey=edKey();
+  customBack='editor';
+  newRunCustom(c);
+}
+async function edPublish(){
+  if(!ED||!edCanPub()){edSay(ED?edPubHint():'');return;}
+  const b=panelEl.querySelector('[data-act="edpub"]');
+  if(b){b.disabled=true;b.textContent='Публикую…';}
+  const body=JSON.stringify({name:edStr(ED.name,30),descr:edStr(ED.descr,200),data:ED});
+  try{
+    const tok=await netToken();
+    if(!tok)throw Object.assign(new Error('нужно войти в аккаунт'),{status:401});
+    const h=Object.assign(netHeaders(tok),{Prefer:'return=representation'});
+    let rows=null;
+    if(edDraft&&edDraft.pub)rows=await netFetch('/rest/v1/levels?id=eq.'+edDraft.pub,{method:'PATCH',headers:h,body});
+    // уровень удалили на сервере — публикуем заново
+    if(!Array.isArray(rows)||!rows.length)rows=await netFetch('/rest/v1/levels',{method:'POST',headers:h,body});
+    const id=Array.isArray(rows)&&rows[0]&&Number(rows[0].id);
+    if(!id)throw new Error('сервер не вернул уровень');
+    if(!edDraft)edDraft={id:'d'+Date.now().toString(36),pub:null};
+    edDraft.pub=id;edPersist();
+    edNote='Опубликовано! Уровень виден всем в «Сообществе».';
+  }catch(e){edNote='Не получилось опубликовать: '+(e.status===0?'нет связи с сервером.':errMsg(e));}
+  if(menuScreen==='editor')showMenu('editor');
+}
+function myLevelsHTML(){
+  const a=draftsLoad();
+  const rows=a.map(d=>{
+    const c=normLevel(d.lv)||{name:'Без названия'};
+    const tags=[fmtDate(d.t)];
+    if(d.pub)tags.push('опубликован');
+    if(d.ok&&d.ok===JSON.stringify(Object.assign({},d.lv,{name:'',descr:''})))tags.push('пройден');
+    return '<div class="lcard"><b>'+escHTML(edStr(d.lv.name,30)||'Без названия')+'</b><small>'+escHTML(tags.join(' · '))+(features(c)?' · '+escHTML(features(c)):'')+'</small>'+
+      '<div class="lacts">'+mb('edopen:'+d.id,'Открыть','sm primary')+mb('eddel:'+d.id,armed==='eddel:'+d.id?'Точно удалить?':'Удалить','sm')+'</div></div>';
+  }).join('');
+  return '<h2>МОИ УРОВНИ</h2><p>Черновики хранятся в этом браузере и сохраняются сами. Удаление черновика не снимает публикацию — её удаляют в «Сообществе».</p>'+
+    mb('ednew','Новый уровень','primary')+
+    '<div class="lcards">'+(rows||'<p>Пока ни одного — создай первый уровень.</p>')+'</div>'+mb('community','Назад');
+}
+
+// ================= СООБЩЕСТВО =================
+let comTab='new',comList=[],comNames={},comLiked={};
+function cleanLevelRow(v){
+  if(!v||typeof v!=='object')return null;
+  const id=Math.floor(Number(v.id)||0);
+  if(id<=0||!isUuid(v.author))return null;
+  return{id,name:edStr(v.name,30)||'Без названия',descr:edStr(v.descr,200),author:v.author,plays:clampInt(v.plays,0,1e9,0),likes:clampInt(v.likes,0,1e9,0),hidden:v.hidden===true,at:Date.parse(v.created_at)||0};
+}
+function comHTML(){
+  const head='<h2>СООБЩЕСТВО</h2><p>Уровни, которые сделали игроки. Они не влияют на рекорд, уровни и биты — играй ради интереса.</p>'+
+    '<div class="mrow2">'+mb('ednew','Создать уровень','primary')+mb('mylevels','Мои уровни')+'</div>';
+  if(!NET_ON)return head+'<p>Общий список уровней — на сайте игры: '+escHTML(SITE_URL)+'. Здесь можно делать уровни и проходить свои.</p>'+mb('main','Назад');
+  return head+'<div class="chips">'+chip('ctab:new','Новые',comTab==='new')+chip('ctab:top','Популярные',comTab==='top')+(NET.user?chip('ctab:mine','Опубликованные мной',comTab==='mine'):'')+'</div>'+
+    '<p class="com-status">Загружаю…</p><div class="lcards"></div>'+mb('main','Назад');
+}
+// имена авторов — отдельным запросом; скрытые администратором игроки остаются безымянными
+async function loadNames(ids,tok){
+  ids=ids.filter(isUuid).filter(id=>!comNames[id]);
+  if(!ids.length)return;
+  const rows=await netFetch('/rest/v1/progress?select=user_id,name&user_id=in.('+ids.join(',')+')',{headers:netHeaders(tok)});
+  (Array.isArray(rows)?rows:[]).forEach(r=>{if(isUuid(r.user_id))comNames[r.user_id]=edStr(r.name,20)||'Игрок';});
+}
+async function loadLiked(ids,tok){
+  if(!NET.user||!ids.length)return;
+  const rows=await netFetch('/rest/v1/level_likes?select=level_id&user_id=eq.'+encodeURIComponent(NET.user.id)+'&level_id=in.('+ids.join(',')+')',{headers:netHeaders(tok)});
+  (Array.isArray(rows)?rows:[]).forEach(r=>{comLiked[Number(r.level_id)]=true;});
+}
+async function fillCommunity(){
+  const box=panelEl.querySelector('.lcards'),st=panelEl.querySelector('.com-status');
+  if(!box||!st)return;
+  const tab=comTab;
+  let q='/rest/v1/levels?select=id,name,descr,author,plays,likes,hidden,created_at&limit=40&order='+(tab==='top'?'likes.desc,plays.desc,created_at.desc':'created_at.desc');
+  if(tab==='mine'){if(!NET.user){st.textContent='Войди, чтобы видеть свои уровни.';return;}q+='&author=eq.'+encodeURIComponent(NET.user.id);}
+  else q+='&hidden=is.false';
+  let list;
+  try{
+    const tok=await netToken();
+    const rows=await netFetch(q,{headers:netHeaders(tok)});
+    list=(Array.isArray(rows)?rows:[]).map(cleanLevelRow).filter(Boolean);
+    await loadNames(list.map(r=>r.author),tok);
+    await loadLiked(list.map(r=>r.id),tok);
+  }catch(e){if(panelEl.contains(box))st.textContent='Не удалось загрузить уровни: '+(e.status===0?'нет связи с сервером.':errMsg(e));return;}
+  if(!panelEl.contains(box)||comTab!==tab)return;
+  comList=list;
+  st.textContent=list.length?(tab==='top'?'Самые любимые уровни':(tab==='mine'?'Твои опубликованные уровни: '+list.length:'Свежие уровни')):(tab==='mine'?'Опубликованных уровней пока нет — сделай уровень в редакторе.':'Пока пусто. Сделай первый уровень!');
+  renderLevelCards(box,list);
+}
+// карточки уровней; названия и описания — чужой ввод, поэтому только textContent
+function renderLevelCards(box,list){
+  box.textContent='';
+  for(const r of list){
+    const card=document.createElement('div');card.className='lcard';
+    const h=document.createElement('b');h.textContent=r.name+(r.hidden?' · скрыт администратором':'');
+    const meta=document.createElement('small');meta.textContent=(comNames[r.author]||'Игрок')+' · ▶ '+r.plays+' · ♥ '+r.likes+' · '+fmtDate(r.at);
+    card.append(h,meta);
+    if(r.descr){const p=document.createElement('p');p.textContent=r.descr;card.appendChild(p);}
+    const row=document.createElement('div');row.className='lacts';
+    const btn=(act,label,cls)=>{const b=document.createElement('button');b.type='button';b.className='mbtn sm'+(cls?' '+cls:'');b.dataset.act=act;b.textContent=label;row.appendChild(b);};
+    const mine=!!NET.user&&r.author===NET.user.id;
+    btn('cplay:'+r.id,'▶ Играть','primary');
+    if(NET.user&&!mine&&!r.hidden)btn('clike:'+r.id,comLiked[r.id]?'♥ Нравится':'♡ Нравится',comLiked[r.id]?'liked':'');
+    if(menuScreen!=='profile')btn('profile:'+r.author,'Автор');
+    if(mine)btn('cedit:'+r.id,'Изменить');
+    if(mine||NET.admin)btn('cdel:'+r.id,'Удалить');
+    if(NET.admin)btn('chide:'+r.id,r.hidden?'Показать':'Скрыть');
+    card.appendChild(row);box.appendChild(card);
+  }
+}
+function findLevel(id){return comList.find(r=>r.id===id)||admLevels.find(r=>r.id===id)||profLevels.find(r=>r.id===id)||null;}
+// пересобрать список на текущем экране, не загружая его заново
+function redrawCards(){
+  const box=panelEl.querySelector('.lcards');
+  if(!box)return;
+  renderLevelCards(box,menuScreen==='admin'?admLevels:(menuScreen==='profile'?profLevels:comList));
+}
+async function loadLevel(id){
+  const tok=await netToken();
+  const rows=await netFetch('/rest/v1/levels?select=id,name,descr,author,data&id=eq.'+id,{headers:netHeaders(tok)});
+  const v=Array.isArray(rows)&&rows[0];
+  if(!v||!isUuid(v.author))return null;
+  return{v,tok,data:Object.assign({},v.data,{name:v.name,descr:v.descr})};
+}
+async function comPlay(id){
+  const from=menuScreen;
+  try{
+    const L=await loadLevel(id);
+    const c=L&&normLevel(L.data);
+    if(!c){msg('Этот уровень не открывается — похоже, он испорчен.');return;}
+    c.id=id;c.author=L.v.author;c.by=comNames[c.author]||'';
+    customBack=from==='admin'||from==='profile'?from:'community';
+    // запуск засчитывается один раз на игрока; свои уровни не считаются
+    if(NET.user&&c.author!==NET.user.id)netFetch('/rest/v1/level_plays?on_conflict=level_id,user_id',{method:'POST',headers:Object.assign(netHeaders(L.tok),{Prefer:'resolution=ignore-duplicates,return=minimal'}),body:JSON.stringify({level_id:id})}).catch(()=>{});
+    newRunCustom(c);
+  }catch(e){msg('Не удалось загрузить уровень: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+}
+async function comLike(id){
+  if(!NET.user)return;
+  const r=findLevel(id),was=!!comLiked[id];
+  try{
+    const tok=await netToken();
+    if(was)await netFetch('/rest/v1/level_likes?level_id=eq.'+id+'&user_id=eq.'+encodeURIComponent(NET.user.id),{method:'DELETE',headers:netHeaders(tok)});
+    else await netFetch('/rest/v1/level_likes?on_conflict=level_id,user_id',{method:'POST',headers:Object.assign(netHeaders(tok),{Prefer:'resolution=ignore-duplicates,return=minimal'}),body:JSON.stringify({level_id:id})});
+    comLiked[id]=!was;
+    if(r)r.likes=Math.max(0,r.likes+(was?-1:1));
+    if(menuScreen==='cclear'){const b=panelEl.querySelector('[data-act="clike:'+id+'"]');if(b){b.textContent='♥ Спасибо!';b.disabled=true;}}
+    else redrawCards();
+  }catch(e){msg('Не получилось: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+}
+async function comEdit(id){
+  try{
+    const L=await loadLevel(id);
+    if(!L||!NET.user||L.v.author!==NET.user.id)return;
+    const lv=edFromData(L.data),d=draftsLoad().find(x=>x.pub===id);
+    lv.name=edStr(L.v.name,30);lv.descr=edStr(L.v.descr,200);
+    // опубликованный уровень уже был пройден автором
+    ED=lv;
+    edOpen(lv,d?{id:d.id,pub:id}:{id:'d'+Date.now().toString(36),pub:id},edKey());
+    edPersist();
+  }catch(e){msg('Не удалось открыть уровень: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+}
+async function comDelete(id){
+  try{
+    const tok=await netToken();
+    await netFetch('/rest/v1/levels?id=eq.'+id,{method:'DELETE',headers:netHeaders(tok)});
+    msg('Уровень удалён.');
+  }catch(e){msg('Не получилось удалить: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+  showMenu(menuScreen);
+}
+async function comHide(id){
+  const r=findLevel(id);
+  if(!r||!NET.admin)return;
+  try{
+    const tok=await netToken();
+    await netFetch('/rest/v1/levels?id=eq.'+id,{method:'PATCH',headers:netHeaders(tok),body:JSON.stringify({hidden:!r.hidden})});
+    r.hidden=!r.hidden;redrawCards();
+  }catch(e){msg('Не получилось: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+}
+// кнопка, которую надо нажать второй раз для подтверждения
+function armBtn(a,text){armed=a;const b=panelEl.querySelector('[data-act="'+a+'"]');if(b)b.textContent=text;}
+
+// ================= ПРОФИЛЬ ИГРОКА =================
+let profId=null,profBack='top',profLevels=[],pvLook=null;
+function profHTML(){
+  return '<h2 class="prof-name">ПРОФИЛЬ</h2><p class="prof-status">Загружаю…</p>'+
+    '<canvas id="pv" width="360" height="168" aria-label="Облик игрока" hidden></canvas><div class="prof-body"></div>'+
+    mb(profBack,'Назад','primary');
+}
+async function fillProfile(){
+  const st=panelEl.querySelector('.prof-status'),body=panelEl.querySelector('.prof-body');
+  if(!st)return;
+  const id=profId;
+  if(!NET_ON||!isUuid(id)){st.textContent='Профили игроков — на сайте игры.';return;}
+  let row,levels=[],sup=false;
+  try{
+    const tok=await netToken(),h={headers:netHeaders(tok)};
+    const rows=await netFetch('/rest/v1/progress?select=user_id,name,bio,best,unlocked,wins,color,shape,trail,hat,created_at,updated_at,hidden&user_id=eq.'+id,h);
+    row=Array.isArray(rows)&&rows[0];
+    if(row){
+      const lv=await netFetch('/rest/v1/levels?select=id,name,descr,author,plays,likes,hidden,created_at&author=eq.'+id+'&order=created_at.desc&limit=30',h);
+      levels=(Array.isArray(lv)?lv:[]).map(cleanLevelRow).filter(Boolean);
+      if(DONATE_ON||NET.admin){const s=await netFetch('/rest/v1/supporters?select=user_id&user_id=eq.'+id,h);sup=Array.isArray(s)&&s.length>0;}
+      await loadLiked(levels.map(r=>r.id),tok);
+    }
+  }catch(e){if(panelEl.contains(st))st.textContent='Не удалось загрузить профиль: '+(e.status===0?'нет связи с сервером.':errMsg(e));return;}
+  if(!panelEl.contains(st)||profId!==id)return;
+  if(!row){st.textContent='Профиль не найден: игрок ещё не играл или скрыт администратором.';return;}
+  const name=edStr(row.name,20)||'Игрок',me=!!NET.user&&id===NET.user.id;
+  comNames[id]=name;
+  panelEl.querySelector('.prof-name').textContent=name+(sup?' ★':'');
+  st.textContent='В игре с '+fmtDate(Date.parse(row.created_at)||0)+' · последняя игра '+fmtDate(Date.parse(row.updated_at)||0)+(row.hidden?' · скрыт администратором':'');
+  pvLook={c:clampInt(row.color,0,SKIN_COLORS.length-1,0),s:clampInt(row.shape,0,SKIN_SHAPES.length-1,0),t:clampInt(row.trail,0,TRAILS.length-1,0),h:clampInt(row.hat,0,HATS.length-1,0)};
+  const pv=$id('pv');if(pv){pv.hidden=false;drawPreview();}
+  body.textContent='';
+  const bio=document.createElement('p');bio.className='bio';
+  bio.textContent=typeof row.bio==='string'&&row.bio?row.bio.slice(0,200):(me?'Описания пока нет — его можно добавить в «Аккаунте».':'Игрок пока ничего о себе не написал.');
+  const stats=document.createElement('div');stats.className='stats';
+  [[clampInt(row.unlocked,1,LEVELS.length,1)+'/'+LEVELS.length,'уровней открыто'],[Math.max(0,Math.floor(Number(row.best)||0)),'рекорд очков'],[clampInt(row.wins,0,1e6,0),'побегов'],[levels.filter(r=>!r.hidden).length,'уровней создано']].forEach(([v,l])=>{
+    const d=document.createElement('div'),b=document.createElement('b'),s=document.createElement('span');b.textContent=String(v);s.textContent=l;d.append(b,s);stats.appendChild(d);
+  });
+  body.append(bio,stats);
+  const acts=document.createElement('div');acts.className='lacts';
+  const btn=(act,label)=>{const b=document.createElement('button');b.type='button';b.className='mbtn sm';b.dataset.act=act;b.textContent=label;acts.appendChild(b);};
+  if(me)btn('acct','Изменить имя и описание');
+  if(NET.admin&&!me){
+    btn('ahide:'+id,row.hidden?'Показать игрока':'Скрыть игрока');
+    if(row.bio)btn('abio:'+id,'Стереть описание');
+    btn('asup:'+id,sup?'Забрать ★':'Выдать ★');
+  }
+  if(acts.childNodes.length)body.appendChild(acts);
+  profLevels=levels.filter(r=>!r.hidden||me||NET.admin);
+  if(profLevels.length){
+    const lb=document.createElement('p');lb.className='lbl2';lb.textContent='УРОВНИ ИГРОКА';
+    const box=document.createElement('div');box.className='lcards';
+    body.append(lb,box);
+    renderLevelCards(box,profLevels);
+  }
+}
+function openProfile(id,back){profId=id;profBack=back;showMenu('profile');}
+
+// ================= ТАБЛИЦА РЕКОРДОВ =================
+let topTab='best';
+const TOP_TABS=[['best','Очки'],['unlocked','Уровни'],['wins','Побеги']];
+const TOP_ORDER={best:'best.desc,updated_at.asc',unlocked:'unlocked.desc,best.desc',wins:'wins.desc,best.desc'};
+// сколько строк подходит под запрос, без самих строк: PostgREST пишет число в Content-Range
+async function netCount(q){
+  const opt={method:'HEAD',headers:Object.assign(netHeaders(),{Prefer:'count=exact'})};
+  let tm=0;
+  if(typeof AbortController==='function'){const c=new AbortController();opt.signal=c.signal;tm=setTimeout(()=>c.abort(),15000);}
+  try{
+    const r=await fetch(ONLINE.supabaseUrl.replace(/\/+$/,'')+q,opt);
+    const m=/\/(\d+)$/.exec(r.headers.get('content-range')||'');
+    return m?Number(m[1]):null;
+  }catch(_){return null;}
+  finally{clearTimeout(tm);}
+}
+function topVal(r,tab){return tab==='unlocked'?r.unlocked:(tab==='wins'?r.wins:r.best);}
+function topLabel(r,tab){
+  if(tab==='unlocked')return{big:'ур. '+r.unlocked,small:'рекорд '+r.best+(r.wins?' · побегов: '+r.wins:'')};
+  if(tab==='wins')return{big:String(r.wins),small:'побегов · рекорд '+r.best};
+  return{big:String(r.best),small:'ур. '+r.unlocked+(r.wins?' · побегов: '+r.wins:'')};
+}
+
+// ================= АДМИН-ПАНЕЛЬ =================
+// всё, что видно здесь, база отдаёт только администраторам (таблица admins); остальным — пусто или «нет доступа»
+let admTab='sum',admPlayers=[],admLevels=[],admFilter='';
+const ADM_TABS=[['sum','Сводка'],['players','Игроки'],['levels','Уровни'],['pay','Платежи']];
+function admHTML(){
+  return '<h2>АДМИН-ПАНЕЛЬ</h2><p class="sub">ВИДНА ТОЛЬКО АДМИНИСТРАТОРАМ</p>'+
+    '<div class="chips">'+ADM_TABS.map(t=>chip('atab:'+t[0],t[1],admTab===t[0])).join('')+'</div>'+
+    (admTab==='players'?'<label class="nick">Поиск по логину или имени<input id="adm-q" maxlength="30" value="'+escHTML(admFilter)+'"></label>':'')+
+    '<p class="adm-status">Загружаю…</p><div class="adm-body"></div>'+
+    '<p class="foot">Все таблицы целиком — в панели Supabase: supabase.com/dashboard → проект data-out → Table Editor.</p>'+
+    mb('main','Назад','primary');
+}
+function cleanAdmPlayer(v){
+  if(!v||!isUuid(v.user_id))return null;
+  return{id:v.user_id,login:edStr(v.login,40),provider:edStr(v.provider,10),name:edStr(v.name,20),bio:typeof v.bio==='string'?v.bio.slice(0,200):'',
+    unlocked:clampInt(v.unlocked,0,LEVELS.length,0),best:Math.max(0,Math.floor(Number(v.best)||0)),wins:clampInt(v.wins,0,1e6,0),hidden:v.hidden===true,sup:v.supporter===true,levels:clampInt(v.levels,0,1e6,0),
+    at:Date.parse(v.created_at)||0,seen:Date.parse(v.last_sign_in_at)||0};
+}
+async function fillAdmin(){
+  const st=panelEl.querySelector('.adm-status'),body=panelEl.querySelector('.adm-body');
+  if(!st)return;
+  if(!NET.admin){st.textContent='Нет доступа.';return;}
+  const tab=admTab;
+  try{
+    const tok=await netToken(),h={headers:netHeaders(tok)};
+    if(tab==='sum'||tab==='players'){
+      const rows=await netFetch('/rest/v1/rpc/admin_players',{method:'POST',headers:netHeaders(tok),body:'{}'});
+      admPlayers=(Array.isArray(rows)?rows:[]).map(cleanAdmPlayer).filter(Boolean);
+      admPlayers.forEach(p=>{comNames[p.id]=p.name||p.login||'Игрок';});
+    }
+    if(tab==='sum'||tab==='levels'){
+      const rows=await netFetch('/rest/v1/levels?select=id,name,descr,author,plays,likes,hidden,created_at&order=created_at.desc&limit=200',h);
+      admLevels=(Array.isArray(rows)?rows:[]).map(cleanLevelRow).filter(Boolean);
+      await loadNames(admLevels.map(r=>r.author),tok);
+    }
+    let pays=[];
+    if(tab==='sum'||tab==='pay'){
+      const rows=await netFetch('/rest/v1/donations?select=operation_id,user_id,amount,created_at&order=created_at.desc&limit=500',h);
+      pays=(Array.isArray(rows)?rows:[]).map(v=>({user:isUuid(v.user_id)?v.user_id:'',sum:Math.max(0,Number(v.amount)||0),at:Date.parse(v.created_at)||0}));
+      await loadNames(pays.map(p=>p.user),tok);
+    }
+    if(!panelEl.contains(st)||admTab!==tab)return;
+    body.textContent='';
+    if(tab==='sum'){
+      const total=pays.reduce((a,p)=>a+p.sum,0);
+      st.textContent='Обновлено '+new Date().toLocaleTimeString('ru-RU');
+      const stats=document.createElement('div');stats.className='stats';
+      [[admPlayers.length,'аккаунтов'],[admPlayers.filter(p=>p.unlocked>0).length,'играли'],[admPlayers.filter(p=>p.hidden).length,'скрыто игроков'],[admPlayers.filter(p=>p.sup).length,'со ★'],
+       [admLevels.length,'уровней игроков'],[admLevels.filter(r=>r.hidden).length,'скрыто уровней'],[admLevels.reduce((a,r)=>a+r.plays,0),'запусков'],[admLevels.reduce((a,r)=>a+r.likes,0),'лайков'],
+       [pays.length,'платежей'],[Math.round(total)+' ₽','поддержка всего'],[admPlayers.filter(p=>p.seen&&Date.now()-p.seen<7*864e5).length,'входили за неделю'],[admPlayers.filter(p=>p.at&&Date.now()-p.at<7*864e5).length,'новых за неделю']]
+        .forEach(([v,l])=>{const d=document.createElement('div'),b=document.createElement('b'),s=document.createElement('span');b.textContent=String(v);s.textContent=l;d.append(b,s);stats.appendChild(d);});
+      body.appendChild(stats);
+    }else if(tab==='players')renderAdmPlayers();
+    else if(tab==='levels'){
+      st.textContent='Уровней: '+admLevels.length+' (скрыто '+admLevels.filter(r=>r.hidden).length+')';
+      const box=document.createElement('div');box.className='lcards';body.appendChild(box);renderLevelCards(box,admLevels);
+    }else{
+      st.textContent='Платежей: '+pays.length+' на '+Math.round(pays.reduce((a,p)=>a+p.sum,0))+' ₽';
+      const ol=document.createElement('ol');ol.className='top';
+      pays.forEach(p=>{
+        const li=document.createElement('li');li.className='pay';
+        const a=document.createElement('span');a.className='rk';a.textContent=fmtDate(p.at);
+        const n=document.createElement('span');n.className='nm';n.textContent=comNames[p.user]||'Игрок';
+        const s=document.createElement('span');s.className='sc';s.textContent=Math.round(p.sum)+' ₽';
+        li.append(a,n,s);ol.appendChild(li);
+      });
+      body.appendChild(ol);
+    }
+  }catch(e){if(panelEl.contains(st))st.textContent='Не удалось загрузить: '+(e.status===0?'нет связи с сервером.':errMsg(e));}
+}
+function renderAdmPlayers(){
+  const st=panelEl.querySelector('.adm-status'),body=panelEl.querySelector('.adm-body');
+  if(!st||!body)return;
+  const q=admFilter.toLowerCase(),list=admPlayers.filter(p=>!q||p.login.toLowerCase().indexOf(q)>=0||p.name.toLowerCase().indexOf(q)>=0);
+  st.textContent='Аккаунтов: '+admPlayers.length+(q?' · найдено: '+list.length:'');
+  body.textContent='';
+  const box=document.createElement('div');box.className='lcards';
+  for(const p of list.slice(0,200)){
+    const card=document.createElement('div');card.className='lcard';
+    const h=document.createElement('b');h.textContent=(p.name||'без прогресса')+(p.sup?' ★':'')+(p.hidden?' · скрыт':'');
+    const meta=document.createElement('small');
+    meta.textContent='логин '+(p.login||'—')+' · '+(p.provider||'—')+' · ур. '+p.unlocked+' · рекорд '+p.best+' · побегов '+p.wins+' · уровней '+p.levels+' · с '+fmtDate(p.at)+' · вход '+fmtDate(p.seen);
+    card.append(h,meta);
+    if(p.bio){const b=document.createElement('p');b.textContent=p.bio;card.appendChild(b);}
+    const row=document.createElement('div');row.className='lacts';
+    const btn=(act,label)=>{const b=document.createElement('button');b.type='button';b.className='mbtn sm';b.dataset.act=act;b.textContent=label;row.appendChild(b);};
+    if(p.unlocked>0)btn('profile:'+p.id,'Профиль');
+    if(!NET.user||p.id!==NET.user.id){
+      if(p.unlocked>0)btn('ahide:'+p.id,p.hidden?'Показать':'Скрыть');
+      if(p.bio)btn('abio:'+p.id,'Стереть описание');
+      btn('asup:'+p.id,p.sup?'Забрать ★':'Выдать ★');
+    }
+    card.appendChild(row);box.appendChild(card);
+  }
+  body.appendChild(box);
+}
+// действия администратора над игроком; после них экран загружается заново
+async function admAct(k,id){
+  if(!NET.admin||!isUuid(id))return;
+  try{
+    const tok=await netToken(),h=netHeaders(tok);
+    if(k==='ahide'){
+      const rows=await netFetch('/rest/v1/progress?select=hidden&user_id=eq.'+id,{headers:h});
+      const hide=!(Array.isArray(rows)&&rows[0]&&rows[0].hidden===true);
+      await netFetch('/rest/v1/progress?user_id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({hidden:hide})});
+      // скрытый игрок пропадает из рекордов вместе со своими уровнями
+      if(hide)await netFetch('/rest/v1/levels?author=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({hidden:true})});
+      msg(hide?'Игрок скрыт вместе с уровнями.':'Игрок снова виден. Его уровни показывай по одному в «Уровнях».',6000);
+    }else if(k==='abio'){
+      await netFetch('/rest/v1/progress?user_id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({bio:''})});
+      msg('Описание стёрто.');
+    }else if(k==='asup'){
+      const rows=await netFetch('/rest/v1/supporters?select=user_id&user_id=eq.'+id,{headers:h});
+      if(Array.isArray(rows)&&rows.length)await netFetch('/rest/v1/supporters?user_id=eq.'+id,{method:'DELETE',headers:h});
+      else await netFetch('/rest/v1/supporters',{method:'POST',headers:Object.assign({},h,{Prefer:'return=minimal'}),body:JSON.stringify({user_id:id})});
+      msg('Готово.');
+    }
+  }catch(e){msg('Не получилось: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+  showMenu(menuScreen);
+}
+
+// ================= АККАУНТ: ОПИСАНИЕ И ПАРОЛЬ =================
+// описание уходит в базу только при сохранении (не с каждой синхронизацией) — так оно не
+// перезапишет то, что стёр администратор
+async function saveProfile(){
+  const ni=$id('nick'),bi=$id('bio');
+  if(ni)save.nick=ni.value.replace(/\s+/g,' ').trim().slice(0,20);
+  if(bi)save.bio=edStrBio(bi.value);
+  persist();
+  if(ni)ni.value=nickName();
+  if(!NET.user){msg('Сохранено.');return;}
+  try{
+    const tok=await netToken();
+    await netFetch('/rest/v1/progress?on_conflict=user_id',{method:'POST',headers:Object.assign(netHeaders(tok),{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({user_id:NET.user.id,name:nickName(),bio:save.bio})});
+    msg('Профиль сохранён.');
+  }catch(e){msg('Не получилось сохранить: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+}
+function edStrBio(v){return String(v).replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,200);}
+async function changePassword(){
+  const p1=$id('np1'),p2=$id('np2'),out=panelEl.querySelector('.pass-msg');
+  if(!p1||!p2||!out||!NET.user)return;
+  const say=(t,bad)=>{out.textContent=t;out.className='pass-msg '+(bad?'err':'good');out.hidden=false;};
+  if(p1.value.length<8)return say('Пароль — от 8 символов.',true);
+  if(p1.value!==p2.value)return say('Пароли не совпадают.',true);
+  try{
+    const tok=await netToken();
+    await netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body:JSON.stringify({password:p1.value})});
+    p1.value='';p2.value='';
+    say('Пароль изменён. Входи с новым паролем.');
+  }catch(e){say('Не получилось: '+(e.status===0?'нет связи с сервером.':errMsg(e)),true);}
+}
+
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
 function snapshot(){
-  return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx}};
+  return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx,cust:CUSTOM,custBack:customBack}};
 }
 function restore(d){
   const s=d&&d.v===6&&d.s;
@@ -3547,8 +4434,10 @@ function restore(d){
   // у сохранённых до подножки игр этих полей ещё нет
   if(!(player.tripCd>=0))player.tripCd=0;
   if(!tripFx)tripFx=null;
-  const lc=phase==='menu'?{}:LEVELS[lvl];
-  setLayout(lc);bgAct=phase==='menu'?0:actOf(lvl);
+  CUSTOM=s.cust&&typeof s.cust==='object'&&Array.isArray(s.cust.start)?s.cust:null;
+  if(typeof s.custBack==='string')customBack=s.custBack;
+  const lc=phase==='menu'?{}:cfgNow();
+  setLayout(lc);bgAct=phase==='menu'?0:(CUSTOM?CUSTOM.theme:actOf(lvl));
   if(!(player.tpCd>=0))player.tpCd=0;
   if(phase==='game')phase='pause';
   return true;
@@ -3598,11 +4487,18 @@ async function fillTop(){
   if(!list)return;
   // на сайте таблица читается из своей базы и видна даже без входа
   if(NET_ON){
+    const tab=topTab;
     st.textContent='Загружаю…';
     let rows;
-    try{rows=await netTop();}catch(_){if(panelEl.contains(list))st.textContent='Не удалось загрузить таблицу: нет связи с сервером.';return;}
-    if(!panelEl.contains(list))return;
-    renderTop(list,st,rows,'Лучшие '+rows.length,r=>({name:r.name,avatarUrl:''}));
+    try{rows=await netTop(tab);}catch(_){if(panelEl.contains(list))st.textContent='Не удалось загрузить таблицу: нет связи с сервером.';return;}
+    if(!panelEl.contains(list)||topTab!==tab)return;
+    renderTop(list,st,rows,'Лучшие '+rows.length,r=>({name:r.name,avatarUrl:''}),tab);
+    // сколько всего игроков в этой таблице и твоё место в ней
+    const base='/rest/v1/progress?select=user_id'+(tab==='unlocked'?'':'&'+tab+'=gt.0');
+    const mine=topVal({best:save.best,unlocked:save.unlocked,wins:save.wins||0},tab);
+    const [total,above]=await Promise.all([netCount(base),NET.user&&mine>0?netCount('/rest/v1/progress?select=user_id&'+tab+'=gt.'+mine):Promise.resolve(null)]);
+    if(!panelEl.contains(list)||topTab!==tab||!rows.length)return;
+    st.textContent='Игроков в таблице: '+(total===null?rows.length:total)+(above!==null?' · твоё место: '+(above+1):'');
     return;
   }
   if(!acct.db){
@@ -3611,28 +4507,32 @@ async function fillTop(){
     return;
   }
   if(!acct.top){st.textContent='Загружаю…';return;}
-  const rows=acct.top.filter(r=>r.best>0);
+  const tab=topTab;
+  const rows=acct.top.filter(r=>tab==='unlocked'||topVal(r,tab)>0).sort((a,b)=>topVal(b,tab)-topVal(a,tab)||b.best-a.best).slice(0,50);
   const ps=rows.length?await acct.user.profiles(rows.map(r=>r.id)):{};
   if(!panelEl.contains(list))return;
-  renderTop(list,st,rows,'Лучшие '+rows.length+' · обновляется само',r=>ps[r.id]||{name:'',avatarUrl:''});
+  renderTop(list,st,rows,'Лучшие '+rows.length+' · обновляется само',r=>ps[r.id]||{name:'',avatarUrl:''},tab);
 }
 // строки таблицы рекордов; имена — чужой ввод, поэтому только textContent
-function renderTop(list,st,rows,head,who){
+function renderTop(list,st,rows,head,who,tab){
   if(!rows.length){st.textContent='Пока пусто — сыграй, и твой рекорд появится здесь.';list.textContent='';return;}
   st.textContent=head;
   list.textContent='';
   rows.forEach((r,i)=>{
-    const p=who(r);
+    const p=who(r),L=topLabel(r,tab);
     const li=document.createElement('li');
     if(r.id===acct.id)li.className='me';
+    // на сайте строка — кнопка: открывает профиль игрока
+    const row=NET_ON&&isUuid(r.id)?document.createElement('button'):li;
+    if(row!==li){row.type='button';row.className='trow';row.dataset.act='profile:'+r.id;li.classList.add('btn');li.appendChild(row);}
     const rk=document.createElement('span');rk.className='rk';rk.textContent=(i+1)+'.';
     const im=document.createElement('img');im.alt='';
     if(p.avatarUrl)im.src=p.avatarUrl;else im.hidden=true;
     const nm=document.createElement('span');nm.className='nm';nm.textContent=(p.name||'Игрок')+(r.sup?' ★':'')+(r.id===acct.id?' (ты)':'');
-    const sc=document.createElement('span');sc.className='sc';sc.textContent=String(r.best);
-    const sm=document.createElement('small');sm.textContent='ур. '+r.unlocked+(r.wins?' · побегов: '+r.wins:'');
+    const sc=document.createElement('span');sc.className='sc';sc.textContent=L.big;
+    const sm=document.createElement('small');sm.textContent=L.small;
     sc.appendChild(sm);
-    li.append(rk,im,nm,sc);
+    row.append(rk,im,nm,sc);
     list.appendChild(li);
   });
 }
@@ -3904,9 +4804,10 @@ async function netSync(){
     if(acct.again){acct.again=false;netSync();}
   }
 }
-// лучшие 20; строки чужие, поэтому приводим к числам и обрезаем имена
-async function netTop(){
-  const rows=await netFetch('/rest/v1/progress?select=user_id,name,best,unlocked,wins&best=gt.0&order=best.desc&limit=20',{headers:netHeaders()});
+// лучшие 50 по очкам, уровням или побегам; строки чужие, поэтому приводим к числам и обрезаем имена
+async function netTop(tab){
+  tab=TOP_ORDER[tab]?tab:'best';
+  const rows=await netFetch('/rest/v1/progress?select=user_id,name,best,unlocked,wins'+(tab==='unlocked'?'':'&'+tab+'=gt.0')+'&order='+TOP_ORDER[tab]+'&limit=50',{headers:netHeaders()});
   const list=(Array.isArray(rows)?rows:[]).map(v=>({
     id:String(v.user_id),name:typeof v.name==='string'?v.name.slice(0,20):'',
     best:Math.max(0,Math.floor(Number(v.best)||0)),unlocked:clampInt(v.unlocked,1,LEVELS.length,1),wins:clampInt(v.wins,0,1e6,0),sup:false
@@ -3973,7 +4874,12 @@ async function netLoadUser(){
     if(Array.isArray(rows)&&rows[0]){
       mergeCloud(rows[0]);
       if(!save.nick&&rows[0].name)save.nick=String(rows[0].name).slice(0,20);
+      // описание правится только из «Аккаунта» и сразу пишется в базу — там оно и свежее
+      save.bio=typeof rows[0].bio==='string'?rows[0].bio.slice(0,200):'';
+      NET.hidden=rows[0].hidden===true;
     }
+    // администратор ли этот игрок — решает база (таблица admins); от этого только видна кнопка панели
+    try{NET.admin=(await netFetch('/rest/v1/rpc/is_admin',{method:'POST',headers:netHeaders(tok),body:'{}'}))===true;}catch(_){NET.admin=false;}
     await netSync();
     await netSupLoad();
     if(NET.thanks&&termsOk()){if(phase==='menu')showMenu('donate');supPoll(1);return;}
@@ -3988,10 +4894,10 @@ async function netLogout(){
   if(NET.user)await netSync();
   const kept=acct.state==='synced';
   const tok=NET.sess&&NET.sess.access_token;
-  saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';NET.sup=false;
+  saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';NET.sup=false;NET.admin=false;NET.hidden=false;
   // прогресс, имя в рекордах и облик принадлежат аккаунту и уже лежат в нём; настройки устройства остаются.
   // Если сохранить не удалось (нет связи), прогресс не стираем — он досохранится при следующем входе
-  save.nick='';
+  save.nick='';save.bio='';
   if(kept)Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0});
   persist();
   setAcctState('netout');
@@ -4008,7 +4914,7 @@ function start(d){
   place();
   buildBg();
   if(phase==='menu')showMenu(termsOk()?menuScreen||'main':'terms');
-  else showMenu({pause:'pause',dead:'dead',clear:'clear',win:'win'}[phase]||'pause');
+  else showMenu({pause:'pause',dead:'dead',clear:CUSTOM?'cclear':'clear',win:'win'}[phase]||'pause');
   render(true);
   last=performance.now();
   requestAnimationFrame(frame);

@@ -23,7 +23,10 @@
 
 Создана 28.10.2026: проект Supabase `data-out` (ref `lnkekrusqjdroomcufen`, регион `eu-central-1`),
 таблицы из `schema.sql`, функции `ru-login` и `yoomoney-hook` (Verify JWT выключен). Потом предел
-уровней в `progress` поднят до 200 (миграция `allow_200_levels`). Управлять удобнее всего через
+уровней в `progress` поднят до 200 (миграция `allow_200_levels`), добавлены профили, уровни
+сообщества, лайки, запуски и администраторы (миграции `community_profiles_admin`, `is_admin_invoker`).
+Администратор игры — аккаунт автора `artemiy123` (таблица `admins`). Пароль автора не нужен ни для
+чего: права выдаются в базе по `user_id`. Управлять удобнее всего через
 коннектор Supabase (MCP). Секреты функций (`VK_APP_ID`, `YANDEX_CLIENT_ID`,
 `YANDEX_CLIENT_SECRET`, `YOOMONEY_SECRET`) пока не заданы: их значения автор вводит сам в панели Supabase.
 
