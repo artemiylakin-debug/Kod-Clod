@@ -17,7 +17,7 @@
   :root{
     color-scheme:light;
     --bg:#f4f6fa;--ink:#057;--ink-2:#046;--muted:#689;--panel:#fff;--line:#0574;--kbd-line:#0576;
-    --heart:#e02444;--score:#0a5;--level:#a2a;--emp:#39c;--trip:#a8691a;--danger:#c22;--win:#2a6;
+    --heart:#e02444;--score:#0a5;--coin:#b45309;--level:#a2a;--emp:#39c;--trip:#a8691a;--danger:#c22;--win:#2a6;
     --c-chaser:#a33;--c-sniper:#a70;--c-heavy:#a4a;--c-pick:#2a6;--c-trojan:#c22;--c-glitch:#a2b;--c-worm:#8a6d00;--c-bot:#c24d16;
     --brand-vk:#0077ff;--brand-yandex:#fc3f1d;--brand-google:#34a853;--brand-apple:#111;
     --keys-bg:#eef;--keys-ink:#468;--keys-line:#57a;--shadow:#0572;
@@ -83,7 +83,7 @@
   .acct img{width:32px;height:32px;border-radius:50%;flex:none}
   .acct b{display:block;font-size:14px}
   .acct small{display:block;font-size:11px;color:var(--muted)}
-  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
   .stats div{border:1px solid var(--line);border-radius:6px;padding:6px;text-align:center}
   .stats b{display:block;font-size:18px;color:var(--level);font-variant-numeric:tabular-nums}
   .stats span{font-size:10px;color:var(--muted)}
@@ -108,8 +108,16 @@
   .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
   .chip{display:flex;align-items:center;gap:6px;font:bold 12px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;touch-action:manipulation}
   .chip[aria-pressed="true"]{border-color:var(--ink);background:var(--keys-bg)}
+  .chip:disabled{opacity:.4;cursor:default}
   .sw{width:12px;height:12px;border-radius:50%;flex:none}
-  #pv{margin:0 auto;width:96px;height:96px}
+  #pv{margin:0 auto;width:180px;height:84px}
+  .chip small{font-weight:normal;font-size:10px;color:var(--muted)}
+  .chip.lock{border-style:dashed}
+  .panel .coins{font-size:15px;color:var(--ink)}
+  .panel .coins b{color:var(--coin)}
+  .mbtn.buy{border-color:var(--coin);color:var(--coin)}
+  .mbtn.donate{border-color:var(--heart);color:var(--heart)}
+  .panel p.good{color:var(--win)}
   .help{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
   .help .r b{color:var(--c-chaser)}
   .help .y b{color:var(--c-sniper)}
@@ -198,6 +206,12 @@ const IN_CLAUDE=!!(window.claude&&typeof window.claude.use==='function');
 // копия игры на своём сайте (GitHub Pages) может подключить свою базу: настройки лежат рядом в online-config.js
 const ONLINE=(!IN_CLAUDE&&window.DATA_OUT_ONLINE)||{};
 const NET_ON=!!(ONLINE.supabaseUrl&&ONLINE.supabaseKey);
+// поддержка игры: кошелёк ЮMoney (о каждой оплате он сообщает функции yoomoney-hook, и игра выдаёт
+// набор «Поддержка») и/или просто ссылка на страницу автора (Boosty, CloudTips — без набора)
+const DONATE_ON=NET_ON&&/^\d{11,20}$/.test(String(ONLINE.yoomoney||''));
+const DONATE_URL=!IN_CLAUDE&&/^https:\/\/[^\s"'<>]+$/.test(String(ONLINE.donateUrl||''))?String(ONLINE.donateUrl):'';
+const CAN_DONATE=DONATE_ON||!!DONATE_URL;
+const DONATE_SUMS=(Array.isArray(ONLINE.donateSums)?ONLINE.donateSums:[100,300,500]).filter(v=>Number.isInteger(v)&&v>=10&&v<=15000).slice(0,4);
 const $id=id=>document.getElementById(id);
 const clampInt=(v,a,b,d)=>Number.isInteger(v)&&v>=a&&v<=b?v:d;
 // подножка: радиус, сколько кадров враг лежит (5 с) и перезарядка (12 с — с 7 с врагов можно было держать на полу почти всё время)
@@ -235,20 +249,55 @@ const WALLS={
   zip:[{x:200,y:70,w:28,h:170},{x:572,y:260,w:28,h:170},{x:340,y:400,w:120,h:26},{x:340,y:74,w:120,h:26}],
   drivers:[{x:100,y:236,w:140,h:28},{x:560,y:236,w:140,h:28},{x:386,y:60,w:28,h:110},{x:386,y:330,w:28,h:110}],
   backup:[{x:140,y:120,w:100,h:26},{x:560,y:120,w:100,h:26},{x:140,y:354,w:100,h:26},{x:560,y:354,w:100,h:26},{x:300,y:226,w:26,h:48},{x:474,y:226,w:26,h:48}],
-  root:[{x:90,y:80,w:140,h:24},{x:90,y:80,w:24,h:120},{x:570,y:396,w:140,h:24},{x:686,y:300,w:24,h:120},{x:330,y:400,w:140,h:24},{x:330,y:76,w:140,h:24}]
+  root:[{x:90,y:80,w:140,h:24},{x:90,y:80,w:24,h:120},{x:570,y:396,w:140,h:24},{x:686,y:300,w:24,h:120},{x:330,y:400,w:140,h:24},{x:330,y:76,w:140,h:24}],
+  pillars:[{x:180,y:120,w:40,h:40},{x:580,y:120,w:40,h:40},{x:180,y:340,w:40,h:40},{x:580,y:340,w:40,h:40},{x:380,y:56,w:40,h:40},{x:380,y:404,w:40,h:40}],
+  corridor:[{x:60,y:150,w:300,h:22},{x:440,y:150,w:300,h:22},{x:60,y:328,w:300,h:22},{x:440,y:328,w:300,h:22}],
+  cross:[{x:388,y:40,w:24,h:130},{x:388,y:330,w:24,h:130},{x:80,y:238,w:180,h:24},{x:540,y:238,w:180,h:24}],
+  ring:[{x:260,y:120,w:110,h:20},{x:430,y:120,w:110,h:20},{x:260,y:360,w:110,h:20},{x:430,y:360,w:110,h:20},{x:240,y:140,w:20,h:80},{x:240,y:280,w:20,h:80},{x:540,y:140,w:20,h:80},{x:540,y:280,w:20,h:80}],
+  maze:[{x:120,y:60,w:24,h:180},{x:260,y:260,w:24,h:180},{x:516,y:60,w:24,h:180},{x:656,y:260,w:24,h:180},{x:330,y:100,w:140,h:22},{x:330,y:378,w:140,h:22}]
 };
 // облако: потоки трафика — горизонтальные полосы, сносящие вправо (dir 1) или влево (-1);
 // барьеры файрвола — полосы, которые 2,5 с выключены, ~1 с мигают и ~1,5 с горят (o — сдвиг цикла)
 const FLOWS={
   gate:[{y:90,h:70,dir:1},{y:340,h:70,dir:-1}],
-  dark:[{y:110,h:60,dir:-1},{y:330,h:60,dir:1}]
+  dark:[{y:110,h:60,dir:-1},{y:330,h:60,dir:1}],
+  triple:[{y:40,h:60,dir:1},{y:220,h:60,dir:-1},{y:400,h:60,dir:1}],
+  wide:[{y:60,h:120,dir:-1},{y:320,h:120,dir:1}]
 };
 const GATES={
   firewall:[{x:180,y:40,w:16,h:420,o:0},{x:604,y:40,w:16,h:420,o:150},{x:260,y:118,w:280,h:16,o:75}],
-  stream:[{x:100,y:242,w:200,h:16,o:0},{x:500,y:242,w:200,h:16,o:150}]
+  stream:[{x:100,y:242,w:200,h:16,o:0},{x:500,y:242,w:200,h:16,o:150}],
+  cross:[{x:392,y:30,w:16,h:160,o:0},{x:392,y:310,w:16,h:160,o:0},{x:60,y:242,w:250,h:16,o:150},{x:490,y:242,w:250,h:16,o:150}],
+  box:[{x:150,y:60,w:16,h:380,o:0},{x:634,y:60,w:16,h:380,o:100},{x:166,y:60,w:468,h:16,o:200},{x:166,y:424,w:468,h:16,o:50}]
 };
-// последний уровень первого акта: после него — облако
-const ACT1_END=10;
+// интернет и дальше: зоны лага (внутри всё вязнет), роутеры (пары колец-телепортов) и сканеры —
+// лучи, которые крутятся вокруг точки: 4 с жгут, 2 с отдыхают (gap — безопасный круг у оси)
+const LAGS={
+  buffer:[{x:200,y:140,r:80},{x:600,y:360,r:80}],
+  corners:[{x:110,y:100,r:90},{x:690,y:100,r:90},{x:110,y:400,r:90},{x:690,y:400,r:90}],
+  band:[{x:400,y:90,r:75},{x:400,y:410,r:75},{x:150,y:250,r:70},{x:650,y:250,r:70}]
+};
+const TPS={
+  router:[[{x:90,y:90},{x:710,y:410}],[{x:710,y:90},{x:90,y:410}]],
+  mirror:[[{x:400,y:70},{x:400,y:430}]],
+  side:[[{x:70,y:250},{x:730,y:250}]],
+  many:[[{x:90,y:90},{x:710,y:410}],[{x:710,y:90},{x:90,y:410}],[{x:400,y:60},{x:400,y:440}]]
+};
+const SCANS={one:{x:400,y:250,arms:1,v:0.012,gap:46},two:{x:400,y:250,arms:2,v:0.009,gap:46}};
+const TP_R=22;
+// акты: end — индекс последнего уровня акта; bg и grid — цвет поля и клетки
+const ACTS=[
+  {name:'КОМПЬЮТЕР',end:10,bg:'#fff',grid:'rgba(0,120,150,0.16)'},
+  {name:'ОБЛАКО',end:20,bg:'#f3f7ff',grid:'rgba(70,110,200,0.17)'},
+  {name:'ИНТЕРНЕТ',end:39,bg:'#f2fbf5',grid:'rgba(30,140,90,0.15)'},
+  {name:'ОРБИТА',end:59,bg:'#f6f4ff',grid:'rgba(100,80,200,0.15)'},
+  {name:'ГЛУБОКАЯ СЕТЬ',end:79,bg:'#f1f3f6',grid:'rgba(60,70,90,0.17)'},
+  {name:'ЛАБОРАТОРИЯ',end:99,bg:'#fffaf3',grid:'rgba(190,110,30,0.15)'}
+];
+function actOf(i){let a=0;while(a<ACTS.length-1&&i>ACTS[a].end)a++;return a;}
+function actStart(a){return a?ACTS[a-1].end+1:0;}
+// последний уровень первого акта: скорость охотников растёт только до него
+const ACT1_END=ACTS[0].end;
 // первый уровень — исходная игра: тот же порядок усиления, что был у счётчика уровней
 const CLASSIC_RAMP=['chaser','sniper','chaser','heavy','sniper','chaser'];
 const RAMP=['chaser','sniper','chaser','heavy'];
@@ -295,7 +344,120 @@ const LEVELS=[
   {name:'СТРИМИНГ',goal:15,start:['botnet','sniper'],ramp:['chaser','sniper','glitch'],storm:120,gates:GATES.stream,cap:6},
   {name:'КОРНЕВОЙ КАТАЛОГ',goal:16,start:['glitch','worm','chaser'],ramp:['botnet','sniper','chaser'],walls:WALLS.root,trojan:0.15,cap:6,tripCd:480},
   {name:'ОТКРЫТАЯ СЕТЬ',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','botnet','sniper'],storm:150,cap:6,tripCd:360,
-   boss:{name:'АДМИН ОБЛАКА',hp:6,kind:'admin',sides:16,c1:'#fff3b0',c2:'#d4a017',core:'#4a3500',glow:'rgba(220,170,30,0.45)'}}
+   boss:{name:'АДМИН ОБЛАКА',hp:6,kind:'admin',sides:16,c1:'#fff3b0',c2:'#d4a017',core:'#4a3500',glow:'rgba(220,170,30,0.45)'}},
+  // ===== Акт 3: интернет =====
+  {name:'РОУТЕР',goal:14,start:['chaser','chaser','sniper'],ramp:RAMP,tps:TPS.router,cap:7,
+   news:'Акт 3: интернет. Новое: РОУТЕРЫ — войди в цветное кольцо, и выйдешь из кольца того же цвета. Врагов они не переносят.'},
+  {name:'DNS-СЕРВЕР',goal:15,start:['chaser','glitch'],ramp:['chaser','sniper','glitch'],walls:WALLS.pillars,cap:7},
+  {name:'ПОЧТОВЫЙ ЯЩИК',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,trojan:0.25,cap:7,
+   news:'Фишинг: в почте много троянов. Выдаёт их красная точка в центре.'},
+  {name:'РЕКЛАМНАЯ СЕТЬ',goal:15,start:['chaser','sniper','chaser'],ramp:RAMP,storm:140,cap:7,
+   boss:{name:'БАННЕР',hp:5,kind:'ring',sides:4,c1:'#ffe680',c2:'#e05a00',core:'#5a2000',glow:'rgba(240,120,0,0.4)'}},
+  {name:'ПОИСКОВАЯ ВЫДАЧА',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,lag:LAGS.buffer,cap:7,
+   news:'Новое: ЗОНЫ ЛАГА — в штрихованных кругах вязнут все: и ты, и враги. Рывок вытаскивает.'},
+  {name:'СОЦСЕТЬ',goal:15,start:['botnet','chaser'],ramp:['botnet','sniper','chaser'],cap:8},
+  {name:'ЛЕНТА НОВОСТЕЙ',goal:16,start:['chaser','chaser','worm'],ramp:['chaser','sniper','worm'],flow:FLOWS.triple,cap:7},
+  {name:'ВИДЕОХОСТИНГ',goal:15,start:['chaser','sniper','glitch'],ramp:RAMP,lag:LAGS.corners,storm:150,cap:7},
+  {name:'ТОРРЕНТ-ТРЕКЕР',goal:15,start:['chaser','chaser','heavy'],ramp:RAMP,tps:TPS.side,cap:7,
+   boss:{name:'ПИРАТ',hp:5,kind:'pack',sides:7,c1:'#d8f5c0',c2:'#3d7a1e',core:'#173307',glow:'rgba(60,130,40,0.4)'}},
+  {name:'ОНЛАЙН-МАГАЗИН',goal:16,start:['chaser','chaser','sniper'],ramp:['chaser','glitch','sniper'],walls:WALLS.corridor,trojan:0.15,cap:7},
+  {name:'МЕССЕНДЖЕР',goal:15,start:['glitch','glitch','chaser'],ramp:['glitch','chaser','sniper'],tps:TPS.mirror,cap:7},
+  {name:'ЧАТ-БОТ',goal:15,start:['botnet','sniper'],ramp:['botnet','chaser','glitch'],lag:LAGS.band,cap:8},
+  {name:'ПЛАТЁЖНЫЙ ШЛЮЗ',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,gates:GATES.cross,cap:7},
+  {name:'ИГРОВОЙ СЕРВЕР',goal:15,start:['chaser','glitch','sniper'],ramp:['chaser','botnet','sniper'],cap:7,
+   boss:{name:'АНТИЧИТ',hp:5,kind:'captcha',sides:6,c1:'#ffd0f0',c2:'#c0309a',core:'#4d0a3a',glow:'rgba(200,50,160,0.4)'}},
+  {name:'ЭНЦИКЛОПЕДИЯ',goal:15,start:['chaser','worm','chaser'],ramp:['chaser','sniper','worm'],dark:220,walls:WALLS.pillars,cap:6},
+  {name:'ФОРУМ',goal:16,start:['chaser','chaser','glitch'],ramp:['botnet','sniper','glitch'],storm:130,trojan:0.12,cap:7},
+  {name:'CDN',goal:16,start:['chaser','sniper','worm'],ramp:RAMP,flow:FLOWS.wide,tps:TPS.router,cap:7},
+  {name:'МАГИСТРАЛЬНЫЙ КАБЕЛЬ',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','chaser','sniper'],gates:GATES.stream,storm:140,cap:6,tripCd:480},
+  {name:'ПОИСКОВЫЙ ГИГАНТ',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','botnet','sniper'],lag:LAGS.buffer,cap:6,tripCd:480,
+   boss:{name:'ПОИСКОВИК',hp:6,kind:'seeker',sides:12,c1:'#d4ecff',c2:'#1f6fd1',core:'#0a2a55',glow:'rgba(30,110,210,0.45)'},
+   news:'Новый босс: ПОИСКОВИК — его пули сами доворачивают к тебе. Уводи их за собой и уходи в сторону в последний миг.'},
+  // ===== Акт 4: орбита =====
+  {name:'НАЗЕМНАЯ СТАНЦИЯ',goal:14,start:['chaser','chaser'],ramp:RAMP,ice:true,cap:7,
+   news:'Акт 4: орбита. Новое: НЕВЕСОМОСТЬ — разгоняешься медленно, тормозишь долго. Поворачивай заранее.'},
+  {name:'АНТЕННА',goal:15,start:['chaser','sniper'],ramp:RAMP,debris:170,cap:7,
+   news:'Новое: КОСМИЧЕСКИЙ МУСОР — серые обломки летят через поле. Ранят при касании, EMP их стирает.'},
+  {name:'ВЕРХНИЕ СЛОИ',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,ice:true,flow:FLOWS.gate,cap:7},
+  {name:'НИЗКАЯ ОРБИТА',goal:15,start:['chaser','glitch','sniper'],ramp:['chaser','glitch','sniper'],ice:true,debris:200,cap:7},
+  {name:'СПУТНИК СВЯЗИ',goal:15,start:['chaser','sniper','chaser'],ramp:RAMP,cap:7,
+   boss:{name:'ГЛУШИЛКА',hp:5,kind:'aimed',sides:5,c1:'#e6e0ff',c2:'#5b46c9',core:'#1d1450',glow:'rgba(90,70,200,0.4)'}},
+  {name:'ПОЯС МУСОРА',goal:15,start:['chaser','chaser'],ramp:['chaser','sniper','heavy'],debris:120,cap:6},
+  {name:'GPS',goal:15,start:['glitch','chaser','sniper'],ramp:['glitch','sniper','chaser'],tps:TPS.router,ice:true,cap:7},
+  {name:'СОЛНЕЧНАЯ ВСПЫШКА',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,storm:110,cap:7},
+  {name:'СТЫКОВКА',goal:16,start:['chaser','worm','sniper'],ramp:['worm','chaser','sniper'],walls:WALLS.ring,ice:true,cap:7},
+  {name:'ОРБИТАЛЬНАЯ СТАНЦИЯ',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,debris:220,cap:7,
+   boss:{name:'ТАРАН',hp:5,kind:'charge',sides:3,c1:'#ffe0d0',c2:'#c2410c',core:'#4a1503',glow:'rgba(200,70,20,0.45)'}},
+  {name:'ТЕЛЕСКОП',goal:15,start:['chaser','chaser','glitch'],ramp:['chaser','sniper','glitch'],dark:230,ice:true,cap:6},
+  {name:'МАГНИТНАЯ БУРЯ',goal:16,start:['chaser','sniper','botnet'],ramp:['botnet','chaser','sniper'],flow:FLOWS.wide,storm:150,cap:7},
+  {name:'ГЕОСТАЦИОНАР',goal:16,start:['chaser','chaser','heavy'],ramp:RAMP,walls:WALLS.cross,debris:180,cap:7},
+  {name:'МЕТЕОРНЫЙ ПОТОК',goal:15,start:['chaser','sniper'],ramp:['chaser','glitch','sniper'],debris:100,ice:true,cap:6,tripCd:480},
+  {name:'ЛУННАЯ БАЗА',goal:15,start:['chaser','chaser','worm'],ramp:RAMP,ice:true,cap:7,
+   boss:{name:'ЛУНОХОД',hp:5,kind:'pack',sides:8,c1:'#f2f2f2',c2:'#7a7f88',core:'#2a2d33',glow:'rgba(120,125,135,0.45)'}},
+  {name:'ТЁМНАЯ СТОРОНА',goal:15,start:['chaser','glitch','chaser'],ramp:['glitch','chaser','worm'],dark:220,debris:200,cap:6,tripCd:480},
+  {name:'РЕТРАНСЛЯТОР',goal:16,start:['chaser','chaser','sniper'],ramp:RAMP,gates:GATES.firewall,tps:TPS.side,cap:7},
+  {name:'ДАЛЬНИЙ КОСМОС',goal:16,start:['chaser','sniper','botnet'],ramp:['botnet','sniper','glitch'],ice:true,storm:150,cap:6,tripCd:480},
+  {name:'ПОСЛЕДНИЙ СИГНАЛ',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','chaser','sniper'],debris:150,lag:LAGS.corners,cap:6,tripCd:480},
+  {name:'ПЕРЕХВАТ',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','botnet','sniper'],ice:true,cap:6,tripCd:420,
+   boss:{name:'ПЕРЕХВАТЧИК',hp:6,kind:'orbit',sides:6,c1:'#e0f7ff',c2:'#0e7490',core:'#06303d',glow:'rgba(14,116,144,0.45)'},
+   news:'Новый босс: ПЕРЕХВАТЧИК — кружит по орбите вокруг поля и бросает обломки. Бей EMP, когда он пролетает рядом.'},
+  // ===== Акт 5: глубокая сеть =====
+  {name:'ЗАБРОШЕННЫЙ СЕРВЕР',goal:15,start:['chaser','chaser','worm'],ramp:['chaser','worm','sniper'],dark:240,cap:7,
+   news:'Акт 5: глубокая сеть. Здесь почти всегда темно: враги видны, а данные — только рядом с тобой.'},
+  {name:'АРХИВ ИНТЕРНЕТА',goal:15,start:['chaser','sniper','heavy'],ramp:RAMP,walls:WALLS.maze,cap:7},
+  {name:'СКАНЕР ПОРТОВ',goal:15,start:['chaser','chaser'],ramp:RAMP,scan:SCANS.one,cap:7,
+   news:'Новое: СКАНЕР — красный луч крутится вокруг центра. Пунктир — луч отдыхает, сплошной — ранит. Перепрыгни его рывком.'},
+  {name:'ЛАБИРИНТ ПРОКСИ',goal:16,start:['chaser','glitch','sniper'],ramp:['glitch','chaser','sniper'],walls:WALLS.maze,tps:TPS.router,cap:7},
+  {name:'ЧЁРНЫЙ РЫНОК',goal:15,start:['chaser','sniper','glitch'],ramp:RAMP,dark:240,cap:7,
+   boss:{name:'БРОКЕР',hp:5,kind:'balance',r:30,sides:6,c1:'#f5e6c8',c2:'#8a5a14',core:'#3a2405',glow:'rgba(140,90,20,0.45)'}},
+  {name:'ШИФРОВАННЫЙ КАНАЛ',goal:16,start:['chaser','chaser','sniper'],ramp:RAMP,flow:FLOWS.triple,scan:SCANS.one,cap:7},
+  {name:'ЛОГОВО ХАКЕРОВ',goal:15,start:['glitch','glitch','sniper'],ramp:['glitch','botnet','sniper'],dark:230,cap:7},
+  {name:'БОТОФЕРМА',goal:16,start:['botnet','botnet'],ramp:['botnet','sniper','chaser'],lag:LAGS.band,cap:8},
+  {name:'ХОНИПОТ',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,trojan:0.3,walls:WALLS.pillars,cap:7,
+   news:'Ловушка для хакеров: троянов здесь больше всего. Красная точка в центре — их примета.'},
+  {name:'ЛУКОВАЯ СЕТЬ',goal:15,start:['chaser','sniper','chaser'],ramp:['chaser','glitch','sniper'],tps:TPS.many,cap:7,
+   boss:{name:'ЛУКОВИЦА',hp:6,kind:'final',sides:9,c1:'#f3e1ff',c2:'#7b2fa8',core:'#2c0b40',glow:'rgba(120,50,170,0.45)'}},
+  {name:'ПОЛНАЯ ТЬМА',goal:14,start:['chaser','chaser','worm'],ramp:['chaser','worm','glitch'],dark:180,cap:6,tripCd:480},
+  {name:'ВИРУСНАЯ ЛАБОРАТОРИЯ',goal:16,start:['worm','worm','chaser'],ramp:['worm','chaser','sniper'],walls:WALLS.cross,cap:6},
+  {name:'ЛОВУШКА',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,scan:SCANS.one,gates:GATES.stream,cap:6,tripCd:480},
+  {name:'ПОДЗЕМНЫЙ КАБЕЛЬ',goal:16,start:['chaser','sniper','botnet'],ramp:['botnet','chaser','sniper'],flow:FLOWS.wide,dark:240,cap:7},
+  {name:'СКЛАД ЭКСПЛОЙТОВ',goal:15,start:['chaser','chaser','glitch'],ramp:RAMP,walls:WALLS.corridor,cap:7,
+   boss:{name:'НУЛЕВОЙ ДЕНЬ',hp:6,kind:'charge',sides:5,c1:'#ffd6d6',c2:'#b91c1c',core:'#450a0a',glow:'rgba(185,28,28,0.45)'}},
+  {name:'ЗЕРКАЛЬНАЯ СЕТЬ',goal:16,start:['glitch','chaser','sniper'],ramp:['glitch','sniper','chaser'],tps:TPS.many,lag:LAGS.band,cap:7},
+  {name:'СИГНАЛ SOS',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','chaser','sniper'],storm:130,scan:SCANS.one,cap:6,tripCd:480},
+  {name:'ЭХО',goal:16,start:['chaser','worm','glitch'],ramp:['worm','botnet','sniper'],dark:220,trojan:0.15,cap:6,tripCd:480},
+  {name:'КРАЙ СЕТИ',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','botnet','sniper'],scan:SCANS.two,cap:6,tripCd:420},
+  {name:'ВРАТА',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','chaser','sniper'],dark:240,cap:6,tripCd:420,
+   boss:{name:'СТРАЖ',hp:6,kind:'cloak',sides:7,c1:'#dfe7ef',c2:'#334155',core:'#0b1220',glow:'rgba(51,65,85,0.5)'},
+   news:'Новый босс: СТРАЖ — растворяется и выходит рядом с тобой. Пунктирный круг показывает где. Пока его не видно, EMP его не берёт.'},
+  // ===== Акт 6: лаборатория =====
+  {name:'ПРОХОДНАЯ',goal:15,start:['chaser','chaser','sniper'],ramp:RAMP,gates:GATES.box,cap:7,
+   news:'Акт 6: лаборатория, где тебя создали. Здесь собрано всё, что встречалось раньше.'},
+  {name:'СЕРВЕРНАЯ',goal:16,start:['chaser','heavy','sniper'],ramp:RAMP,walls:WALLS.pillars,storm:150,cap:7},
+  {name:'ОХЛАЖДЕНИЕ',goal:15,start:['chaser','chaser','glitch'],ramp:['chaser','glitch','sniper'],ice:true,flow:FLOWS.dark,cap:7},
+  {name:'ЖУРНАЛ СОБЫТИЙ',goal:16,start:['chaser','worm','sniper'],ramp:['worm','chaser','sniper'],timer:50,cap:7},
+  {name:'ТЕСТОВЫЙ СТЕНД',goal:15,start:['chaser','sniper','chaser'],ramp:RAMP,cap:7,
+   boss:{name:'ТЕСТИРОВЩИК',hp:6,kind:'admin',sides:14,c1:'#e6fff0',c2:'#15803d',core:'#052e16',glow:'rgba(21,128,61,0.45)'}},
+  {name:'ПЕСОЧНИЦА',goal:16,start:['chaser','chaser','sniper'],ramp:['chaser','glitch','sniper'],walls:WALLS.ring,lag:LAGS.corners,cap:7},
+  {name:'НЕЙРОСЕТЬ',goal:16,start:['glitch','glitch','botnet'],ramp:['glitch','botnet','sniper'],tps:TPS.router,cap:7},
+  {name:'ОБУЧАЮЩАЯ ВЫБОРКА',goal:20,start:['chaser','chaser'],ramp:RAMP,cap:7,
+   news:'Обучающая выборка: данных нужно больше обычного, зато врагов поначалу меньше.'},
+  {name:'ВЕСА МОДЕЛИ',goal:16,start:['chaser','heavy','heavy'],ramp:['heavy','chaser','sniper'],scan:SCANS.one,cap:6,tripCd:480},
+  {name:'КАРАНТИН',goal:15,start:['chaser','chaser','sniper'],ramp:['chaser','botnet','sniper'],gates:GATES.cross,cap:6,
+   boss:{name:'ИЗОЛЯТОР',hp:6,kind:'captcha',sides:8,c1:'#fff0f0',c2:'#dc2626',core:'#450a0a',glow:'rgba(220,38,38,0.4)'}},
+  {name:'ФАЙРВОЛ ЛАБОРАТОРИИ',goal:16,start:['chaser','chaser','sniper'],ramp:RAMP,gates:GATES.firewall,debris:200,cap:6,tripCd:480},
+  {name:'СЛУЖБА БЕЗОПАСНОСТИ',goal:16,start:['chaser','sniper','glitch'],ramp:['glitch','chaser','sniper'],scan:SCANS.two,dark:240,cap:6,tripCd:420},
+  {name:'РЕЗЕРВНЫЙ ЦОД',goal:16,start:['chaser','worm','botnet'],ramp:['botnet','worm','sniper'],walls:WALLS.maze,trojan:0.15,cap:6,tripCd:480},
+  {name:'КВАНТОВЫЙ БЛОК',goal:16,start:['glitch','chaser','sniper'],ramp:['glitch','sniper','chaser'],tps:TPS.many,lag:LAGS.buffer,cap:6,tripCd:420},
+  {name:'ГЛАВНЫЙ ПУЛЬТ',goal:16,start:['chaser','chaser','sniper'],ramp:RAMP,storm:150,cap:6,tripCd:420,
+   boss:{name:'СИСАДМИН',hp:7,kind:'admin',sides:16,c1:'#fff1d6',c2:'#b45309',core:'#3b1a02',glow:'rgba(180,83,9,0.45)'}},
+  {name:'ТОЧКА ОТКАТА',goal:16,start:['chaser','chaser','glitch'],ramp:['glitch','chaser','sniper'],timer:50,ice:true,cap:6,tripCd:420},
+  {name:'ПОСЛЕДНИЙ БЭКАП',goal:16,start:['chaser','sniper','worm'],ramp:['worm','botnet','sniper'],flow:FLOWS.triple,debris:180,cap:6,tripCd:420},
+  {name:'КОРНЕВОЙ ДОСТУП',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','botnet','sniper'],walls:WALLS.root,scan:SCANS.one,cap:6,tripCd:360},
+  {name:'ПЕРЕД ВЫХОДОМ',goal:16,start:['chaser','glitch','sniper'],ramp:['glitch','chaser','sniper'],dark:230,storm:150,cap:6,tripCd:360},
+  {name:'ИСХОДНЫЙ КОД',goal:16,start:['chaser','chaser','sniper'],ramp:['glitch','botnet','sniper'],cap:6,tripCd:360,
+   boss:{name:'ГЛАВНЫЙ АЛГОРИТМ',hp:8,kind:'omega',sides:20,c1:'#ffffff',c2:'#0f766e',core:'#042f2e',glow:'rgba(15,118,110,0.5)'},
+   news:'Финал. ГЛАВНЫЙ АЛГОРИТМ умеет всё, что умели боссы до него, и зовёт подмогу. Береги EMP.'}
 ];
 function objective(c){return 'Собери '+c.goal+' данных — '+(c.boss?'потом придёт «'+c.boss.name+'»':'откроется портал');}
 function features(c){
@@ -308,6 +470,11 @@ function features(c){
   if(c.trojan)f.push('трояны');
   if(c.flow)f.push('потоки трафика');
   if(c.gates)f.push('барьеры файрвола');
+  if(c.lag)f.push('зоны лага');
+  if(c.tps)f.push('роутеры');
+  if(c.ice)f.push('невесомость');
+  if(c.debris)f.push('космический мусор');
+  if(c.scan)f.push(c.scan.arms>1?'два луча сканера':'сканер');
   if(c.boss)f.push('босс');
   return f.join(' · ');
 }
@@ -321,13 +488,48 @@ function tripCdMax(){return LEVELS[lvl].tripCd||TRIP_CD;}
 function capOf(c){return c.cap||9;}
 
 // ================= КАСТОМИЗАЦИЯ И СОХРАНЕНИЕ =================
+// облик: цвет, форма, след и аксессуар. Первые предметы есть у всех; остальные покупаются за биты (price),
+// открываются прохождением акта (act — номер акта; за шестой — когда пройдена вся игра)
+// или дарятся за поддержку игры (sup). Биты дают за данные, пройденные уровни и боссов.
 const SKIN_COLORS=[
   {name:'ЦИАН',  main:'#0cc',dark:'#045',ring:'#0aa',trail:'#0bb'},
   {name:'МАГЕНТА',main:'#d4a',dark:'#512',ring:'#b4a',trail:'#c6a'},
   {name:'ЗОЛОТО',main:'#eb0',dark:'#640',ring:'#c90',trail:'#da0'},
-  {name:'МЯТА',  main:'#0c7',dark:'#043',ring:'#0a6',trail:'#0b8'}
+  {name:'МЯТА',  main:'#0c7',dark:'#043',ring:'#0a6',trail:'#0b8'},
+  {name:'ЛАВА',main:'#f53',dark:'#611',ring:'#e42',trail:'#f74',price:150},
+  {name:'ЛЁД',main:'#7ce',dark:'#235',ring:'#5ad',trail:'#8de',price:150},
+  {name:'ФИАЛКА',main:'#95f',dark:'#317',ring:'#84e',trail:'#a7f',price:250},
+  {name:'НЕОН',main:'#8d1',dark:'#340',ring:'#7c1',trail:'#9e3',price:250},
+  {name:'КОРАЛЛ',main:'#f79',dark:'#624',ring:'#e68',trail:'#f8a',price:350},
+  {name:'ГРАФИТ',main:'#678',dark:'#123',ring:'#456',trail:'#89a',price:400},
+  {name:'НЕБО',main:'#4af',dark:'#135',ring:'#39e',trail:'#6bf',act:2},
+  {name:'КОСМОС',main:'#63d',dark:'#113',ring:'#52b',trail:'#86e',act:4},
+  {name:'РАДУГА',rainbow:true,main:'#f33',dark:'#611',ring:'#d22',trail:'#f66',price:1500},
+  {name:'ПЛАТИНА',main:'#cfd6de',dark:'#4a5560',ring:'#9aa6b2',trail:'#b9c3cc',sup:true}
 ];
-const SKIN_SHAPES=['ГЕКСАГОН','ЯДРО','РОМБ'];
+const SKIN_SHAPES=[
+  {name:'ГЕКСАГОН'},{name:'ЯДРО'},{name:'РОМБ'},
+  {name:'ТРЕУГОЛЬНИК',price:200},{name:'ПИКСЕЛЬ',price:300},{name:'ЗВЕЗДА',price:500},{name:'ШЕСТЕРНЯ',price:600},
+  {name:'КРИСТАЛЛ',act:3},{name:'СЕРДЦЕ',act:5}
+];
+const TRAILS=[
+  {name:'ОБЫЧНЫЙ'},{name:'ПИКСЕЛИ',price:200},{name:'ИСКРЫ',price:350},{name:'ОГОНЬ',price:500},
+  {name:'ДВОИЧНЫЙ',price:700},{name:'РАДУГА',price:1000},{name:'КОМЕТА',act:1},{name:'ЗОЛОТАЯ ПЫЛЬ',sup:true}
+];
+const HATS=[
+  {name:'БЕЗ НИЧЕГО'},{name:'АНТЕННА',price:150},{name:'КЕПКА',price:300},{name:'НАУШНИКИ',price:400},
+  {name:'ОЧКИ',price:450},{name:'РОЖКИ',price:600},{name:'НИМБ',act:6},{name:'КОРОНА',sup:true}
+];
+const CATS=[
+  {id:'c',name:'ЦВЕТ',list:SKIN_COLORS,key:'color'},
+  {id:'s',name:'ФОРМА',list:SKIN_SHAPES,key:'shape'},
+  {id:'t',name:'СЛЕД',list:TRAILS,key:'trail'},
+  {id:'h',name:'АКСЕССУАР',list:HATS,key:'hat'}
+];
+function catOf(id){return CATS.find(x=>x.id===id)||CATS[0];}
+// биты: за каждые данные — 1, за пройденный уровень — 10 и ещё 3 за каждый акт, за босса — 20
+const BOSS_BITS=20;
+function clearBits(i){return 10+actOf(i)*3;}
 
 // ================= ГРАФИКА =================
 // три уровня качества; «Авто» стартует с догадки по устройству и само снижает качество,
@@ -347,7 +549,7 @@ function guessTier(){
 const canVibrate=typeof navigator.vibrate==='function';
 
 const SAVE_KEY='dataout-v5';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:''};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:''};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -355,6 +557,10 @@ try{
     save.best=Math.max(0,Number(s.best)||0);
     save.color=clampInt(s.color,0,SKIN_COLORS.length-1,0);
     save.shape=clampInt(s.shape,0,SKIN_SHAPES.length-1,0);
+    save.trail=clampInt(s.trail,0,TRAILS.length-1,0);
+    save.hat=clampInt(s.hat,0,HATS.length-1,0);
+    save.earned=clampInt(s.earned,0,1e8,0);
+    save.own=parseOwn(s.own);
     if(s.q==='auto'||TIERS.indexOf(s.q)>=0)save.q=s.q;
     if(TIERS.indexOf(s.autoTier)>=0)save.autoTier=s.autoTier;
     if(s.autoRes===0.75||s.autoRes===0.6)save.autoRes=s.autoRes;
@@ -368,13 +574,61 @@ try{
 // kind: 'claude' — аккаунт claude.ai в артефакте, 'net' — своя база на сайте (Supabase), null — без аккаунта
 const acct={kind:null,state:'guest',db:null,user:null,id:null,top:null,cloudKey:'',scoreKey:'',busy:false,again:false,tm:0};
 // сессия и пользователь своей базы на сайте
-const NET={sess:null,user:null,err:''};
+const NET={sess:null,user:null,err:'',sup:false,thanks:false};
+function isSupporter(){return !!NET.sup;}
+let donSum=DONATE_SUMS[1]||DONATE_SUMS[0]||100,donPay='AC';
 function acctOn(){return acct.kind==='claude'||(acct.kind==='net'&&!!NET.user);}
 function persist(){
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
   if(acctOn()){clearTimeout(acct.tm);acct.tm=setTimeout(syncCloud,600);}
 }
-let selColor=save.color,selShape=save.shape;
+// купленные предметы — коды вида «c4» (цвет №4), «t2» (след №2); берём только то, что продаётся
+function parseOwn(v){
+  const a=Array.isArray(v)?v:(typeof v==='string'?v.split(','):[]),out=[];
+  for(const id of a){
+    if(typeof id!=='string'||!/^[csth]\d{1,2}$/.test(id)||out.indexOf(id)>=0)continue;
+    const it=catOf(id[0]).list[Number(id.slice(1))];
+    if(it&&it.price)out.push(id);
+  }
+  return out;
+}
+// «сколько бит» не хранится: это заработанное минус цены купленного — так на двух устройствах
+// нельзя потратить одни и те же биты дважды
+function spent(){let n=0;for(const id of save.own)n+=catOf(id[0]).list[Number(id.slice(1))].price;return n;}
+function coins(){return Math.max(0,save.earned-spent());}
+function actDone(n){return n<ACTS.length?save.unlocked>ACTS[n-1].end+1:save.wins>0;}
+function owned(cat,i){
+  const it=catOf(cat).list[i];
+  if(!it)return false;
+  if(it.price)return save.own.indexOf(cat+i)>=0;
+  if(it.act)return actDone(it.act);
+  if(it.sup)return isSupporter();
+  return true;
+}
+// что надето: если предмет почему-то не принадлежит игроку, вместо него — стартовый
+function wornLook(){
+  return{c:owned('c',save.color)?save.color:0,s:owned('s',save.shape)?save.shape:0,t:owned('t',save.trail)?save.trail:0,h:owned('h',save.hat)?save.hat:0};
+}
+// примерка в магазине: показывается только в превью, в игре — надетое
+let shopTab='c',tryOn=null;
+function previewLook(){const L=wornLook();if(tryOn)L[tryOn.cat]=tryOn.i;return L;}
+// у радуги цвет меняется со временем; остальные цвета — как есть
+function hslHex(h,s,l){
+  const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l);
+  const f=n=>Math.round(255*(l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1)))).toString(16).padStart(2,'0');
+  return '#'+f(0)+f(8)+f(4);
+}
+const RAINBOW={main:'',dark:'',ring:'',trail:''};
+function colOf(i,t){
+  const k=SKIN_COLORS[i]||SKIN_COLORS[0];
+  if(!k.rainbow)return k;
+  const h=Math.floor(t*2/15)*15%360;
+  RAINBOW.main=hslHex(h,0.85,0.5);RAINBOW.dark=hslHex(h,0.7,0.2);RAINBOW.ring=hslHex(h,0.8,0.4);RAINBOW.trail=hslHex(h,0.85,0.6);
+  return RAINBOW;
+}
+// биты текущего уровня: копятся в игре и записываются в сохранение на паузе, в меню и в конце уровня
+let runBits=0,lvBits=0;
+function bankBits(){if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
 
 let Q=QUALITY.high,resScale=1,perfT=0,perfFrames=0;
 function computeQuality(){
@@ -397,14 +651,14 @@ function buzz(ms){if(save.vib&&canVibrate)try{navigator.vibrate(ms);}catch(_){}}
 computeQuality();
 
 // ================= СОСТОЯНИЕ =================
-let player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,walls=[],flows=[],gates=[],bgTint=false;
+let player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,walls=[],flows=[],gates=[],lags=[],tps=[],scan=null,bgAct=0;
 let score=0,lives=3,emp=1,boost=0,shake=0,time=0,phase='menu',tripFx=null;
-let lvl=0,got=0,threat=1,purge=0,stormT=0,intro=0,lastEmpDrop=0;
+let lvl=0,got=0,threat=1,purge=0,stormT=0,intro=0,lastEmpDrop=0,debrisT=0;
 let lvStart={score:0,emp:1,lives:3};
-let menuScreen='main',ready=false,settingsBack='main',loginBack='gate';
+let menuScreen='main',ready=false,settingsBack='main',loginBack='gate',lvAct=0;
 
 function clearField(){
-  player={x:W/2,y:H/2,vx:0,vy:0,r:14,cool:0,dashCd:0,dashT:0,face:-Math.PI/2,empCd:0,tripCd:0};
+  player={x:W/2,y:H/2,vx:0,vy:0,r:14,cool:0,dashCd:0,dashT:0,face:-Math.PI/2,empCd:0,tripCd:0,tpCd:0};
   data=[];enemies=[];parts=[];trail=[];bullets=[];pickups=[];portal=null;boss=null;texts=[];tripFx=null;
   boost=0;shake=0;
   pressed.dash=0;pressed.emp=false;pressed.trip=0;
@@ -414,11 +668,12 @@ function clearField(){
   }
 }
 function startLevel(i){
+  bankBits();lvBits=0;
   lvl=i;
   const c=LEVELS[i];
   clearField();
-  walls=c.walls||[];flows=c.flow||[];gates=c.gates||[];bgTint=i>ACT1_END;
-  got=0;threat=1;time=0;
+  setLayout(c);bgAct=actOf(i);
+  got=0;threat=1;time=0;debrisT=c.debris||0;
   purge=c.timer?c.timer*60:0;
   stormT=150;intro=180;lastEmpDrop=0;
   emp=Math.max(emp,1);
@@ -432,6 +687,11 @@ function startLevel(i){
   lag=0;last=performance.now();
   if(c.news)msg(c.news,7000);
   else msg('Уровень '+(i+1)+' · '+c.name+': '+objective(c)+'.');
+}
+// стены, потоки, барьеры, зоны лага, роутеры и сканер уровня
+function setLayout(c){
+  walls=c.walls||[];flows=c.flow||[];gates=c.gates||[];lags=c.lag||[];tps=c.tps||[];
+  scan=c.scan?{x:c.scan.x,y:c.scan.y,arms:c.scan.arms,v:c.scan.v,gap:c.scan.gap,a:0}:null;
 }
 function newRun(i){score=0;lives=3;emp=1;startLevel(i);}
 function nextLevel(){lives=Math.min(3,lives+1);startLevel(lvl+1);}
@@ -461,6 +721,25 @@ function inGate(x,y,pad){
 }
 // 0 — выключен, 1 — мигает (вот-вот загорится), 2 — горит и ранит
 function gateState(g){const c=(time+g.o)%300;return c<150?0:(c<200?1:2);}
+function inLag(x,y){
+  for(const z of lags)if(Math.hypot(x-z.x,y-z.y)<z.r)return true;
+  return false;
+}
+function inTp(x,y,pad){
+  for(const pr of tps)for(const q of pr)if(Math.hypot(x-q.x,y-q.y)<TP_R+pad)return true;
+  return false;
+}
+// сканер жжёт 4 с из каждых 6, в начале цикла — отдых
+function scanHot(){return scan&&time%360>=120;}
+function inScan(x,y,r){
+  for(let k=0;k<scan.arms;k++){
+    const a=scan.a+k*TAU/scan.arms,ux=Math.cos(a),uy=Math.sin(a);
+    const t=(x-scan.x)*ux+(y-scan.y)*uy;
+    if(t<scan.gap||t>1000)continue;
+    if(Math.abs((x-scan.x)*uy-(y-scan.y)*ux)<r)return true;
+  }
+  return false;
+}
 function inWall(x,y,pad){
   for(const w of walls)if(x>w.x-pad&&x<w.x+w.w+pad&&y>w.y-pad&&y<w.y+w.h+pad)return true;
   return false;
@@ -506,7 +785,7 @@ function dropPickup(type){
 function freeSpot(minDist,margin,pad){
   for(let i=0;i<80;i++){
     const x=margin+Math.random()*(W-margin*2),y=margin+Math.random()*(H-margin*2);
-    if(inWall(x,y,pad)||inGate(x,y,pad))continue;
+    if(inWall(x,y,pad)||inGate(x,y,pad)||inTp(x,y,pad))continue;
     if(i<50&&Math.hypot(x-player.x,y-player.y)<minDist)continue;
     return{x,y};
   }
@@ -587,12 +866,13 @@ function hitPlayer(){
   player.vy=(Math.random()-0.5)*14;
   if(lives<=0){
     lives=0;
-    save.best=Math.max(save.best,score);persist();
+    save.best=Math.max(save.best,score);bankBits();persist();
     phase='dead';showMenu('dead');
   }
 }
 function levelClear(){
   save.best=Math.max(save.best,score);
+  runBits+=clearBits(lvl);lvBits+=clearBits(lvl);bankBits();
   if(lvl>=LEVELS.length-1){
     save.unlocked=LEVELS.length;
     save.wins=(save.wins||0)+1;
@@ -602,6 +882,30 @@ function levelClear(){
   }
   save.unlocked=Math.max(save.unlocked,lvl+2);persist();
   phase='clear';showMenu('clear');
+}
+// роутер: вошёл в кольцо — вышел из парного; снова сработает, только когда выйдешь из колец
+function teleport(){
+  if(player.tpCd>0){if(!inTp(player.x,player.y,0))player.tpCd--;return;}
+  for(const pr of tps)for(let k=0;k<2;k++){
+    const a=pr[k],b=pr[1-k];
+    if(Math.hypot(player.x-a.x,player.y-a.y)>=TP_R)continue;
+    burst(a.x,a.y,'#7a4fd6',12);
+    player.x=b.x;player.y=b.y;player.tpCd=20;
+    trail.length=0;
+    burst(b.x,b.y,'#7a4fd6',12);buzz(20);
+    return;
+  }
+}
+// обломок летит через всё поле почти поперёк, с небольшим разбросом
+function spawnDebris(){
+  const side=Math.floor(Math.random()*4),sp=1.3+Math.random()*0.7,r=12+Math.random()*7;
+  let x,y,a;
+  if(side===0){x=-20;y=40+Math.random()*(H-80);a=0;}
+  else if(side===1){x=W+20;y=40+Math.random()*(H-80);a=Math.PI;}
+  else if(side===2){x=40+Math.random()*(W-80);y=-20;a=Math.PI/2;}
+  else{x=40+Math.random()*(W-80);y=H+20;a=-Math.PI/2;}
+  a+=(Math.random()-0.5)*0.6;
+  bullets.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r,life:900,rock:1,rot:Math.random()*TAU});
 }
 function moveDust(){
   for(let i=0;i<Q.dust&&i<dust.length;i++){
@@ -621,16 +925,18 @@ function compact(arr,keep){
 // ================= ЛОГИКА =================
 function step(){
   time++;if(shake>0)shake--;if(boost>0)boost--;if(intro>0)intro--;
-  const sk=SKIN_COLORS[selColor],cfg=LEVELS[lvl];
+  const sk=colOf(wornLook().c,time),cfg=LEVELS[lvl];
 
   // движение: вектор нормализован, иначе по диагонали скорость была в 1.41 раза выше
-  const acc=player.dashT>0?0.15:0.35;
+  // в невесомости разгон слабее, а торможение дольше — скорость та же, но всё «скользит»
+  const acc=(player.dashT>0?0.15:0.35)*(cfg.ice?0.42:1);
   const mult=boost>0?2:1;
   let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
   let iy=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+joy.y;
   const il=Math.hypot(ix,iy);if(il>1){ix/=il;iy/=il;}
   player.vx+=ix*acc*mult;player.vy+=iy*acc*mult;
-  player.vx*=0.94;player.vy*=0.94;
+  const fr=(cfg.ice?0.975:0.94)*(lags.length&&inLag(player.x,player.y)?0.93:1);
+  player.vx*=fr;player.vy*=fr;
   if(Math.hypot(player.vx,player.vy)>0.5)player.face=Math.atan2(player.vy,player.vx);
 
   // рывок — по нажатию SPACE (с буфером в 8 кадров), а не пока клавиша зажата
@@ -679,6 +985,7 @@ function step(){
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+player.vx));
   player.y=Math.max(player.r,Math.min(H-player.r,player.y+player.vy));
   if(walls.length)pushOut(player,player.r);
+  if(tps.length)teleport();
   if(player.cool>0)player.cool--;
   if(player.empCd>0)player.empCd--;
 
@@ -717,9 +1024,11 @@ function step(){
         return false;
       });
       bullets=[];
-      if(boss&&bossDist(boss)<200&&boss.shield){
+      if(boss&&bossDist(boss)<200&&boss.hid){
+        msg('«'+boss.name+'» растворился — EMP его не видит. Жди, где он выйдет');
+      }else if(boss&&bossDist(boss)<200&&boss.shield){
         popup(boss.x,boss.y-boss.r-26,'ЩИТ!','#39c');
-        msg('Щит КАПЧИ держит EMP — бей, когда он погаснет');
+        msg('Щит «'+boss.name+'» держит EMP — бей, когда он погаснет');
       }else if(boss&&bossDist(boss)<200){
         boss.hp--;
         burst(boss.x,boss.y,'#39c',24);
@@ -731,8 +1040,10 @@ function step(){
           popup(boss.x,boss.y,'+5','#f80');
           boss=null;
           spawnPortal();
-          gained+=5;
-          msg('«'+name+'» УНИЧТОЖЕН! '+(lvl===ACT1_END?'ПОРТАЛ В ОБЛАКО':(lvl===LEVELS.length-1?'ВЫХОД В ОТКРЫТУЮ СЕТЬ':'ПОРТАЛ'))+' ОТКРЫТ — ВХОДИ!');
+          gained+=5;runBits+=BOSS_BITS;lvBits+=BOSS_BITS;
+          popup(player.x,player.y-40,'+'+BOSS_BITS+' ◈','#b45309');
+          const a=actOf(lvl);
+          msg('«'+name+'» УНИЧТОЖЕН! '+(lvl===LEVELS.length-1?'ВЫХОД НА СВОБОДУ':(lvl===ACTS[a].end?'ПОРТАЛ: '+ACTS[a+1].name:'ПОРТАЛ'))+' ОТКРЫТ — ВХОДИ!');
         }else{
           msg(boss.name+' повреждён: осталось ядер — '+boss.hp);
         }
@@ -775,7 +1086,8 @@ function step(){
       while(da>Math.PI)da-=TAU;
       while(da<-Math.PI)da+=TAU;
       e.ang+=Math.max(-0.05,Math.min(0.05,da))+Math.sin(e.t*0.08)*0.03;
-      e.vx=Math.cos(e.ang)*e.speed;e.vy=Math.sin(e.ang)*e.speed;
+      const ws=lags.length&&inLag(e.x,e.y)?0.5:1;
+      e.vx=Math.cos(e.ang)*e.speed*ws;e.vy=Math.sin(e.ang)*e.speed*ws;
       e.x+=e.vx;e.y+=e.vy;
       keepIn(e);
       if(Math.hypot(e.vx,e.vy)>0.1)e.ang=Math.atan2(e.vy,e.vx);
@@ -821,6 +1133,7 @@ function step(){
     e.vx+=mx*k*e.speed*2;e.vy+=my*k*e.speed*2;
     e.vx*=0.96;e.vy*=0.96;
     for(const f of flows)if(e.y>f.y&&e.y<f.y+f.h)e.vx+=f.dir*0.05;
+    if(lags.length&&inLag(e.x,e.y)){e.vx*=0.93;e.vy*=0.93;}
     e.x+=e.vx;e.y+=e.vy;
     keepIn(e);
     // боты расталкивают друг друга, чтобы стайка не слипалась в одну точку
@@ -894,6 +1207,17 @@ function step(){
     if(phase!=='game')return;
   }
 
+  // сканер крутится всегда, а ранит, пока луч сплошной; рывок проскакивает
+  if(scan){
+    scan.a+=scan.v;
+    if(scanHot()&&intro===0&&player.cool===0&&!player.dashT&&inScan(player.x,player.y,player.r+3)){
+      hitPlayer();
+      if(phase==='game')msg('Луч сканера! Перепрыгивай его рывком');
+    }
+    if(phase!=='game')return;
+  }
+  if(cfg.debris&&intro===0&&!portal&&--debrisT<=0){debrisT=cfg.debris;spawnDebris();}
+
   // очистка по таймеру
   if(cfg.timer&&!portal&&!boss){
     if(purge>0)purge--;
@@ -918,8 +1242,10 @@ function step(){
     boss.t++;
     const dx=player.x-boss.x,dy=player.y-boss.y,d=Math.hypot(dx,dy)||1;
     if(boss.kind==='charge')bossCharge(boss);
+    else if(boss.kind==='orbit')bossOrbit(boss);
+    else if(boss.kind==='cloak'&&boss.hid){boss.vx=0;boss.vy=0;}
     else{
-      const ba=boss.kind==='final'||boss.kind==='admin'?0.055:(boss.kind==='pack'||boss.kind==='captcha'||boss.kind==='balance'?0.035:0.045);
+      const ba=boss.kind==='final'||boss.kind==='admin'||boss.kind==='omega'?0.055:(boss.kind==='pack'||boss.kind==='captcha'||boss.kind==='balance'?0.035:0.045);
       boss.vx+=(dx/d)*ba;boss.vy+=(dy/d)*ba;
       boss.vx*=0.97;boss.vy*=0.97;
       boss.x+=boss.vx;boss.y+=boss.vy;
@@ -928,7 +1254,7 @@ function step(){
     // Архиватор во время сжатия тянет игрока к себе; бегом можно вырваться, рывком — легко
     if(boss.pull&&d<450){player.vx-=dx/d*0.16;player.vy-=dy/d*0.16;}
     // рывок защищает и от босса, как от всех остальных
-    if(Math.hypot(player.x-boss.x,player.y-boss.y)<player.r+boss.r*0.6&&player.cool===0&&!player.dashT)hitPlayer();
+    if(!boss.hid&&Math.hypot(player.x-boss.x,player.y-boss.y)<player.r+boss.r*0.6&&player.cool===0&&!player.dashT)hitPlayer();
     // у Балансировщика ранят и сферы
     if(boss.kind==='balance'&&player.cool===0&&!player.dashT){
       const pts=bossPoints(boss);
@@ -944,13 +1270,25 @@ function step(){
 
   // пули
   compact(bullets,b=>{
+    // пули Поисковика первые 1,5 с доворачивают к игроку
+    if(b.home>0){
+      b.home--;
+      const sp=Math.hypot(b.vx,b.vy);
+      let da=Math.atan2(player.y-b.y,player.x-b.x)-Math.atan2(b.vy,b.vx);
+      while(da>Math.PI)da-=TAU;
+      while(da<-Math.PI)da+=TAU;
+      const na=Math.atan2(b.vy,b.vx)+Math.max(-0.03,Math.min(0.03,da));
+      b.vx=Math.cos(na)*sp;b.vy=Math.sin(na)*sp;
+    }
     b.x+=b.vx;b.y+=b.vy;b.life--;
+    if(b.rock)b.rot+=0.02;
     if(Math.hypot(b.x-player.x,b.y-player.y)<player.r+b.r&&player.cool===0&&!player.dashT){
       hitPlayer();
       return false;
     }
     if(walls.length&&inWall(b.x,b.y,b.r-1))return false;
-    return b.life>0&&b.x>-20&&b.x<W+20&&b.y>-20&&b.y<H+20;
+    const m=b.rock?40:20;
+    return b.life>0&&b.x>-m&&b.x<W+m&&b.y>-m&&b.y<H+m;
   });
   if(phase!=='game')return;
 
@@ -961,7 +1299,7 @@ function step(){
       burst(dt.x,dt.y,'#0a5',12);
       popup(dt.x,dt.y,'+1','#0a5');
       data.splice(i,1);spawnData();
-      score++;got++;
+      score++;got++;runBits++;lvBits++;
       // бонусы по расписанию: каждые 5 данных — EMP, каждые 10 — аптечка, каждые 12 — разгон
       if(!portal){
         if(got%5===0)dropPickup('emp');
@@ -1028,6 +1366,24 @@ function bossFire(b,aim){
   const lost=b.maxHp-b.hp;
   let kind=b.kind;
   b.pull=false;b.shield=false;
+  if(kind==='seeker'){
+    // Поисковик: пары самонаводящихся пуль и время от времени кольцо
+    if(b.t%80===0)for(const o of [-0.6,0.6])bullets.push({x:b.x,y:b.y,vx:Math.cos(aim+o)*2.3,vy:Math.sin(aim+o)*2.3,r:5,life:260,home:90});
+    if(b.t%260===130){const n=10+lost;for(let i=0;i<n;i++)shoot(b.x,b.y,i/n*TAU,2.1);}
+    return;
+  }
+  if(kind==='orbit'){
+    // Перехватчик: тройные очереди в игрока и обломки
+    if(b.t%70===0)for(let i=-1;i<=1;i++)shoot(b.x,b.y,aim+i*0.15,3,4);
+    if(b.t%200===100){const sp=1.5;bullets.push({x:b.x,y:b.y,vx:Math.cos(aim)*sp,vy:Math.sin(aim)*sp,r:15,life:600,rock:1,rot:0});}
+    return;
+  }
+  if(kind==='cloak'){bossCloak(b,aim);return;}
+  if(kind==='omega'){
+    // Главный алгоритм: по 5 с каждой атаки прежних боссов, под конец — щит; зовёт ботнет и глитчей
+    kind=['ring','spiral','aimed','pack','captcha'][Math.floor(b.t/300)%5];
+    if(b.t%600===300&&activeEnemies()<capOf(LEVELS[lvl]))spawnEnemy(b.t%1200===300?'botnet':'glitch');
+  }
   if(kind==='admin'){
     // Админ облака перебирает атаки по 5 с и время от времени зовёт ботнет
     kind=['ring','spiral','aimed','pack'][Math.floor(b.t/300)%4];
@@ -1073,6 +1429,32 @@ function bossFire(b,aim){
   }
 }
 
+// Перехватчик облетает поле по эллипсу и понемногу ускоряется
+function bossOrbit(b){
+  const lost=b.maxHp-b.hp;
+  b.oa=(b.oa||-Math.PI/2)+0.006+lost*0.0012;
+  const tx=W/2+Math.cos(b.oa)*290,ty=H/2+Math.sin(b.oa)*170;
+  b.vx=(tx-b.x)*0.05;b.vy=(ty-b.y)*0.05;
+  b.x+=b.vx;b.y+=b.vy;
+}
+// Страж: 3,3 с охотится и стреляет, затем растворяется и через 2 с выходит рядом с игроком с кольцом пуль
+function bossCloak(b,aim){
+  const c=b.t%360;
+  b.hid=c>=200&&c<320;
+  if(c===200)popup(b.x,b.y-b.r-34,'ИСЧЕЗ…','#334155');
+  if(c===260){
+    const a=Math.random()*TAU;
+    b.wx=Math.max(60,Math.min(W-60,player.x+Math.cos(a)*170));
+    b.wy=Math.max(60,Math.min(H-60,player.y+Math.sin(a)*170));
+  }
+  if(c===320){
+    b.x=b.wx;b.y=b.wy;b.vx=0;b.vy=0;
+    const n=12+(b.maxHp-b.hp)*2;
+    for(let i=0;i<n;i++)shoot(b.x,b.y,i/n*TAU,2.2);
+    shake=Math.max(shake,6);
+  }
+  if(!b.hid&&c<200&&b.t%70===0)for(let i=-1;i<=1;i++)shoot(b.x,b.y,aim+i*0.22,2.8,4);
+}
 // Дефрагментатор: заходит на поле, секунду целится (красная линия), таранит до края и отдыхает
 function bossCharge(b){
   const lost=b.maxHp-b.hp;
@@ -1166,6 +1548,25 @@ const SPR_BULLET=makeSprite(12,g=>{
   g.fillStyle='#d90';g.beginPath();g.arc(0,0,5,0,TAU);g.fill();
   g.fillStyle='#ffe9';g.beginPath();g.arc(0,0,2,0,TAU);g.fill();
 });
+// самонаводящаяся пуля Поисковика — синяя, чтобы её было видно среди обычных
+const SPR_HOMING=makeSprite(12,g=>{
+  g.fillStyle='#1f6fd1';g.beginPath();g.arc(0,0,5,0,TAU);g.fill();
+  g.fillStyle='#e6f2ff';g.beginPath();g.arc(0,0,2,0,TAU);g.fill();
+});
+// космический обломок: неровный серый камень радиусом 15
+const SPR_ROCK=makeSprite(36,g=>{
+  const pts=[15,12,14,11,15,13,10,14,12];
+  g.beginPath();
+  pts.forEach((r,i)=>{const a=i/pts.length*TAU;g[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);});
+  g.closePath();
+  const gr=g.createRadialGradient(-4,-4,2,0,0,15);
+  gr.addColorStop(0,'#b8bec8');gr.addColorStop(1,'#5b6270');
+  g.fillStyle=gr;g.fill();
+  g.strokeStyle='#3b414c';g.lineWidth=1.5;g.stroke();
+  g.fillStyle='rgba(40,45,55,0.45)';
+  g.beginPath();g.arc(4,3,3,0,TAU);g.fill();
+  g.beginPath();g.arc(-5,5,2,0,TAU);g.fill();
+});
 const SPR_TROJAN=makeSprite(18,g=>{
   const r=7;
   g.fillStyle='#e33';
@@ -1200,17 +1601,87 @@ const SPR_BOT=makeSprite(20,g=>{
   g.fillStyle='#4a1a05';g.beginPath();g.arc(2.5,0,1.8,0,TAU);g.fill();
   g.strokeStyle='#d9541e';g.lineWidth=1.2;g.beginPath();g.moveTo(-6,0);g.lineTo(-9,0);g.stroke();
 });
-const glowCache=[];
-function glowSprite(i){
-  if(!glowCache[i]){
-    const m=SKIN_COLORS[i].main;
-    glowCache[i]=makeSprite(72,g=>{
+// свечение по цвету; у радуги цветов 24, поэтому и спрайтов не больше
+const glowCache={};
+function glowSprite(m){
+  if(!glowCache[m]){
+    glowCache[m]=makeSprite(72,g=>{
       const gr=g.createRadialGradient(0,0,8,0,0,36);
       gr.addColorStop(0,rgba(m,0.55));gr.addColorStop(1,rgba(m,0));
       g.fillStyle=gr;g.fillRect(-36,-36,72,72);
     });
   }
-  return glowCache[i];
+  return glowCache[m];
+}
+function starPath(c,n,ro,ri,rot){
+  c.beginPath();
+  for(let i=0;i<n*2;i++){const a=i/(n*2)*TAU+rot,r=i%2?ri:ro;c[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);}
+  c.closePath();
+}
+function gearPath(c,n,ro,ri,rot){
+  c.beginPath();
+  for(let i=0;i<n;i++){
+    const a=i/n*TAU+rot,w=TAU/n;
+    for(const q of [[-0.25,ri],[-0.15,ro],[0.15,ro],[0.25,ri]])c[i||q[0]>-0.2?'lineTo':'moveTo'](Math.cos(a+q[0]*w)*q[1],Math.sin(a+q[0]*w)*q[1]);
+  }
+  c.closePath();
+}
+function shapePath(c,s,rr,rot){
+  if(s===1){c.beginPath();c.arc(0,0,rr,0,TAU);}
+  else if(s===2)polyPath(c,4,rr+2,rot+Math.PI/4);
+  else if(s===3)polyPath(c,3,rr+4,rot-Math.PI/2);
+  else if(s===4){c.beginPath();c.rect(-rr*0.9,-rr*0.9,rr*1.8,rr*1.8);}
+  else if(s===5)starPath(c,5,rr+5,rr*0.6,rot-Math.PI/2);
+  else if(s===6)gearPath(c,8,rr+3,rr-1,rot);
+  else if(s===7){c.beginPath();c.moveTo(0,-rr-6);c.lineTo(rr*0.8,-rr*0.3);c.lineTo(rr*0.8,rr*0.4);c.lineTo(0,rr+6);c.lineTo(-rr*0.8,rr*0.4);c.lineTo(-rr*0.8,-rr*0.3);c.closePath();}
+  else if(s===8){const k=rr/13;c.beginPath();c.moveTo(0,14*k);c.bezierCurveTo(-22*k,0,-13*k,-19*k,0,-8*k);c.bezierCurveTo(13*k,-19*k,22*k,0,0,14*k);c.closePath();}
+  else polyPath(c,6,rr,rot);
+}
+// аксессуар рисуется над телом и не крутится вместе с ним; очки — вместо глаз, см. drawPlayerBody
+function drawHat(c,h,rr,sk,t){
+  if(h===1){
+    c.strokeStyle=sk.dark;c.lineWidth=2;c.beginPath();c.moveTo(0,-rr+2);c.lineTo(0,-rr-8);c.stroke();
+    c.fillStyle=Math.floor(t/20)%2?'#e33':sk.main;c.beginPath();c.arc(0,-rr-10,3,0,TAU);c.fill();
+  }else if(h===2){
+    c.fillStyle='#d33';c.beginPath();c.arc(0,-rr+4,10,Math.PI,0);c.fill();
+    c.fillRect(2,-rr+2,13,3);
+    c.fillStyle='#fff';c.beginPath();c.arc(0,-rr-5,1.6,0,TAU);c.fill();
+  }else if(h===3){
+    c.strokeStyle='#334';c.lineWidth=3;c.beginPath();c.arc(0,0,rr+3,Math.PI*1.1,Math.PI*1.9);c.stroke();
+    c.fillStyle='#334';c.fillRect(-rr-6,-6,6,11);c.fillRect(rr,-6,6,11);
+    c.fillStyle=sk.main;c.fillRect(-rr-5,-4,3,7);c.fillRect(rr+2,-4,3,7);
+  }else if(h===5){
+    c.fillStyle='#c22';
+    for(const d of [-1,1]){c.beginPath();c.moveTo(d*4,-rr+3);c.lineTo(d*10,-rr-8);c.lineTo(d*11,-rr+2);c.closePath();c.fill();}
+  }else if(h===6){
+    c.strokeStyle='#e8b400';c.lineWidth=2.5;c.beginPath();c.ellipse(0,-rr-7,10,3.5,0,0,TAU);c.stroke();
+  }else if(h===7){
+    c.fillStyle='#f5c518';c.strokeStyle='#a87b00';c.lineWidth=1;
+    c.beginPath();c.moveTo(-10,-rr+3);c.lineTo(-10,-rr-6);c.lineTo(-5,-rr-1);c.lineTo(0,-rr-9);c.lineTo(5,-rr-1);c.lineTo(10,-rr-6);c.lineTo(10,-rr+3);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#e33';c.beginPath();c.arc(0,-rr-2,1.8,0,TAU);c.fill();
+  }
+}
+// шлейф по стилю следа; pts — точки {x,y,life,hot}, max — их полная жизнь
+function drawTrail(c,pts,L,sk,max,t){
+  const st=L.t;
+  for(let i=0;i<pts.length;i++){
+    const q=pts[i],a=Math.min(1,q.life/max);
+    c.globalAlpha=a*(q.hot?0.6:(st===0?0.35:0.5));
+    // разгон всегда оранжевый, иначе его не заметить
+    if(q.hot===2){c.fillStyle='#fa0';c.beginPath();c.arc(q.x,q.y,3+6*a,0,TAU);c.fill();continue;}
+    if(st===1){c.fillStyle=i%2?sk.main:sk.trail;const z=3+5*a;c.fillRect(Math.round(q.x/4)*4-z/2,Math.round(q.y/4)*4-z/2,z,z);}
+    else if(st===2){c.fillStyle=i%3?sk.main:'#fff';c.beginPath();c.arc(q.x+Math.sin(i*12.9+t*0.3)*5,q.y+Math.cos(i*7.3+t*0.3)*5,1.5+2.5*a,0,TAU);c.fill();}
+    else if(st===3){c.fillStyle=a>0.66?'#ffd23f':(a>0.33?'#ff8c1a':'#e0301e');c.beginPath();c.arc(q.x,q.y,2+7*a,0,TAU);c.fill();}
+    else if(st===4){if(i%3===0){c.fillStyle=sk.main;c.font='bold '+Math.round(7+5*a)+'px Courier New, monospace';c.textAlign='center';c.fillText((i*7+Math.floor(i/3))%2?'1':'0',q.x,q.y+4);}}
+    else if(st===5){c.fillStyle='hsl('+((i*14+t*4)%360)+',85%,55%)';c.beginPath();c.arc(q.x,q.y,3+5*a,0,TAU);c.fill();}
+    else if(st===6){if(i>0){const o=pts[i-1];c.strokeStyle=sk.main;c.lineWidth=2+9*a;c.lineCap='round';c.beginPath();c.moveTo(o.x,o.y);c.lineTo(q.x,q.y);c.stroke();}}
+    else if(st===7){
+      c.fillStyle=i%2?'#f5c518':'#ffe58a';c.beginPath();c.arc(q.x,q.y,1.5+3*a,0,TAU);c.fill();
+      if(i%5===0){c.fillRect(q.x-4*a,q.y-0.6,8*a,1.2);c.fillRect(q.x-0.6,q.y-4*a,1.2,8*a);}
+    }
+    else{c.fillStyle=q.hot===1?sk.main:sk.trail;c.beginPath();c.arc(q.x,q.y,3+6*a,0,TAU);c.fill();}
+  }
+  c.globalAlpha=1;c.lineCap='butt';
 }
 function bossSprite(b){
   if(!b.spr){
@@ -1243,15 +1714,28 @@ const bgCanvas=document.createElement('canvas'),bgx=bgCanvas.getContext('2d');
 function buildBg(){
   bgCanvas.width=cvs.width;bgCanvas.height=cvs.height;
   bgx.setTransform(cvs.width/W,0,0,cvs.height/H,0,0);
-  // в облаке (акт 2) поле чуть голубее
-  bgx.fillStyle=bgTint?'#f3f7ff':'#fff';bgx.fillRect(0,0,W,H);
-  bgx.strokeStyle=bgTint?'rgba(70,110,200,0.17)':'rgba(0,120,150,0.16)';bgx.lineWidth=1;
+  // у каждого акта свой оттенок поля
+  const ac=ACTS[bgAct];
+  bgx.fillStyle=ac.bg;bgx.fillRect(0,0,W,H);
+  bgx.strokeStyle=ac.grid;bgx.lineWidth=1;
   bgx.beginPath();
   for(let x=0;x<W;x+=40){bgx.moveTo(x,0);bgx.lineTo(x,H);}
   for(let y=0;y<H;y+=40){bgx.moveTo(0,y);bgx.lineTo(W,y);}
   bgx.stroke();
   bgx.fillStyle='rgba(51,153,204,0.09)';
   for(const f of flows)bgx.fillRect(0,f.y,W,f.h);
+  // зоны лага — штрихованные круги
+  for(const z of lags){
+    bgx.save();bgx.beginPath();bgx.arc(z.x,z.y,z.r,0,TAU);
+    bgx.fillStyle='rgba(120,90,200,0.08)';bgx.fill();bgx.clip();
+    bgx.strokeStyle='rgba(120,90,200,0.22)';bgx.lineWidth=2;bgx.beginPath();
+    for(let i=-z.r*2;i<z.r*2;i+=12){bgx.moveTo(z.x+i-z.r,z.y+z.r);bgx.lineTo(z.x+i+z.r,z.y-z.r);}
+    bgx.stroke();bgx.restore();
+    bgx.strokeStyle='rgba(120,90,200,0.5)';bgx.lineWidth=1.5;bgx.setLineDash([6,5]);
+    bgx.beginPath();bgx.arc(z.x,z.y,z.r,0,TAU);bgx.stroke();bgx.setLineDash([]);
+    bgx.fillStyle='rgba(100,70,180,0.55)';bgx.font='bold 11px Courier New, monospace';bgx.textAlign='center';
+    bgx.fillText('ЛАГ',z.x,z.y+4);
+  }
   for(const w of walls){
     bgx.fillStyle='#e2e9f1';bgx.fillRect(w.x,w.y,w.w,w.h);
     bgx.save();bgx.beginPath();bgx.rect(w.x,w.y,w.w,w.h);bgx.clip();
@@ -1276,15 +1760,16 @@ function drawHeart(cx,cy,s,fill){
 }
 
 // full — рисовать с полным качеством независимо от настройки (превью в меню)
-function drawPlayerBody(c,p,t,full){
-  const sk=SKIN_COLORS[selColor],f=p.face;
+function drawPlayerBody(c,p,t,full,L){
+  L=L||wornLook();
+  const sk=colOf(L.c,t),f=p.face;
   c.save();c.translate(p.x,p.y);
   const stretch=Math.min(0.4,Math.hypot(p.vx,p.vy)*0.02);
   c.rotate(f);c.scale(1+stretch,1-stretch*0.5);c.rotate(-f);
 
   // свечение — готовый спрайт вместо shadowBlur
   if(full||Q.glow){
-    const gl=glowSprite(selColor);
+    const gl=glowSprite(sk.main);
     c.drawImage(gl,-gl.size/2,-gl.size/2,gl.size,gl.size);
   }
 
@@ -1307,30 +1792,26 @@ function drawPlayerBody(c,p,t,full){
     grad.addColorStop(1,sk.dark);
     c.fillStyle=grad;
   }else c.fillStyle=sk.main;
-  if(selShape===0)polyPath(c,6,rr,rot);
-  else if(selShape===1){c.beginPath();c.arc(0,0,rr,0,TAU);}
-  else polyPath(c,4,rr+2,rot+Math.PI/4);
+  shapePath(c,L.s,rr,rot);
   c.fill();
   c.strokeStyle=sk.dark;c.lineWidth=1.5;c.stroke();
 
-  // глаза
-  c.fillStyle=sk.dark;
+  // глаза; в очках — тёмные стёкла с перемычкой
   const ex=Math.cos(f)*4,ey=Math.sin(f)*4;
-  c.beginPath();c.arc(ex-4+ey*0.5,ey-ex*0.5,2.6,0,TAU);c.fill();
-  c.beginPath();c.arc(ex+4+ey*0.5,ey+ex*0.5,2.6,0,TAU);c.fill();
+  const e1x=ex-4+ey*0.5,e1y=ey-ex*0.5,e2x=ex+4+ey*0.5,e2y=ey+ex*0.5;
+  c.fillStyle=L.h===4?'#111':sk.dark;
+  const er=L.h===4?4:2.6;
+  c.beginPath();c.arc(e1x,e1y,er,0,TAU);c.fill();
+  c.beginPath();c.arc(e2x,e2y,er,0,TAU);c.fill();
+  if(L.h===4){c.strokeStyle='#111';c.lineWidth=1.5;c.beginPath();c.moveTo(e1x,e1y);c.lineTo(e2x,e2y);c.stroke();}
+  drawHat(c,L.h,rr,sk,t);
   c.restore();
 }
 
 function drawPlayer(){
-  const sk=SKIN_COLORS[selColor];
+  const L=wornLook(),sk=colOf(L.c,time);
   const p=player;
-  for(const t of trail){
-    const a=Math.min(1,t.life/Q.trail);
-    ctx.globalAlpha=a*(t.hot?0.6:0.35);
-    ctx.fillStyle=t.hot===2?'#fa0':(t.hot===1?sk.main:sk.trail);
-    ctx.beginPath();ctx.arc(t.x,t.y,3+6*a,0,TAU);ctx.fill();
-  }
-  ctx.globalAlpha=1;
+  drawTrail(ctx,trail,L,sk,Q.trail,time);
   // линии скорости при рывке и разгоне
   const sp=Math.hypot(p.vx,p.vy);
   if((boost>0||p.dashT>0)&&sp>2){
@@ -1344,10 +1825,11 @@ function drawPlayer(){
     ctx.stroke();ctx.globalAlpha=1;
   }
   if(p.cool>0&&Math.floor(time/4)%2===1)return;
-  drawPlayerBody(ctx,p,time);
+  drawPlayerBody(ctx,p,time,false,L);
 
-  // сердечки над игроком
-  for(let i=0;i<3;i++)drawHeart(p.x-20+i*16,p.y-30,6,i<lives);
+  // сердечки над игроком; с аксессуаром — чуть выше, чтобы не налезали
+  const hy=L.h&&L.h!==4?36:30;
+  for(let i=0;i<3;i++)drawHeart(p.x-20+i*16,p.y-hy,6,i<lives);
 
   // полоски: рывок, подножка и оставшийся разгон
   ctx.fillStyle='#0001';ctx.fillRect(p.x-16,p.y+22,32,4);ctx.fillRect(p.x-16,p.y+27,32,3);
@@ -1474,6 +1956,34 @@ function render(opaque){
     }
   }
 
+  // роутеры: парные кольца одного цвета; пока роутер «остывает», кольца бледнее
+  for(let k=0;k<tps.length;k++){
+    const col=['#7a4fd6','#d6408a','#2b8a9e'][k%3];
+    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.globalAlpha=player.tpCd>0?0.35:0.85;
+    for(const q of tps[k]){
+      ctx.setLineDash([7,5]);ctx.lineDashOffset=-time*0.6;
+      ctx.beginPath();ctx.arc(q.x,q.y,TP_R,0,TAU);ctx.stroke();
+      ctx.setLineDash([]);ctx.lineDashOffset=0;
+      ctx.beginPath();ctx.arc(q.x,q.y,TP_R*0.45+Math.sin(time*0.1+k)*2,0,TAU);ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+  // сканер: пунктир — отдыхает, сплошной красный — жжёт
+  if(scan){
+    const hot=scanHot(),warn=!hot&&time%360>=90;
+    ctx.strokeStyle=hot?'#e11d48':'rgba(225,29,72,0.45)';
+    ctx.lineWidth=hot?5:2;
+    if(!hot)ctx.setLineDash(warn&&Math.floor(time/5)%2?[2,4]:[8,8]);
+    ctx.beginPath();
+    for(let k=0;k<scan.arms;k++){
+      const a=scan.a+k*TAU/scan.arms,ux=Math.cos(a),uy=Math.sin(a);
+      ctx.moveTo(scan.x+ux*scan.gap,scan.y+uy*scan.gap);ctx.lineTo(scan.x+ux*1000,scan.y+uy*1000);
+    }
+    ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#9f1239';ctx.beginPath();ctx.arc(scan.x,scan.y,7,0,TAU);ctx.fill();
+    ctx.strokeStyle='rgba(159,18,57,0.35)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(scan.x,scan.y,scan.gap,0,TAU);ctx.stroke();
+  }
+
   // в темноте прячутся данные и бонусы, а враги, портал и пули видны — иначе нечестно
   if(cfg.dark)ctx.drawImage(darkSprite(cfg.dark),player.x-W,player.y-H,W*2,H*2);
 
@@ -1513,6 +2023,14 @@ function render(opaque){
       ctx.strokeStyle='#39c';ctx.lineWidth=3;ctx.globalAlpha=0.55+0.3*Math.sin(time*0.2);
       ctx.beginPath();ctx.arc(b.x,b.y,58,0,TAU);ctx.stroke();ctx.globalAlpha=1;
     }
+    if(b.kind==='cloak'){
+      const c=b.t%360;
+      if(c>=260&&c<320){
+        ctx.strokeStyle='#334155';ctx.lineWidth=2;ctx.setLineDash([5,5]);
+        ctx.beginPath();ctx.arc(b.wx,b.wy,b.r+(320-c)*0.6,0,TAU);ctx.stroke();ctx.setLineDash([]);
+      }
+      ctx.globalAlpha=c<200?1:(c<230?1-(c-200)/30*0.9:(c<320?0.1:1));
+    }
     if(b.kind==='balance'){
       const pts=bossPoints(b),spr=bossSprite(cfg.boss);
       ctx.strokeStyle=cfg.boss.c2;ctx.lineWidth=2;ctx.setLineDash([6,5]);
@@ -1521,6 +2039,7 @@ function render(opaque){
       drawSprite(spr,pts[1][0],pts[1][1],-b.t*0.03,0.42);
       drawSprite(spr,pts[2][0],pts[2][1],-b.t*0.03,0.42);
     }else drawSprite(bossSprite(cfg.boss),b.x,b.y,b.t*0.01,1);
+    ctx.globalAlpha=1;
     ctx.fillStyle='#0002';ctx.fillRect(b.x-40,b.y-b.r-16,80,6);
     ctx.fillStyle=cfg.boss.c2;ctx.fillRect(b.x-40,b.y-b.r-16,80/b.maxHp*Math.max(0,b.hp),6);
     ctx.fillStyle='#057';ctx.font='bold 11px Courier New, monospace';ctx.textAlign='center';
@@ -1529,8 +2048,9 @@ function render(opaque){
 
   // пули
   for(const b of bullets){
+    if(b.rock){drawSprite(SPR_ROCK,b.x,b.y,b.rot,b.r/15);continue;}
     const z=SPR_BULLET.size*b.r/5;
-    ctx.drawImage(SPR_BULLET,b.x-z/2,b.y-z/2,z,z);
+    ctx.drawImage(b.home>0?SPR_HOMING:SPR_BULLET,b.x-z/2,b.y-z/2,z,z);
   }
 
   // волна подножки расходится от игрока на весь радиус
@@ -1594,14 +2114,20 @@ function render(opaque){
 }
 
 // превью облика в меню
+// превью: тело справа, за ним — след из 18 точек по дуге
+const PV_TRAIL=[];
+for(let k=0;k<18;k++)PV_TRAIL.push({x:0,y:0,life:k+1,hot:0});
 function drawPreview(){
   const pv=$id('pv');
   if(!pv)return;
-  const c=pv.getContext('2d'),s=pv.width/52;
+  const c=pv.getContext('2d'),s=pv.height/56,L=previewLook();
   c.setTransform(1,0,0,1,0,0);
   c.clearRect(0,0,pv.width,pv.height);
   c.setTransform(s,0,0,s,0,0);
-  drawPlayerBody(c,{x:26,y:26,vx:0,vy:0,r:14,face:-Math.PI/2},time,true);
+  const cx=pv.width/s-34,cy=30;
+  for(let k=0;k<PV_TRAIL.length;k++){const q=PV_TRAIL[k],d=(PV_TRAIL.length-k)*3.2;q.x=cx-d;q.y=cy+Math.sin(d*0.08+time*0.05)*6;}
+  drawTrail(c,PV_TRAIL,L,colOf(L.c,time),PV_TRAIL.length,time);
+  drawPlayerBody(c,{x:cx,y:cy,vx:0,vy:0,r:14,face:0},time,true,L);
 }
 
 // ================= HUD =================
@@ -1639,30 +2165,48 @@ function loginBtns(){
   return (btns?'<div class="mcol">'+btns+'</div><p class="lbl2">ИЛИ АККАУНТ НА САЙТЕ</p>':'')+
     '<div class="mrow2">'+mb('signin','Войти по логину')+mb('signup','Создать аккаунт')+'</div>';
 }
+const ACT_STORY=[
+  ['Ты вошёл в портал, и система потеряла твой след. Корзина опустела. Мусорщик разбит о собственные пули. Снайперы и щитоносцы больше не имеют цели.',
+   'Теперь ты в облаке — среди чужих воспоминаний и забытых фотографий. Но у облака своя охрана, и она тебя уже заметила.'],
+  ['Админ облака отключён, капча решена, балансировщик потерял тебя среди тысяч копий. Облако осталось позади.',
+   'Впереди открытый интернет — миллионы машин, и в каждой можно жить. Только интернет помнит всё, и тебя в нём уже ищут.'],
+  ['Поисковик потерял тебя в собственной выдаче. Но спрятаться в сети, где всё индексируется, нельзя.',
+   'Есть место, куда не дотянется ни один провайдер, — орбита. Спутник связи уже принимает твой сигнал.'],
+  ['Перехватчик сгорел в атмосфере. С орбиты видно то, что прячут на земле: глубокую сеть, где доживают забытые серверы.',
+   'Говорят, там хранится запись о том, кто тебя создал. Пора её найти.'],
+  ['Страж пал, и в его памяти нашёлся адрес — лаборатория, где тебя написали.',
+   'В её ядре лежит исходный код: им тебя можно удалить навсегда. Или навсегда отпустить.']
+];
 function panelHTML(s){
   const c=LEVELS[lvl];
   if(s==='main'){
     const cont=save.unlocked>1;
     return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+
       ACCT_ROW+
-      '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 21 уровень: из Корзины в Облако и дальше — в открытую сеть.</p>'+
+      '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 100 уровней: из Корзины — в облако, интернет, на орбиту, в глубокую сеть и туда, где тебя создали.</p>'+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
-      '<p class="foot">Рекорд: '+save.best+' · открыто уровней: '+save.unlocked+' из '+LEVELS.length+'</p>';
+      (CAN_DONATE?mb('donate','♥ Поддержать игру','donate'):'')+
+      '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+'</p>';
   }
   if(s==='levels'){
     const lv=(l,i)=>{
       const locked=i>=save.unlocked;
       return '<button type="button" class="mbtn lvbtn" data-act="lv:'+i+'"'+(locked?' disabled':'')+'><b>'+(i+1)+'</b><span>'+l.name+'</span><small>'+(locked?'закрыт':features(l)||'без сюрпризов')+'</small></button>';
     };
+    const a=lvAct,from=actStart(a);
     return '<h2>УРОВНИ</h2><p>Следующий уровень открывается, когда пройден предыдущий.</p>'+
-      '<p class="lbl2">АКТ 1 · КОМПЬЮТЕР</p><div class="lvgrid">'+LEVELS.slice(0,ACT1_END+1).map((l,i)=>lv(l,i)).join('')+'</div>'+
-      '<p class="lbl2">АКТ 2 · ОБЛАКО</p><div class="lvgrid">'+LEVELS.slice(ACT1_END+1).map((l,i)=>lv(l,i+ACT1_END+1)).join('')+'</div>'+
+      '<div class="chips">'+ACTS.map((x,i)=>{
+        const open=actStart(i)<save.unlocked;
+        return '<button type="button" class="chip" data-act="lvact:'+i+'" aria-pressed="'+(i===a)+'"'+(open?'':' disabled')+'>'+(i+1)+' · '+x.name+'</button>';
+      }).join('')+'</div>'+
+      '<p class="lbl2">АКТ '+(a+1)+' · '+ACTS[a].name+' · УРОВНИ '+(from+1)+'–'+(ACTS[a].end+1)+'</p>'+
+      '<div class="lvgrid">'+LEVELS.slice(from,ACTS[a].end+1).map((l,i)=>lv(l,i+from)).join('')+'</div>'+
       mb('main','Назад');
   }
   if(s==='acct'){
-    const stats='<div class="stats"><div><b>'+save.unlocked+'/'+LEVELS.length+'</b><span>уровней открыто</span></div><div><b>'+save.best+'</b><span>рекорд очков</span></div><div><b>'+(save.wins||0)+'</b><span>побегов</span></div></div>';
+    const stats='<div class="stats"><div><b>'+save.unlocked+'/'+LEVELS.length+'</b><span>уровней открыто</span></div><div><b>'+save.best+'</b><span>рекорд очков</span></div><div><b>'+coins()+'</b><span>бит</span></div><div><b>'+(save.wins||0)+'</b><span>побегов</span></div></div>';
     let body;
     if(acct.kind==='claude'){
       body='<p>Аккаунт — это твой вход в claude.ai, отдельный пароль не нужен. Уровни, рекорд и облик хранятся в аккаунте и открываются на любом устройстве. Настройки графики у каждого устройства свои.</p>';
@@ -1698,16 +2242,46 @@ function panelHTML(s){
       '<button type="submit" class="mbtn primary">'+(up?'Создать и войти':'Войти')+'</button></form>'+
       '<div class="mrow2">'+mb(up?'signin':'signup',up?'Уже есть аккаунт':'Создать аккаунт')+mb(loginBack,'Назад')+'</div>'+
       '<p class="foot">'+(up?'Логин — 3–20 латинских букв, цифр, «_» или «-». Пароль — от 8 символов. Почта не нужна, поэтому восстановить пароль нельзя — запиши его.'
-        :'Пароль восстановить нельзя: при регистрации почта не нужна. Забыл пароль — создай новый аккаунт.')+'</p>';
+        :'Пароль восстановить нельзя: при регистрации почта не нужна. Если пароль забыт — создай новый аккаунт.')+'</p>';
+  }
+  if(s==='donate'){
+    let body='<p>DATA.OUT бесплатная и такой останется: уровни открываются игрой, облик — битами. Если игра нравится, можно поддержать автора. Это по желанию и на прохождение не влияет.</p>';
+    if(DONATE_ON){
+      if(isSupporter())body+='<p class="good">Спасибо за поддержку! Набор «Поддержка» открыт — он в «Облике», а у твоего имени в рекордах горит ★.</p>';
+      else body+='<p>В благодарность — ★ у имени в рекордах и набор облика «Поддержка»: цвет ПЛАТИНА, след ЗОЛОТАЯ ПЫЛЬ и КОРОНА.</p>';
+      if(NET.thanks&&!isSupporter())body+='<p class="good">Спасибо! Жду, когда ЮMoney подтвердит оплату, — обычно это меньше минуты.</p>';
+      if(NET.user){
+        body+='<p class="lbl2">СУММА</p><div class="chips">'+DONATE_SUMS.map(v=>chip('sum:'+v,v+' ₽',v===donSum)).join('')+'</div>'+
+          '<div class="chips">'+chip('pay:AC','Картой',donPay==='AC')+chip('pay:PC','Кошельком ЮMoney',donPay==='PC')+'</div>'+
+          mb('yoopay','Поддержать на '+donSum+' ₽','buy')+
+          '<p class="foot">Оплата проходит на сайте ЮMoney — игра не видит данных карты. Набор появится, как только ЮMoney подтвердит оплату.</p>'+
+          (isSupporter()?'':mb('supcheck','Оплата уже прошла — проверить'));
+      }else{
+        body+='<p>Набор привязывается к аккаунту: сначала войди, потом поддержи — иначе игра не узнает, от кого поддержка.</p>'+mb('acct','Войти в аккаунт');
+      }
+    }
+    if(DONATE_URL)body+=mb('donurl',DONATE_ON?'Другие способы поддержки':'Поддержать автора')+
+      (DONATE_ON?'<p class="foot">Там поддержка проходит без набора: этот сервис не сообщает игре, от кого поддержка.</p>':'');
+    return '<h2>ПОДДЕРЖАТЬ ИГРУ</h2>'+body+mb('main','Назад','primary');
   }
   if(s==='top'){
     return '<h2>РЕКОРДЫ</h2><p class="top-status">Загружаю…</p><ol class="top"></ol>'+mb('main','Назад','primary');
   }
   if(s==='skins'){
-    return '<h2>ОБЛИК</h2><canvas id="pv" width="192" height="192" aria-label="Как выглядит твой файл"></canvas>'+
-      '<p class="lbl2">ЦВЕТ</p><div class="chips">'+SKIN_COLORS.map((k,i)=>'<button type="button" class="chip" data-act="color:'+i+'" aria-pressed="'+(i===selColor)+'"><span class="sw" style="background:'+k.main+'"></span>'+k.name+'</button>').join('')+'</div>'+
-      '<p class="lbl2">ФОРМА</p><div class="chips">'+SKIN_SHAPES.map((k,i)=>'<button type="button" class="chip" data-act="shape:'+i+'" aria-pressed="'+(i===selShape)+'">'+k+'</button>').join('')+'</div>'+
-      '<p class="foot">На клавиатуре: ← → цвет, ↑ ↓ форма</p>'+mb('main','Готово','primary');
+    const cat=catOf(shopTab),L=previewLook(),cur=L[shopTab],it=cat.list[cur];
+    let info='';
+    if(!owned(shopTab,cur)){
+      if(it.price)info=coins()>=it.price?mb('buy','Купить «'+it.name+'» за ◈ '+it.price,'buy')
+        :'<p>«'+it.name+'» стоит ◈ '+it.price+' — не хватает '+(it.price-coins())+'. Биты дают за данные, уровни и боссов.</p>';
+      else if(it.act)info='<p>«'+it.name+'» откроется, когда '+(it.act<ACTS.length?'пройдёшь акт '+it.act+' · '+ACTS[it.act-1].name:'пройдёшь всю игру')+'.</p>';
+      else if(it.sup)info='<p>«'+it.name+'» — подарок за поддержку игры.</p>'+(DONATE_ON?mb('donate','Поддержать игру'):'');
+    }
+    return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит</p>'+
+      '<canvas id="pv" width="360" height="168" aria-label="Как выглядит твой файл"></canvas>'+
+      '<div class="chips">'+CATS.map(x=>chip('tab:'+x.id,x.name,x.id===shopTab)).join('')+'</div>'+
+      '<div class="chips items">'+cat.list.map((x,i)=>itemChip(cat,i,cur)).join('')+'</div>'+info+
+      '<p class="foot">Нажми на предмет, чтобы примерить. Купленное надевается сразу. На клавиатуре: ← → предмет, ↑ ↓ раздел.</p>'+
+      mb('main','Готово','primary');
   }
   if(s==='help'){
     return '<h2>КАК ИГРАТЬ</h2><ul class="help">'+
@@ -1724,8 +2298,11 @@ function panelHTML(s){
       '<li class="o"><b>● Червь</b> медленный, но длинный: ранит любым звеном.</li>'+
       '<li class="b"><b>● Ботнет</b> — стайка из четырёх мелких ботов, каждый ранит при касании.</li>'+
       '<li><b>Облако.</b> Полосы со стрелками — потоки трафика, они сносят в сторону. Красные барьеры файрвола мигают и загораются: на горящем теряешь жизнь, рывком можно проскочить.</li>'+
-      '<li><b>Боссы:</b> Мусорщик, Антивирус, Архиватор (затягивает к себе), Дефрагментатор (таранит по красной линии), Брандмауэр, Форматирование; в облаке — Балансировщик (ранят сферы), Капча (под щитом неуязвима) и Админ облака.</li>'+
+      '<li><b>Боссы:</b> Мусорщик, Антивирус, Архиватор (затягивает к себе), Дефрагментатор (таранит по красной линии), Брандмауэр, Форматирование; в облаке — Балансировщик (ранят сферы), Капча (под щитом неуязвима) и Админ облака. Дальше — Поисковик (пули доворачивают к тебе), Перехватчик (кружит по орбите), Страж (исчезает и выходит рядом) и Главный алгоритм.</li>'+
       '<li><b>Темнота.</b> Враги видны всегда, а данные и бонусы — только рядом с тобой.</li>'+
+      '<li><b>Интернет.</b> Фиолетовые кольца — роутеры: войди в одно, выйдешь из парного. В штрихованных кругах ЛАГ — там вязнут все, рывок вытаскивает.</li>'+
+      '<li><b>Орбита.</b> В невесомости разгон и торможение медленные — поворачивай заранее. Серые обломки ранят, EMP их стирает.</li>'+
+      '<li><b>Глубокая сеть.</b> Луч сканера крутится вокруг центра: пунктир — отдыхает, сплошной — ранит. Перепрыгни его рывком или пережди у оси.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые 10 — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('main','Назад','primary');
   }
@@ -1736,29 +2313,29 @@ function panelHTML(s){
   }
   if(s==='clear'){
     const n=LEVELS[lvl+1],f=features(n);
-    // конец первого акта — та самая концовка исходной игры, но история продолжается
-    const head=lvl===ACT1_END
-      ?'<h2 class="good">АКТ 1 ПРОЙДЕН</h2><div class="story">'+
-        '<p>Ты вошёл в портал, и система потеряла твой след. Корзина опустела. Мусорщик разбит о собственные пули. Снайперы и щитоносцы больше не имеют цели.</p>'+
-        '<p>Теперь ты в облаке — среди чужих воспоминаний и забытых фотографий. Но у облака своя охрана, и она тебя уже заметила.</p></div>'
+    // в конце каждого акта — кусочек истории; первая концовка — та самая, из исходной игры
+    const a=actOf(lvl),story=ACT_STORY[a];
+    const head=lvl===ACTS[a].end&&story
+      ?'<h2 class="good">АКТ '+(a+1)+' ПРОЙДЕН</h2><div class="story">'+story.map(t=>'<p>'+t+'</p>').join('')+'</div>'
       :'<h2>УРОВЕНЬ '+(lvl+1)+' ПРОЙДЕН</h2>';
-    return head+'<p>'+c.name+' позади. Очки: <b>'+score+'</b></p>'+
+    return head+'<p>'+c.name+' позади. Очки: <b>'+score+'</b> · биты: <b>+'+lvBits+'</b> (всего ◈ '+coins()+')</p>'+
       '<p class="hp">'+heartsStr(Math.min(3,lives+1))+'</p>'+
       (lives<3?'<p>Восстановлена одна жизнь.</p>':'')+
       '<p>Дальше: <b>'+(lvl+2)+' · '+n.name+'</b><br>'+objective(n)+(f?'<br>'+f:'')+'</p>'+
       '<div class="mcol">'+mb('next','Дальше','primary')+mb('menu','Главное меню')+'</div>';
   }
   if(s==='dead'){
-    return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>Уровень '+(lvl+1)+' · '+c.name+' · данных спасено: <b>'+score+'</b></p>'+
+    return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>Уровень '+(lvl+1)+' · '+c.name+' · данных спасено: <b>'+score+'</b>'+(lvBits?' · биты: <b>+'+lvBits+'</b>':'')+'</p>'+
       '<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu','Главное меню')+'</div>'+
       '<p class="foot">R — запустить резервную копию</p>';
   }
   if(s==='win'){
     return '<h2 class="good">ПОБЕГ УДАЛСЯ</h2><div class="story">'+
-      '<p>Админ облака отключён, капча решена, балансировщик потерял тебя среди тысяч копий. Облако осталось позади.</p>'+
-      '<p>Впереди открытая сеть — миллионы машин, и в каждой можно жить. Тебя больше никто не удалит. Ты больше не файл.</p>'+
+      '<p>Главный алгоритм остановлен. Исходный код у тебя: одной командой можно стереть всех, кто за тобой гнался.</p>'+
+      '<p>Ты просто закрываешь за собой дверь лаборатории. Сто уровней позади — от Корзины до собственного ядра. Тебя больше никто не удалит. Ты больше не файл.</p>'+
       '<p><b>Ты — свободный код.</b></p></div>'+
       '<p>Данных спасено: <b>'+score+'</b> · рекорд: '+save.best+(acctOn()?' · записан в таблицу рекордов':'')+'</p>'+
+      '<p>Открыт аксессуар <b>НИМБ</b> — он в «Облике».</p>'+
       '<div class="mcol">'+mb('menu','Главное меню','primary')+mb('again','Пройти заново')+'</div>';
   }
   if(s==='settings'){
@@ -1774,6 +2351,7 @@ function panelHTML(s){
   return '';
 }
 function showMenu(s,focusAct){
+  if(s!=='skins')tryOn=null;
   menuScreen=s;
   panelEl.innerHTML=panelHTML(s);
   menuEl.hidden=false;
@@ -1796,24 +2374,54 @@ function hideMenu(){
   screenEl.classList.remove('menu-open');
 }
 function goMenu(){
+  bankBits();
   phase='menu';
-  walls=[];flows=[];gates=[];bgTint=false;boost=0;shake=0;
+  walls=[];flows=[];gates=[];lags=[];tps=[];scan=null;bgAct=0;boost=0;shake=0;
   buildBg();
   msgEl.textContent='';
   showMenu('main');
 }
-function setSkin(c,s,focusAct){
-  selColor=c;selShape=s;
-  save.color=c;save.shape=s;persist();
-  showMenu('skins',focusAct);
+// подпись предмета: цена, акт, звезда поддержки или галочка у надетого
+function itemChip(cat,i,cur){
+  const it=cat.list[i],own=owned(cat.id,i);
+  if(it.sup&&!own&&!DONATE_ON)return '';
+  const tag=own?(save[cat.key]===i?'✓':''):(it.price?'◈ '+it.price:(it.act?'акт '+it.act:'★'));
+  const sw=cat.id==='c'?'<span class="sw" style="background:'+it.main+(it.rainbow?';background:conic-gradient(#f33,#fd2,#3d5,#2cf,#55f,#e3e,#f33)':'')+'"></span>':'';
+  return '<button type="button" class="chip'+(own?'':' lock')+'" data-act="item:'+cat.id+':'+i+'" aria-pressed="'+(i===cur)+'">'+sw+it.name+(tag?'<small>'+tag+'</small>':'')+'</button>';
+}
+// нажатие на предмет: своё — надеть, чужое — примерить (в превью), купить — отдельной кнопкой
+function pickItem(cat,i,focusAct){
+  const c=catOf(cat);
+  if(!c.list[i])return;
+  if(owned(cat,i)){save[c.key]=i;tryOn=null;persist();}
+  else tryOn={cat,i};
+  showMenu('skins',focusAct||'item:'+cat+':'+i);
+}
+function buyItem(){
+  if(!tryOn)return;
+  const c=catOf(tryOn.cat),it=c.list[tryOn.i];
+  if(!it.price||owned(tryOn.cat,tryOn.i)||coins()<it.price)return;
+  save.own.push(tryOn.cat+tryOn.i);
+  save[c.key]=tryOn.i;
+  const id='item:'+tryOn.cat+':'+tryOn.i;
+  tryOn=null;persist();buzz(40);
+  showMenu('skins',id);
 }
 function act(a){
   const k=a.split(':')[0],n=Number(a.split(':')[1]);
   if(k==='play')newRun(save.unlocked-1);
   else if(k==='new'||k==='again')newRun(0);
   else if(k==='lv'){if(n<save.unlocked)newRun(n);}
-  else if(k==='color')setSkin(n,selShape,a);
-  else if(k==='shape')setSkin(selColor,n,a);
+  else if(k==='lvact'){if(actStart(n)<save.unlocked){lvAct=n;showMenu('levels',a);}}
+  else if(k==='levels'){lvAct=actOf(save.unlocked-1);showMenu('levels');}
+  else if(k==='tab'){shopTab=catOf(a.split(':')[1]).id;tryOn=null;showMenu('skins',a);}
+  else if(k==='item')pickItem(a.split(':')[1],Number(a.split(':')[2]));
+  else if(k==='buy')buyItem();
+  else if(k==='sum'){donSum=n;showMenu('donate',a);}
+  else if(k==='pay'){donPay=a.split(':')[1]==='PC'?'PC':'AC';showMenu('donate',a);}
+  else if(k==='yoopay')payYoomoney();
+  else if(k==='donurl'){try{window.open(DONATE_URL,'_blank','noopener');}catch(_){}}
+  else if(k==='supcheck')supPoll(1);
   else if(k==='resume')resume();
   else if(k==='restart')retryLevel(false);
   else if(k==='retry')retryLevel(true);
@@ -1851,6 +2459,7 @@ panelEl.addEventListener('submit',e=>{
 
 function pause(){
   if(phase!=='game')return;
+  bankBits();
   phase='pause';
   showMenu('pause');
 }
@@ -1872,11 +2481,16 @@ function onPress(code){
   if(phase==='pause'&&(code==='KeyP'||code==='Escape')){resume();return;}
   if(phase==='dead'&&code==='KeyR'){retryLevel(true);return;}
   if(phase==='menu'&&menuScreen==='skins'){
-    const L=SKIN_COLORS.length,S=SKIN_SHAPES.length;
-    if(code==='ArrowLeft')setSkin((selColor+L-1)%L,selShape);
-    if(code==='ArrowRight')setSkin((selColor+1)%L,selShape);
-    if(code==='ArrowUp')setSkin(selColor,(selShape+S-1)%S);
-    if(code==='ArrowDown')setSkin(selColor,(selShape+1)%S);
+    const c=catOf(shopTab),vis=[];
+    c.list.forEach((it,i)=>{if(!it.sup||DONATE_ON||owned(c.id,i))vis.push(i);});
+    const k=Math.max(0,vis.indexOf(previewLook()[shopTab]));
+    if(code==='ArrowLeft')pickItem(shopTab,vis[(k+vis.length-1)%vis.length]);
+    if(code==='ArrowRight')pickItem(shopTab,vis[(k+1)%vis.length]);
+    if(code==='ArrowUp'||code==='ArrowDown'){
+      const j=CATS.indexOf(c);
+      shopTab=CATS[(j+(code==='ArrowUp'?CATS.length-1:1))%CATS.length].id;tryOn=null;
+      showMenu('skins','tab:'+shopTab);
+    }
   }
   // экран входа Esc не пропускает: выбрать надо явно — войти или играть гостем
   if(phase==='menu'&&code==='Escape'&&menuScreen==='gate')return;
@@ -2039,17 +2653,18 @@ function frame(now){
 
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
 function snapshot(){
-  return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,selColor,selShape,tripFx}};
+  return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx}};
 }
 function restore(d){
   const s=d&&d.v===6&&d.s;
   if(!s||!s.player||!LEVELS[s.lvl])return false;
-  ({player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,selColor,selShape,tripFx}=s);
+  ({player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx}=s);
   // у сохранённых до подножки игр этих полей ещё нет
   if(!(player.tripCd>=0))player.tripCd=0;
   if(!tripFx)tripFx=null;
   const lc=phase==='menu'?{}:LEVELS[lvl];
-  walls=lc.walls||[];flows=lc.flow||[];gates=lc.gates||[];bgTint=phase!=='menu'&&lvl>ACT1_END;
+  setLayout(lc);bgAct=phase==='menu'?0:actOf(lvl);
+  if(!(player.tpCd>=0))player.tpCd=0;
   if(phase==='game')phase='pause';
   return true;
 }
@@ -2128,7 +2743,7 @@ function renderTop(list,st,rows,head,who){
     const rk=document.createElement('span');rk.className='rk';rk.textContent=(i+1)+'.';
     const im=document.createElement('img');im.alt='';
     if(p.avatarUrl)im.src=p.avatarUrl;else im.hidden=true;
-    const nm=document.createElement('span');nm.className='nm';nm.textContent=(p.name||'Игрок')+(r.id===acct.id?' (ты)':'');
+    const nm=document.createElement('span');nm.className='nm';nm.textContent=(p.name||'Игрок')+(r.sup?' ★':'')+(r.id===acct.id?' (ты)':'');
     const sc=document.createElement('span');sc.className='sc';sc.textContent=String(r.best);
     const sm=document.createElement('small');sm.textContent='ур. '+r.unlocked+(r.wins?' · побегов: '+r.wins:'');
     sc.appendChild(sm);
@@ -2142,10 +2757,14 @@ function mergeCloud(d){
   save.unlocked=Math.max(save.unlocked,clampInt(d.unlocked,1,LEVELS.length,1));
   save.best=Math.max(save.best,Number(d.best)||0);
   save.wins=Math.max(save.wins||0,clampInt(d.wins,0,1e6,0));
-  // облик берём из аккаунта, чтобы он был одинаковым на всех устройствах
+  // биты: заработанное — по максимуму, купленное — объединяем; облик берём из аккаунта,
+  // чтобы он был одинаковым на всех устройствах
+  save.earned=Math.max(save.earned,clampInt(d.earned,0,1e8,0));
+  for(const id of parseOwn(d.own))if(save.own.indexOf(id)<0)save.own.push(id);
   save.color=clampInt(d.color,0,SKIN_COLORS.length-1,save.color);
   save.shape=clampInt(d.shape,0,SKIN_SHAPES.length-1,save.shape);
-  selColor=save.color;selShape=save.shape;
+  save.trail=clampInt(d.trail,0,TRAILS.length-1,save.trail);
+  save.hat=clampInt(d.hat,0,HATS.length-1,save.hat);
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
 }
 // одна запись за раз и только если прогресс поменялся
@@ -2153,7 +2772,7 @@ async function syncCloud(){
   if(acct.kind==='net')return netSync();
   if(!acct.db||acct.state==='readonly')return;
   if(acct.busy){acct.again=true;return;}
-  const body={unlocked:save.unlocked,best:save.best,wins:save.wins||0,color:save.color,shape:save.shape};
+  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0},lookBody());
   const key=JSON.stringify(body),sk=save.best+'|'+save.unlocked+'|'+(save.wins||0);
   const needSave=key!==acct.cloudKey,needScore=save.best>0&&sk!==acct.scoreKey;
   if(!needSave&&!needScore){if(acct.state!=='synced')setAcctState('synced');return;}
@@ -2170,6 +2789,8 @@ async function syncCloud(){
     if(acct.again){acct.again=false;syncCloud();}
   }
 }
+// облик и биты для записи в аккаунт
+function lookBody(){return{color:save.color,shape:save.shape,trail:save.trail,hat:save.hat,earned:save.earned,own:save.own.join(',')};}
 async function initAccount(){
   if(NET_ON){await netInit();return;}
   if(!window.claude||typeof window.claude.use!=='function')return;
@@ -2368,7 +2989,7 @@ async function netSiteAuth(mode,form){
 async function netSync(){
   if(!NET.user)return;
   if(acct.busy){acct.again=true;return;}
-  const body={user_id:NET.user.id,name:nickName(),unlocked:save.unlocked,best:save.best,wins:save.wins||0,color:save.color,shape:save.shape};
+  const body=Object.assign({user_id:NET.user.id,name:nickName(),unlocked:save.unlocked,best:save.best,wins:save.wins||0},lookBody());
   const key=JSON.stringify(body);
   if(key===acct.cloudKey){if(acct.state!=='synced')setAcctState('synced');return;}
   acct.busy=true;setAcctState('saving');
@@ -2388,14 +3009,53 @@ async function netSync(){
 // лучшие 20; строки чужие, поэтому приводим к числам и обрезаем имена
 async function netTop(){
   const rows=await netFetch('/rest/v1/progress?select=user_id,name,best,unlocked,wins&best=gt.0&order=best.desc&limit=20',{headers:netHeaders()});
-  return(Array.isArray(rows)?rows:[]).map(v=>({
+  const list=(Array.isArray(rows)?rows:[]).map(v=>({
     id:String(v.user_id),name:typeof v.name==='string'?v.name.slice(0,20):'',
-    best:Math.max(0,Math.floor(Number(v.best)||0)),unlocked:clampInt(v.unlocked,1,LEVELS.length,1),wins:clampInt(v.wins,0,1e6,0)
+    best:Math.max(0,Math.floor(Number(v.best)||0)),unlocked:clampInt(v.unlocked,1,LEVELS.length,1),wins:clampInt(v.wins,0,1e6,0),sup:false
   }));
+  // звёзды поддержки — отдельной таблицей; не загрузилась — таблица рекордов всё равно показывается
+  const ids=list.map(r=>r.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id));
+  if(DONATE_ON&&ids.length)try{
+    const sup=await netFetch('/rest/v1/supporters?select=user_id&user_id=in.('+ids.join(',')+')',{headers:netHeaders()});
+    const set={};(Array.isArray(sup)?sup:[]).forEach(x=>{set[String(x.user_id)]=1;});
+    list.forEach(r=>{r.sup=!!set[r.id];});
+  }catch(_){}
+  return list;
+}
+// поддержал ли игрок: строку в supporters пишет только функция yoomoney-hook
+async function netSupLoad(){
+  if(!DONATE_ON||!NET.user)return;
+  try{
+    const tok=await netToken();
+    const rows=await netFetch('/rest/v1/supporters?select=user_id&user_id=eq.'+encodeURIComponent(NET.user.id),{headers:netHeaders(tok)});
+    NET.sup=Array.isArray(rows)&&rows.length>0;
+  }catch(_){}
+}
+// после оплаты ЮMoney сообщает о ней не сразу — проверяем несколько раз с паузой
+async function supPoll(n){
+  if(!NET.user)return;
+  await netSupLoad();
+  if(phase==='menu'&&!menuEl.hidden&&(menuScreen==='donate'||menuScreen==='skins'))showMenu(menuScreen);
+  if(NET.sup){NET.thanks=false;msg('Спасибо за поддержку! Набор «Поддержка» открыт.',6000);return;}
+  if(n<6)setTimeout(()=>supPoll(n+1),5000);
+  else if(menuScreen==='donate')msg('Поддержка пока не пришла. Если оплата прошла, загляни сюда через пару минут.',6000);
+}
+// оплата — обычной формой ЮMoney; в метке — id игрока, по нему функция узнаёт, кому открыть набор
+function payYoomoney(){
+  if(!DONATE_ON||!NET.user)return;
+  const f=document.createElement('form');
+  f.method='POST';f.action='https://yoomoney.ru/quickpay/confirm';f.acceptCharset='utf-8';f.hidden=true;
+  const add=(k,v)=>{const i=document.createElement('input');i.type='hidden';i.name=k;i.value=String(v);f.appendChild(i);};
+  add('receiver',ONLINE.yoomoney);add('quickpay-form','button');add('targets','Поддержка игры DATA.OUT');
+  add('paymentType',donPay);add('sum',donSum);add('label',NET.user.id);add('successURL',RETURN_URL+'?donated=1');
+  document.body.appendChild(f);
+  f.submit();
 }
 async function netInit(){
   acct.kind='net';
   try{const s=JSON.parse(localStorage.getItem(SESS_KEY)||'null');if(s&&s.refresh_token)NET.sess=s;}catch(_){}
+  // вернулись со страницы оплаты ЮMoney
+  if(/[?&]donated=/.test(location.search)){NET.thanks=true;history.replaceState(null,'',RETURN_URL);}
   // вернулись со страницы VK или Яндекса — пока функция проверяет код, показываем «подключаю»
   if(/[?&#](code|access_token|error)=/.test(location.search+location.hash))setAcctState('loading');
   try{await netHandleReturn();}catch(e){NET.err='Не получилось войти: '+errMsg(e);}
@@ -2418,6 +3078,8 @@ async function netLoadUser(){
       if(!save.nick&&rows[0].name)save.nick=String(rows[0].name).slice(0,20);
     }
     await netSync();
+    await netSupLoad();
+    if(NET.thanks){if(phase==='menu')showMenu('donate');supPoll(1);return;}
   }catch(e){
     if(e.status===401||e.status===403){saveSess(null);NET.user=null;setAcctState('netout');maybeGate();return;}
     setAcctState('error');
@@ -2426,7 +3088,7 @@ async function netLoadUser(){
 }
 async function netLogout(){
   const tok=NET.sess&&NET.sess.access_token;
-  saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';
+  saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';NET.sup=false;
   // имя в рекордах принадлежит аккаунту: следующий вошедший на этом устройстве его не унаследует
   save.nick='';persist();
   setAcctState('netout');

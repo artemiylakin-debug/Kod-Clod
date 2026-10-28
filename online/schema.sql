@@ -1,16 +1,39 @@
--- Таблица прогресса и рекордов DATA.OUT.
--- Выполни один раз в Supabase: SQL Editor → New query → вставь этот файл → Run.
+-- Таблицы DATA.OUT: прогресс и рекорды, поддержка игры.
+-- Выполни в Supabase: SQL Editor → New query → вставь этот файл → Run.
+-- Файл можно запускать повторно — например, после обновления игры: он только добавит новое.
 
 create table if not exists public.progress (
   user_id    uuid primary key references auth.users(id) on delete cascade,
   name       text not null default 'Игрок' check (char_length(name) between 1 and 20),
-  unlocked   int  not null default 1 check (unlocked between 1 and 21),
+  unlocked   int  not null default 1,
   best       int  not null default 0 check (best between 0 and 1000000),
   wins       int  not null default 0 check (wins between 0 and 100000),
-  color      int  not null default 0 check (color between 0 and 3),
-  shape      int  not null default 0 check (shape between 0 and 2),
+  color      int  not null default 0,
+  shape      int  not null default 0,
   updated_at timestamptz not null default now()
 );
+
+-- облик и биты (магазин облика)
+alter table public.progress add column if not exists trail  int  not null default 0;
+alter table public.progress add column if not exists hat    int  not null default 0;
+alter table public.progress add column if not exists earned int  not null default 0;
+alter table public.progress add column if not exists own    text not null default '';
+
+-- границы значений: 100 уровней, до 50 предметов в каждом разделе облика
+alter table public.progress drop constraint if exists progress_unlocked_check;
+alter table public.progress add constraint progress_unlocked_check check (unlocked between 1 and 100);
+alter table public.progress drop constraint if exists progress_color_check;
+alter table public.progress add constraint progress_color_check check (color between 0 and 49);
+alter table public.progress drop constraint if exists progress_shape_check;
+alter table public.progress add constraint progress_shape_check check (shape between 0 and 49);
+alter table public.progress drop constraint if exists progress_trail_check;
+alter table public.progress add constraint progress_trail_check check (trail between 0 and 49);
+alter table public.progress drop constraint if exists progress_hat_check;
+alter table public.progress add constraint progress_hat_check check (hat between 0 and 49);
+alter table public.progress drop constraint if exists progress_earned_check;
+alter table public.progress add constraint progress_earned_check check (earned between 0 and 100000000);
+alter table public.progress drop constraint if exists progress_own_check;
+alter table public.progress add constraint progress_own_check check (own ~ '^[csth0-9,]{0,600}$');
 
 -- время последнего сохранения ставит сама база
 create or replace function public.progress_touch() returns trigger
@@ -43,3 +66,26 @@ create policy "progress update own" on public.progress
 
 grant select on public.progress to anon, authenticated;
 grant insert, update on public.progress to authenticated;
+
+-- Поддержка игры. Обе таблицы пишет только функция yoomoney-hook (ключом service_role).
+-- donations — сами платежи: их не видит никто, кроме владельца проекта в Supabase.
+create table if not exists public.donations (
+  operation_id text primary key,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  amount       numeric(12,2) not null default 0,
+  created_at   timestamptz not null default now()
+);
+alter table public.donations enable row level security;
+revoke all on public.donations from anon, authenticated;
+
+-- supporters — кто поддержал игру (без сумм): по ней игра ставит ★ в рекордах и открывает набор.
+create table if not exists public.supporters (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  since   timestamptz not null default now()
+);
+alter table public.supporters enable row level security;
+drop policy if exists "supporters read" on public.supporters;
+create policy "supporters read" on public.supporters
+  for select using (true);
+revoke insert, update, delete on public.supporters from anon, authenticated;
+grant select on public.supporters to anon, authenticated;
