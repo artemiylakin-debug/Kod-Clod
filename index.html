@@ -861,7 +861,7 @@ function setLayout(c){
 }
 function newRun(i){score=0;lives=maxLives();emp=1;startLevel(i);}
 function nextLevel(){lives=Math.min(maxLives(),lives+D().heal);startLevel(lvl+1);}
-// после гибели — 3 жизни («резервная копия»), при перезапуске из паузы — как было на старте уровня
+// после гибели — все жизни («резервная копия»), при перезапуске из паузы — как было на старте уровня
 function retryLevel(full){score=lvStart.score;emp=lvStart.emp;lives=full?maxLives():Math.min(maxLives(),lvStart.lives);startLevel(lvl);}
 
 function msg(t,ms){
@@ -941,8 +941,12 @@ function keepIn(e){
 }
 // бонусы: подпись над появившимся предметом и цвет его значка
 const PICK={emp:{label:'EMP',color:'#39c'},hp:{label:'АПТЕЧКА',color:'#e02444'},boost:{label:'РАЗГОН',color:'#fa0'}};
-// бонус появляется в стороне: под игроком он подбирался бы в тот же кадр
+// бонус появляется в стороне: под игроком он подбирался бы в тот же кадр;
+// одинаковых на поле не больше PICK_MAX — иначе нетронутые аптечки и заряды заваливали поле
+const PICK_MAX={emp:3,hp:2,boost:1};
 function dropPickup(type){
+  let n=0;for(const q of pickups)if(q.type===type)n++;
+  if(n>=PICK_MAX[type])return;
   const s=freeSpot(140,40,20);
   pickups.push({x:s.x,y:s.y,r:11,t:0,type});
   popup(s.x,s.y-18,PICK[type].label,PICK[type].color);
@@ -993,21 +997,21 @@ function edgePos(off){
 }
 function spawnEnemy(type){
   const p=edgePos(30),c=LEVELS[lvl];
-  const k=D().speed;
-  if(type==='sniper')enemies.push({...p,vx:0,vy:0,r:11,speed:1.3*k,type,fireT:Math.round(90*D().fire),t:0});
-  else if(type==='heavy')enemies.push({...p,vx:0,vy:0,r:19,speed:0.65*k,type,hp:2,t:0,touchCd:0});
-  else if(type==='glitch')enemies.push({...p,vx:0,vy:0,r:10,speed:0.6*k,type,t:0,tp:90+Math.random()*60,warp:0,lunge:0,wx:0,wy:0});
+  const spd=D().speed;
+  if(type==='sniper')enemies.push({...p,vx:0,vy:0,r:11,speed:1.3*spd,type,fireT:Math.round(90*D().fire),t:0});
+  else if(type==='heavy')enemies.push({...p,vx:0,vy:0,r:19,speed:0.65*spd,type,hp:2,t:0,touchCd:0});
+  else if(type==='glitch')enemies.push({...p,vx:0,vy:0,r:10,speed:0.6*spd,type,t:0,tp:90+Math.random()*60,warp:0,lunge:0,wx:0,wy:0});
   else if(type==='botnet'){
     // четыре мелких бота заходят на поле стайкой
-    for(let k=0;k<4;k++)enemies.push({x:p.x+(k%2)*16-8,y:p.y+(k>>1)*16-8,vx:0,vy:0,r:7,speed:Math.min(2.2,1.6+lvl*0.02)*k,type:'bot',t:0});
+    for(let k=0;k<4;k++)enemies.push({x:p.x+(k%2)*16-8,y:p.y+(k>>1)*16-8,vx:0,vy:0,r:7,speed:Math.min(2.2,1.6+lvl*0.02)*spd,type:'bot',t:0});
   }
   else if(type==='worm'){
     const hist=[];
     for(let i=0;i<WORM_HIST;i++)hist.push(p.x,p.y);
-    enemies.push({...p,vx:0,vy:0,r:10,speed:Math.min(2.3,1.9+lvl*0.03)*k,type,t:0,touchCd:0,ang:Math.atan2(player.y-p.y,player.x-p.x),hist});
+    enemies.push({...p,vx:0,vy:0,r:10,speed:Math.min(2.3,1.9+lvl*0.03)*spd,type,t:0,touchCd:0,ang:Math.atan2(player.y-p.y,player.x-p.x),hist});
   }
   // у скорости охотника есть потолок, иначе к концу уровня он вдвое быстрее игрока
-  else enemies.push({...p,vx:0,vy:0,r:11,speed:Math.min(c.fast?2.8:2.3,1.4+threat*0.22+Math.min(lvl,ACT1_END)*0.03+(c.fast?0.3:0))*k,type:'chaser',t:0});
+  else enemies.push({...p,vx:0,vy:0,r:11,speed:Math.min(c.fast?2.8:2.3,1.4+threat*0.22+Math.min(lvl,ACT1_END)*0.03+(c.fast?0.3:0))*spd,type:'chaser',t:0});
 }
 function spawnBoss(){
   const b=LEVELS[lvl].boss;
@@ -1463,7 +1467,7 @@ function step(){
       popup(dt.x,dt.y,'+1','#0a5');
       data.splice(i,1);spawnData();
       score++;got++;runBits++;lvBits++;
-      // бонусы по расписанию: каждые 5 данных — EMP, каждые 10 — аптечка, каждые 12 — разгон
+      // бонусы по расписанию: каждые 5 данных — EMP, аптечка — каждые 6–10 (по сложности), каждые 12 — разгон
       if(!portal){
         if(got%5===0)dropPickup('emp');
         if(got%D().hp===0)dropPickup('hp');
@@ -1569,7 +1573,7 @@ function bossFire(b,aim){
   }
   if(kind==='final'){
     kind=['ring','spiral','aimed'][Math.floor(b.t/300)%3];
-    if(b.t%600===0&&activeEnemies()<capOf(LEVELS[lvl]))enemies.push({x:b.x,y:b.y,vx:0,vy:0,r:9,speed:2,type:'chaser',t:0,inside:true});
+    if(b.t%600===0&&activeEnemies()<capOf(LEVELS[lvl]))enemies.push({x:b.x,y:b.y,vx:0,vy:0,r:9,speed:2*D().speed,type:'chaser',t:0,inside:true});
   }
   if(kind==='ring'){
     if(b.t%(b.kind==='final'?40:50)===0){
@@ -2704,6 +2708,7 @@ function onPress(code){
     if(code==='KeyP'||code==='Escape')pause();
     return;
   }
+  if(phase==='pause'&&code==='Escape'&&menuScreen!=='pause'){showMenu('pause');return;}
   if(phase==='pause'&&(code==='KeyP'||code==='Escape')){resume();return;}
   if(phase==='dead'&&code==='KeyR'){retryLevel(true);return;}
   if(phase==='menu'&&menuScreen==='skins'){
@@ -3102,10 +3107,15 @@ function sessFrom(o){
   return{access_token:String(o.access_token),refresh_token:String(o.refresh_token),expires_at:Date.now()+(Number(o.expires_in)||3600)*1000};
 }
 // действующий токен; просроченный обновляется, отозванный — разлогинивает
-async function netToken(){
+let tokenWait=null;
+function netToken(){
   const s=NET.sess;
-  if(!s)return null;
-  if(Date.now()<s.expires_at-60000)return s.access_token;
+  if(!s)return Promise.resolve(null);
+  if(Date.now()<s.expires_at-60000)return Promise.resolve(s.access_token);
+  if(!tokenWait)tokenWait=netRefresh(s).then(t=>{tokenWait=null;return t;});
+  return tokenWait;
+}
+async function netRefresh(s){
   try{
     const o=await netFetch('/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:netHeaders(),body:JSON.stringify({refresh_token:s.refresh_token})});
     saveSess(sessFrom(o));
@@ -3312,10 +3322,16 @@ async function netLoadUser(){
   if(phase==='menu'&&!menuEl.hidden&&(menuScreen==='main'||menuScreen==='acct'))showMenu(menuScreen);
 }
 async function netLogout(){
+  clearTimeout(acct.tm);
+  if(NET.user)await netSync();
+  const kept=acct.state==='synced';
   const tok=NET.sess&&NET.sess.access_token;
   saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';NET.sup=false;
-  // имя в рекордах принадлежит аккаунту: следующий вошедший на этом устройстве его не унаследует
-  save.nick='';persist();
+  // прогресс, имя в рекордах и облик принадлежат аккаунту и уже лежат в нём; настройки устройства остаются.
+  // Если сохранить не удалось (нет связи), прогресс не стираем — он досохранится при следующем входе
+  save.nick='';
+  if(kept)Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0});
+  persist();
   setAcctState('netout');
   showMenu('gate');
   // выход на сервере — по возможности; локально сессия уже стёрта
