@@ -42,7 +42,7 @@ alter table public.progress add constraint progress_terms_check check (terms ~ '
 
 -- время последнего сохранения и время принятия новой редакции соглашения ставит сама база
 create or replace function public.progress_touch() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = '' as $$
 begin
   new.updated_at := now();
   if new.terms <> '' and (tg_op = 'INSERT' or new.terms is distinct from old.terms) then

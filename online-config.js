@@ -5,8 +5,8 @@
 // Пока supabaseUrl или supabaseKey пустые, игра работает без аккаунтов, прогресс — в браузере.
 // Когда оба заполнены, сайт при входе просит войти (VK ID, Яндекс ID, логин на сайте) или играть гостем.
 window.DATA_OUT_ONLINE = {
-  supabaseUrl: '',      // адрес проекта Supabase, например https://abcd1234.supabase.co
-  supabaseKey: '',      // публичный ключ «anon public» (Project Settings → API Keys)
+  supabaseUrl: 'https://lnkekrusqjdroomcufen.supabase.co',      // адрес проекта Supabase, например https://abcd1234.supabase.co
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxua2VrcnVzcWpkcm9vbWN1ZmVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxOTg2NjMsImV4cCI6MjEwODc3NDY2M30.VVf_UCfOzdDWU4YZgTM6J-ieRkyX628evwEjcp2qRuE',      // публичный ключ «anon public» (Project Settings → API Keys)
   vkAppId: '',          // ID приложения VK ID
   yandexClientId: '',   // ClientID приложения Яндекс ID
   google: false,        // true — когда вход через Google включён в Supabase
