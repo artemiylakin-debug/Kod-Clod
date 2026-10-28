@@ -22,9 +22,9 @@ alter table public.progress add column if not exists own    text not null defaul
 alter table public.progress add column if not exists terms    text not null default '';
 alter table public.progress add column if not exists terms_at timestamptz;
 
--- границы значений: 100 уровней, до 50 предметов в каждом разделе облика
+-- границы значений: 200 уровней, до 50 предметов в каждом разделе облика
 alter table public.progress drop constraint if exists progress_unlocked_check;
-alter table public.progress add constraint progress_unlocked_check check (unlocked between 1 and 100);
+alter table public.progress add constraint progress_unlocked_check check (unlocked between 1 and 200);
 alter table public.progress drop constraint if exists progress_color_check;
 alter table public.progress add constraint progress_color_check check (color between 0 and 49);
 alter table public.progress drop constraint if exists progress_shape_check;

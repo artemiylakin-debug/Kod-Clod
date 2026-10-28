@@ -19,8 +19,9 @@
 ## База
 
 Создана 28.10.2026: проект Supabase `data-out` (ref `lnkekrusqjdroomcufen`, регион `eu-central-1`),
-таблицы из `schema.sql`, функции `ru-login` и `yoomoney-hook` (Verify JWT выключен). Управлять удобнее
-всего через коннектор Supabase (MCP). Секреты функций (`VK_APP_ID`, `YANDEX_CLIENT_ID`,
+таблицы из `schema.sql`, функции `ru-login` и `yoomoney-hook` (Verify JWT выключен). Потом предел
+уровней в `progress` поднят до 200 (миграция `allow_200_levels`). Управлять удобнее всего через
+коннектор Supabase (MCP). Секреты функций (`VK_APP_ID`, `YANDEX_CLIENT_ID`,
 `YANDEX_CLIENT_SECRET`, `YOOMONEY_SECRET`) пока не заданы: их значения автор вводит сам в панели Supabase.
 
 ## Просьба «создай базу»
