@@ -3089,7 +3089,7 @@ function panelHTML(s){
       '<p class="err" hidden></p>'+
       '<button type="submit" class="mbtn primary">'+(up?'Создать и войти':'Войти')+'</button></form>'+
       '<div class="mrow2">'+mb(up?'signin':'signup',up?'Уже есть аккаунт':'Создать аккаунт')+mb(loginBack,'Назад')+'</div>'+
-      '<p class="foot">'+(up?'Логин — 3–20 латинских букв, цифр, «_» или «-». Пароль — от 8 символов. Почта не нужна, поэтому восстановить пароль нельзя — запиши его.'
+      '<p class="foot">'+(up?'Логин — от 3 до 20 знаков: русские или латинские буквы, цифры, пробел, «_» или «-». Пароль — от 8 символов. Почта не нужна, поэтому восстановить пароль нельзя — запиши его.'
         :'Пароль восстановить нельзя: при регистрации почта не нужна. Если пароль забыт — создай новый аккаунт.')+'</p>';
   }
   if(s==='donate'){
@@ -3834,9 +3834,17 @@ function nickName(){
   if(m.provider==='site'&&typeof m.name==='string'&&m.name)return m.name.slice(0,20);
   return 'Игрок-'+(NET.user?String(NET.user.id).slice(0,4):'0000');
 }
-const LOGIN_RE=/^[a-z0-9_-]{3,20}$/;
-// служебный адрес: Supabase входит по почте, а у игрока её нет; писем на него не шлётся
-function siteEmail(login){return login+'@player.data-out.app';}
+// логин: латинские и русские буквы, цифры, «_», «-» и пробелы; большие и маленькие буквы не различаются
+const LOGIN_RE=/^[a-z0-9а-яё_ -]{3,20}$/;
+function loginName(v){return String(v).normalize('NFC').replace(/\s+/g,' ').trim();}
+// служебный адрес: Supabase входит по почте, а у игрока её нет; писем на него не шлётся.
+// Латинский логин и есть адрес (так заведены первые аккаунты); в адресе не бывает русских букв
+// и пробелов, поэтому для остальных логинов адрес — начало SHA-256 от логина. Сервер (ru-login) считает так же
+async function siteEmail(login){
+  if(/^[a-z0-9_-]+$/.test(login))return login+'@player.data-out.app';
+  const h=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('data-out:'+login)));
+  return 'u'+[...h.slice(0,20)].map(x=>x.toString(16).padStart(2,'0')).join('')+'@player.data-out.app';
+}
 // сервер отвечает JSON с ошибкой — достаём из него текст
 function errMsg(e){
   let t=String(e&&e.message||e);
@@ -3856,16 +3864,16 @@ async function netSiteAuth(mode,form){
   const er=form.querySelector('.err'),btn=form.querySelector('button[type="submit"]');
   if(btn.disabled)return;
   const fail=(t,el)=>{er.textContent=t;er.hidden=false;if(el)el.focus();};
-  const login=lg.value.trim().toLowerCase(),pass=pw.value;
-  if(!LOGIN_RE.test(login))return fail('Логин — от 3 до 20 знаков: латинские буквы, цифры, «_» или «-».',lg);
+  const name=loginName(lg.value),login=name.toLowerCase(),pass=pw.value;
+  if(!LOGIN_RE.test(login))return fail('Логин — от 3 до 20 знаков: буквы, цифры, пробел, «_» или «-».',lg);
   if(pass.length<8)return fail('Пароль — от 8 символов.',pw);
   if(pw2&&pw2.value!==pass)return fail('Пароли не совпадают.',pw2);
   const label=btn.textContent;
   btn.disabled=true;btn.textContent='Подключаюсь…';er.hidden=true;
   try{
     const o=mode==='signup'
-      ?await netFetch('/functions/v1/ru-login',{method:'POST',headers:netHeaders(),body:JSON.stringify({provider:'site',login,password:pass})})
-      :await netFetch('/auth/v1/token?grant_type=password',{method:'POST',headers:netHeaders(),body:JSON.stringify({email:siteEmail(login),password:pass})});
+      ?await netFetch('/functions/v1/ru-login',{method:'POST',headers:netHeaders(),body:JSON.stringify({provider:'site',login:name,password:pass})})
+      :await netFetch('/auth/v1/token?grant_type=password',{method:'POST',headers:netHeaders(),body:JSON.stringify({email:await siteEmail(login),password:pass})});
     saveSess(sessFrom(o));
   }catch(e){
     if(!panelEl.contains(form))return;

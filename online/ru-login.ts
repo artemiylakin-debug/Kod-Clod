@@ -64,6 +64,16 @@ async function yandexUser(p) {
 }
 
 const exists = (e) => /already|exists|registered/i.test(e?.message || '');
+
+// служебный адрес аккаунта на сайте. Латинский логин и есть адрес (так заведены первые аккаунты);
+// в адресе не бывает русских букв и пробелов, поэтому для остальных логинов адрес — начало SHA-256
+// от логина. Игра (siteEmail в index.html) считает так же — по этому адресу она и входит
+async function siteEmail(login) {
+  if (/^[a-z0-9_-]+$/.test(login)) return login + '@player.data-out.app';
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('data-out:' + login)));
+  return 'u' + [...h.slice(0, 20)].map((x) => x.toString(16).padStart(2, '0')).join('') + '@player.data-out.app';
+}
+
 const session = (s) => json({ access_token: s.access_token, refresh_token: s.refresh_token, expires_in: s.expires_in });
 
 Deno.serve(async (req) => {
@@ -75,16 +85,19 @@ Deno.serve(async (req) => {
     const admin = createClient(url, env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
     const pub = createClient(url, env('SUPABASE_ANON_KEY'), { auth: { persistSession: false } });
 
-    // регистрация на сайте: логин и пароль; служебный адрес нужен Supabase как имя для входа
+    // регистрация на сайте: логин и пароль; служебный адрес нужен Supabase как имя для входа.
+    // Логин — русские или латинские буквы, цифры, «_», «-» и пробелы; регистр не важен,
+    // а имя в игре остаётся таким, как его набрали
     if (p.provider === 'site') {
-      const login = typeof p.login === 'string' ? p.login.trim().toLowerCase() : '';
+      const name = typeof p.login === 'string' ? p.login.normalize('NFC').replace(/\s+/g, ' ').trim() : '';
+      const login = name.toLowerCase();
       const password = typeof p.password === 'string' ? p.password : '';
-      if (!/^[a-z0-9_-]{3,20}$/.test(login)) return json({ error: 'логин — 3–20 латинских букв, цифр, «_» или «-»' }, 400);
+      if (!/^[a-z0-9а-яё_ -]{3,20}$/.test(login)) return json({ error: 'логин — от 3 до 20 знаков: буквы, цифры, пробел, «_» или «-»' }, 400);
       if (password.length < 8 || password.length > 72) return json({ error: 'пароль — от 8 до 72 символов' }, 400);
-      const email = login + '@player.data-out.app';
+      const email = await siteEmail(login);
       const created = await admin.auth.admin.createUser({
         email, password, email_confirm: true,
-        user_metadata: { name: login, provider: 'site' }, app_metadata: { data_out: 'site' },
+        user_metadata: { name, provider: 'site' }, app_metadata: { data_out: 'site' },
       });
       if (created.error) {
         if (exists(created.error)) return json({ error: 'этот логин уже занят' }, 409);
