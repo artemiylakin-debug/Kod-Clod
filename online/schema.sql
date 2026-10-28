@@ -18,6 +18,9 @@ alter table public.progress add column if not exists trail  int  not null defaul
 alter table public.progress add column if not exists hat    int  not null default 0;
 alter table public.progress add column if not exists earned int  not null default 0;
 alter table public.progress add column if not exists own    text not null default '';
+-- принятая редакция пользовательского соглашения и когда её приняли (время ставит база)
+alter table public.progress add column if not exists terms    text not null default '';
+alter table public.progress add column if not exists terms_at timestamptz;
 
 -- границы значений: 100 уровней, до 50 предметов в каждом разделе облика
 alter table public.progress drop constraint if exists progress_unlocked_check;
@@ -33,13 +36,20 @@ alter table public.progress add constraint progress_hat_check check (hat between
 alter table public.progress drop constraint if exists progress_earned_check;
 alter table public.progress add constraint progress_earned_check check (earned between 0 and 100000000);
 alter table public.progress drop constraint if exists progress_own_check;
-alter table public.progress add constraint progress_own_check check (own ~ '^[csth0-9,]{0,600}$');
+alter table public.progress add constraint progress_own_check check (char_length(own) <= 600 and own ~ '^[csth0-9,]*$');
+alter table public.progress drop constraint if exists progress_terms_check;
+alter table public.progress add constraint progress_terms_check check (terms ~ '^[0-9.]{0,20}$');
 
--- время последнего сохранения ставит сама база
+-- время последнего сохранения и время принятия новой редакции соглашения ставит сама база
 create or replace function public.progress_touch() returns trigger
 language plpgsql as $$
 begin
   new.updated_at := now();
+  if new.terms <> '' and (tg_op = 'INSERT' or new.terms is distinct from old.terms) then
+    new.terms_at := now();
+  elsif tg_op = 'UPDATE' then
+    new.terms_at := old.terms_at;
+  end if;
   return new;
 end $$;
 drop trigger if exists progress_touch on public.progress;
