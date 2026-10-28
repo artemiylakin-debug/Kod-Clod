@@ -16,6 +16,13 @@
 - `TERMS.md` — пользовательское соглашение. Его текст встроен в `index.html` (`<template id="terms-tpl">`)
   и в `terms.html`; при правке соглашения обновлять все три места и номер редакции.
 
+## База
+
+Создана 28.10.2026: проект Supabase `data-out` (ref `lnkekrusqjdroomcufen`, регион `eu-central-1`),
+таблицы из `schema.sql`, функции `ru-login` и `yoomoney-hook` (Verify JWT выключен). Управлять удобнее
+всего через коннектор Supabase (MCP). Секреты функций (`VK_APP_ID`, `YANDEX_CLIENT_ID`,
+`YANDEX_CLIENT_SECRET`, `YOOMONEY_SECRET`) пока не заданы: их значения автор вводит сам в панели Supabase.
+
 ## Просьба «создай базу»
 
 1. Проверить, что в окружении есть `SUPABASE_ACCESS_TOKEN` (значение не печатать) и что
