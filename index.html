@@ -603,10 +603,10 @@ const LEVELS=[
    boss:{name:'ГЛАВНЫЙ АЛГОРИТМ',hp:8,kind:'omega',sides:20,c1:'#ffffff',c2:'#0f766e',core:'#042f2e',glow:'rgba(15,118,110,0.5)'},
    news:'Финал. ГЛАВНЫЙ АЛГОРИТМ умеет всё, что умели боссы до него, и зовёт подмогу. Береги EMP.'}
 ];
-function objective(c){return 'Собери '+c.goal+' данных — '+(c.boss?'потом придёт «'+c.boss.name+'»':'откроется портал');}
+function objective(c){return 'Собери '+goalOf(c)+' данных — '+(c.boss?'потом придёт «'+c.boss.name+'»':'откроется портал');}
 function features(c){
   const f=[];
-  if(c.timer)f.push('очистка каждые '+c.timer+' с');
+  if(c.timer)f.push('очистка каждые '+timerOf(c)+' с');
   if(c.walls)f.push('битые сектора');
   if(c.storm)f.push('спам-пули с краёв');
   if(c.dark)f.push('темнота');
@@ -628,8 +628,23 @@ const PTS={chaser:1,sniper:2,heavy:3,trojan:2,glitch:2,worm:3,bot:1};
 const RAMP_MSG={heavy:'ТЯЖЁЛЫЙ ЩИТОНОСЕЦ',sniper:'СНАЙПЕР В СЕТИ',chaser:'система усилила охоту',glitch:'ГЛИТЧ В СЕТИ',worm:'ЧЕРВЬ ПОЛЗЁТ',botnet:'БОТНЕТ АТАКУЕТ'};
 // червь: число звеньев и шаг между ними в кадрах истории пути головы
 const WORM_SEGS=6,WORM_GAP=6,WORM_HIST=WORM_SEGS*WORM_GAP+1;
-function tripCdMax(){return LEVELS[lvl].tripCd||TRIP_CD;}
-function capOf(c){return c.cap||9;}
+// сложность: множители для врагов, пуль, опасностей и наград. «Высокая» — баланс до упрощения,
+// «Лёгкая» — по умолчанию: игроки жаловались, что игра слишком трудная
+const DIFF={
+  easy:{name:'Лёгкая',hint:'5 жизней, враги и пули медленнее, данных нужно меньше, боссы слабее.',
+    lives:5,cool:150,speed:0.78,bullet:0.78,fire:1.6,boss:0.72,bossHp:2,bossMin:2,thin:3,gate:60,goal:0.7,cap:2,ramp:8,hp:6,hazard:1.7,timer:20,dark:70,trip:0.6,heal:5,breed:0.4,trojan:0.6,startCut:1},
+  med:{name:'Средняя',hint:'4 жизни, враги чуть медленнее, данных и врагов немного меньше.',
+    lives:4,cool:120,speed:0.88,bullet:0.88,fire:1.3,boss:0.85,bossHp:1,bossMin:3,thin:5,gate:80,goal:0.85,cap:1,ramp:6,hp:8,hazard:1.3,timer:10,dark:35,trip:0.8,heal:2,breed:0.7,trojan:0.8,startCut:0},
+  hard:{name:'Высокая',hint:'3 жизни и прежний баланс — для тех, кому мало.',
+    lives:3,cool:90,speed:1,bullet:1,fire:1,boss:1,bossHp:0,bossMin:3,thin:0,gate:100,goal:1,cap:0,ramp:5,hp:10,hazard:1,timer:0,dark:0,trip:1,heal:1,breed:1,trojan:1,startCut:0}
+};
+const DIFFS=['easy','med','hard'];
+function D(){return DIFF[save.diff]||DIFF.easy;}
+function maxLives(){return D().lives;}
+function goalOf(c){return Math.max(6,Math.round(c.goal*D().goal));}
+function timerOf(c){return c.timer?c.timer+D().timer:0;}
+function tripCdMax(){return Math.round((LEVELS[lvl].tripCd||TRIP_CD)*D().trip);}
+function capOf(c){return Math.max(3,(c.cap||9)-D().cap);}
 
 // ================= КАСТОМИЗАЦИЯ И СОХРАНЕНИЕ =================
 // облик: цвет, форма, след и аксессуар. Первые предметы есть у всех; остальные покупаются за биты (price),
@@ -697,7 +712,7 @@ const SAVE_KEY='dataout-v5';
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:''};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:''};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -711,6 +726,7 @@ try{
     save.own=parseOwn(s.own);
     if(typeof s.terms==='string'&&/^[0-9.]{1,20}$/.test(s.terms))save.terms=s.terms;
     save.termsAt=clampInt(s.termsAt,0,1e13,0);
+    if(DIFFS.indexOf(s.diff)>=0)save.diff=s.diff;
     if(s.q==='auto'||TIERS.indexOf(s.q)>=0)save.q=s.q;
     if(TIERS.indexOf(s.autoTier)>=0)save.autoTier=s.autoTier;
     if(s.autoRes===0.75||s.autoRes===0.6)save.autoRes=s.autoRes;
@@ -802,7 +818,7 @@ computeQuality();
 
 // ================= СОСТОЯНИЕ =================
 let player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,walls=[],flows=[],gates=[],lags=[],tps=[],scan=null,bgAct=0;
-let score=0,lives=3,emp=1,boost=0,shake=0,time=0,phase='menu',tripFx=null;
+let score=0,lives=5,emp=1,boost=0,shake=0,time=0,phase='menu',tripFx=null;
 let lvl=0,got=0,threat=1,purge=0,stormT=0,intro=0,lastEmpDrop=0,debrisT=0;
 let lvStart={score:0,emp:1,lives:3};
 let menuScreen='main',ready=false,settingsBack='main',loginBack='gate',lvAct=0,termsBack='terms';
@@ -823,14 +839,14 @@ function startLevel(i){
   const c=LEVELS[i];
   clearField();
   setLayout(c);bgAct=actOf(i);
-  got=0;threat=1;time=0;debrisT=c.debris||0;
-  purge=c.timer?c.timer*60:0;
+  got=0;threat=1;time=0;debrisT=c.debris?Math.round(c.debris*D().hazard):0;
+  purge=timerOf(c)*60;
   stormT=150;intro=180;lastEmpDrop=0;
   emp=Math.max(emp,1);
   lvStart={score,emp,lives};
   player.cool=60;
   for(let k=0;k<4;k++)spawnData();
-  c.start.forEach(t=>spawnEnemy(t));
+  c.start.slice(0,Math.max(1,c.start.length-D().startCut)).forEach(t=>spawnEnemy(t));
   buildBg();
   hideMenu();
   phase='game';
@@ -843,10 +859,10 @@ function setLayout(c){
   walls=c.walls||[];flows=c.flow||[];gates=c.gates||[];lags=c.lag||[];tps=c.tps||[];
   scan=c.scan?{x:c.scan.x,y:c.scan.y,arms:c.scan.arms,v:c.scan.v,gap:c.scan.gap,a:0}:null;
 }
-function newRun(i){score=0;lives=3;emp=1;startLevel(i);}
-function nextLevel(){lives=Math.min(3,lives+1);startLevel(lvl+1);}
+function newRun(i){score=0;lives=maxLives();emp=1;startLevel(i);}
+function nextLevel(){lives=Math.min(maxLives(),lives+D().heal);startLevel(lvl+1);}
 // после гибели — 3 жизни («резервная копия»), при перезапуске из паузы — как было на старте уровня
-function retryLevel(full){score=lvStart.score;emp=lvStart.emp;lives=full?3:lvStart.lives;startLevel(lvl);}
+function retryLevel(full){score=lvStart.score;emp=lvStart.emp;lives=full?maxLives():Math.min(maxLives(),lvStart.lives);startLevel(lvl);}
 
 function msg(t,ms){
   msgEl.textContent=t;
@@ -869,8 +885,8 @@ function inGate(x,y,pad){
   for(const g of gates)if(x>g.x-pad&&x<g.x+g.w+pad&&y>g.y-pad&&y<g.y+g.h+pad)return true;
   return false;
 }
-// 0 — выключен, 1 — мигает (вот-вот загорится), 2 — горит и ранит
-function gateState(g){const c=(time+g.o)%300;return c<150?0:(c<200?1:2);}
+// 0 — выключен, 1 — мигает (вот-вот загорится), 2 — горит и ранит; на лёгкой сложности горит меньше
+function gateState(g){const c=(time+g.o)%300,lit=D().gate;return c<250-lit?0:(c<300-lit?1:2);}
 function inLag(x,y){
   for(const z of lags)if(Math.hypot(x-z.x,y-z.y)<z.r)return true;
   return false;
@@ -946,7 +962,7 @@ function spawnData(){
   data.push({x:s.x,y:s.y,r:7,t:Math.random()*60});
   // троян прикидывается данными; на поле их не больше двух
   const c=LEVELS[lvl];
-  if(c.trojan&&Math.random()<c.trojan&&countType('trojan')<2){
+  if(c.trojan&&Math.random()<c.trojan*D().trojan&&countType('trojan')<2){
     const q=freeSpot(140,30,12);
     enemies.push({x:q.x,y:q.y,vx:0,vy:0,r:9,type:'trojan',t:Math.random()*60,arm:0,inside:true});
   }
@@ -977,25 +993,27 @@ function edgePos(off){
 }
 function spawnEnemy(type){
   const p=edgePos(30),c=LEVELS[lvl];
-  if(type==='sniper')enemies.push({...p,vx:0,vy:0,r:11,speed:1.3,type,fireT:90,t:0});
-  else if(type==='heavy')enemies.push({...p,vx:0,vy:0,r:19,speed:0.65,type,hp:2,t:0,touchCd:0});
-  else if(type==='glitch')enemies.push({...p,vx:0,vy:0,r:10,speed:0.6,type,t:0,tp:90+Math.random()*60,warp:0,lunge:0,wx:0,wy:0});
+  const k=D().speed;
+  if(type==='sniper')enemies.push({...p,vx:0,vy:0,r:11,speed:1.3*k,type,fireT:Math.round(90*D().fire),t:0});
+  else if(type==='heavy')enemies.push({...p,vx:0,vy:0,r:19,speed:0.65*k,type,hp:2,t:0,touchCd:0});
+  else if(type==='glitch')enemies.push({...p,vx:0,vy:0,r:10,speed:0.6*k,type,t:0,tp:90+Math.random()*60,warp:0,lunge:0,wx:0,wy:0});
   else if(type==='botnet'){
     // четыре мелких бота заходят на поле стайкой
-    for(let k=0;k<4;k++)enemies.push({x:p.x+(k%2)*16-8,y:p.y+(k>>1)*16-8,vx:0,vy:0,r:7,speed:Math.min(2.2,1.6+lvl*0.02),type:'bot',t:0});
+    for(let k=0;k<4;k++)enemies.push({x:p.x+(k%2)*16-8,y:p.y+(k>>1)*16-8,vx:0,vy:0,r:7,speed:Math.min(2.2,1.6+lvl*0.02)*k,type:'bot',t:0});
   }
   else if(type==='worm'){
     const hist=[];
     for(let i=0;i<WORM_HIST;i++)hist.push(p.x,p.y);
-    enemies.push({...p,vx:0,vy:0,r:10,speed:Math.min(2.3,1.9+lvl*0.03),type,t:0,touchCd:0,ang:Math.atan2(player.y-p.y,player.x-p.x),hist});
+    enemies.push({...p,vx:0,vy:0,r:10,speed:Math.min(2.3,1.9+lvl*0.03)*k,type,t:0,touchCd:0,ang:Math.atan2(player.y-p.y,player.x-p.x),hist});
   }
   // у скорости охотника есть потолок, иначе к концу уровня он вдвое быстрее игрока
-  else enemies.push({...p,vx:0,vy:0,r:11,speed:Math.min(c.fast?2.8:2.3,1.4+threat*0.22+Math.min(lvl,ACT1_END)*0.03+(c.fast?0.3:0)),type:'chaser',t:0});
+  else enemies.push({...p,vx:0,vy:0,r:11,speed:Math.min(c.fast?2.8:2.3,1.4+threat*0.22+Math.min(lvl,ACT1_END)*0.03+(c.fast?0.3:0))*k,type:'chaser',t:0});
 }
 function spawnBoss(){
   const b=LEVELS[lvl].boss;
   // Капча выходит сразу под щитом — иначе первый EMP до её первого хода проходил бы насквозь
-  boss={x:W/2,y:-70,r:b.r||42,t:0,hp:b.hp,maxHp:b.hp,vx:0,vy:0,kind:b.kind,name:b.name,ang:0,shield:b.kind==='captcha'};
+  const hp=Math.max(Math.min(D().bossMin,b.hp),b.hp-D().bossHp);
+  boss={x:W/2,y:-70,r:b.r||42,t:0,hp,maxHp:hp,vx:0,vy:0,kind:b.kind,name:b.name,ang:0,shield:b.kind==='captcha'};
   lastEmpDrop=time-300;
   msg('⚠ БОСС: «'+b.name+'» ВЫШЕЛ НА УДАЛЕНИЕ — БЕРЕГИСЬ И БЕРЕГИ EMP ⚠');
 }
@@ -1003,7 +1021,10 @@ function spawnPortal(){
   const s=freeSpot(220,70,34);
   portal={x:s.x,y:s.y,r:26,t:0};
 }
+let bossVolley=false,thinN=0;
 function shoot(x,y,a,sp,r,life){
+  if(bossVolley&&D().thin&&++thinN%D().thin===0)return;
+  sp*=D().bullet;life=Math.round((life||220)/D().bullet);
   bullets.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:r||5,life:life||220});
 }
 function hitPlayer(){
@@ -1011,7 +1032,7 @@ function hitPlayer(){
   burst(player.x,player.y,'#e33',20);
   lives--;shake=10;
   buzz(lives<=0?200:70);
-  player.cool=90;
+  player.cool=D().cool;
   player.vx=(Math.random()-0.5)*14;
   player.vy=(Math.random()-0.5)*14;
   if(lives<=0){
@@ -1048,7 +1069,7 @@ function teleport(){
 }
 // обломок летит через всё поле почти поперёк, с небольшим разбросом
 function spawnDebris(){
-  const side=Math.floor(Math.random()*4),sp=1.3+Math.random()*0.7,r=12+Math.random()*7;
+  const side=Math.floor(Math.random()*4),sp=(1.3+Math.random()*0.7)*D().bullet,r=12+Math.random()*7;
   let x,y,a;
   if(side===0){x=-20;y=40+Math.random()*(H-80);a=0;}
   else if(side===1){x=W+20;y=40+Math.random()*(H-80);a=Math.PI;}
@@ -1253,7 +1274,7 @@ function step(){
           e.x=e.wx;e.y=e.wy;e.inside=true;
           burst(e.x,e.y,'#c3f',10);
           const lx=player.x-e.x,ly=player.y-e.y,ld=Math.hypot(lx,ly)||1;
-          e.vx=lx/ld*5.5;e.vy=ly/ld*5.5;e.lunge=18;
+          e.vx=lx/ld*5.5*D().speed;e.vy=ly/ld*5.5*D().speed;e.lunge=18;
           e.tp=150+Math.random()*60;
         }
         continue;
@@ -1275,8 +1296,8 @@ function step(){
       if(d<170){mx=-mx;my=-my;}
       e.fireT--;
       if(e.fireT<=0&&d<400){
-        e.fireT=Math.max(60,110-threat*4-lvl*2);
-        bullets.push({x:e.x,y:e.y,vx:dx/d*4,vy:dy/d*4,r:4,life:170});
+        e.fireT=Math.round(Math.max(60,110-threat*4-lvl*2)*D().fire);
+        bullets.push({x:e.x,y:e.y,vx:dx/d*4*D().bullet,vy:dy/d*4*D().bullet,r:4,life:Math.round(170/D().bullet)});
       }
     }
     const k=e.type==='heavy'?0.03:0.08;
@@ -1298,7 +1319,7 @@ function step(){
         if(Math.hypot(dt.x-e.x,dt.y-e.y)<e.r+dt.r){
           burst(dt.x,dt.y,'#f80');
           data.splice(i,1);spawnData();
-          if(activeEnemies()<capOf(cfg)){
+          if(activeEnemies()<capOf(cfg)&&Math.random()<D().breed){
             enemies.push({x:e.x,y:e.y,vx:-e.vx*1.5,vy:-e.vy*1.5,r:9,speed:e.speed,type:'chaser',t:0});
           }
         }
@@ -1359,21 +1380,21 @@ function step(){
 
   // сканер крутится всегда, а ранит, пока луч сплошной; рывок проскакивает
   if(scan){
-    scan.a+=scan.v;
+    scan.a+=scan.v*D().speed;
     if(scanHot()&&intro===0&&player.cool===0&&!player.dashT&&inScan(player.x,player.y,player.r+3)){
       hitPlayer();
       if(phase==='game')msg('Луч сканера! Перепрыгивай его рывком');
     }
     if(phase!=='game')return;
   }
-  if(cfg.debris&&intro===0&&!portal&&--debrisT<=0){debrisT=cfg.debris;spawnDebris();}
+  if(cfg.debris&&intro===0&&!portal&&--debrisT<=0){debrisT=Math.round(cfg.debris*D().hazard);spawnDebris();}
 
   // очистка по таймеру
   if(cfg.timer&&!portal&&!boss){
     if(purge>0)purge--;
     else if(player.cool===0){
       hitPlayer();
-      purge=cfg.timer*60;
+      purge=timerOf(cfg)*60;
       burst(player.x,player.y,'#e33',30,5);
       if(phase==='game')msg('ОЧИСТКА '+cfg.name+'! Минус жизнь, таймер запущен заново');
     }
@@ -1382,27 +1403,19 @@ function step(){
 
   // спам-пули с краёв поля
   if(cfg.storm&&intro===0&&!portal&&--stormT<=0){
-    stormT=cfg.storm;
+    stormT=Math.round(cfg.storm*D().hazard);
     const p=edgePos(10);
     shoot(p.x,p.y,Math.atan2(player.y-p.y,player.x-p.x)+(Math.random()-0.5)*0.7,2.6,4,320);
   }
 
   // босс
   if(boss){
-    boss.t++;
+    // на лёгкой и средней сложности босс пропускает часть кадров: ходит и стреляет реже
+    boss.slow=(boss.slow||0)+D().boss;
+    if(boss.slow>=1){boss.slow-=1;bossAct(boss);}
     const dx=player.x-boss.x,dy=player.y-boss.y,d=Math.hypot(dx,dy)||1;
-    if(boss.kind==='charge')bossCharge(boss);
-    else if(boss.kind==='orbit')bossOrbit(boss);
-    else if(boss.kind==='cloak'&&boss.hid){boss.vx=0;boss.vy=0;}
-    else{
-      const ba=boss.kind==='final'||boss.kind==='admin'||boss.kind==='omega'?0.055:(boss.kind==='pack'||boss.kind==='captcha'||boss.kind==='balance'?0.035:0.045);
-      boss.vx+=(dx/d)*ba;boss.vy+=(dy/d)*ba;
-      boss.vx*=0.97;boss.vy*=0.97;
-      boss.x+=boss.vx;boss.y+=boss.vy;
-    }
-    bossFire(boss,Math.atan2(dy,dx));
     // Архиватор во время сжатия тянет игрока к себе; бегом можно вырваться, рывком — легко
-    if(boss.pull&&d<450){player.vx-=dx/d*0.16;player.vy-=dy/d*0.16;}
+    if(boss.pull&&d<450){player.vx-=dx/d*0.16*D().boss;player.vy-=dy/d*0.16*D().boss;}
     // рывок защищает и от босса, как от всех остальных
     if(!boss.hid&&Math.hypot(player.x-boss.x,player.y-boss.y)<player.r+boss.r*0.6&&player.cool===0&&!player.dashT)hitPlayer();
     // у Балансировщика ранят и сферы
@@ -1412,7 +1425,7 @@ function step(){
     }
     if(phase!=='game')return;
     // в бою с боссом заряд EMP появляется на поле не реже раза в 7 секунд
-    if(time-lastEmpDrop>420&&!pickups.some(p=>p.type==='emp')){
+    if(time-lastEmpDrop>Math.round(420*D().boss)&&!pickups.some(p=>p.type==='emp')){
       lastEmpDrop=time;
       dropPickup('emp');
     }
@@ -1453,15 +1466,15 @@ function step(){
       // бонусы по расписанию: каждые 5 данных — EMP, каждые 10 — аптечка, каждые 12 — разгон
       if(!portal){
         if(got%5===0)dropPickup('emp');
-        if(got%10===0)dropPickup('hp');
+        if(got%D().hp===0)dropPickup('hp');
         if(got%12===0)dropPickup('boost');
       }
-      if(got%5===0&&!portal){
+      if(got%D().ramp===0&&!portal){
         threat++;
         const type=cfg.ramp[(threat-2)%cfg.ramp.length];
         if(activeEnemies()<capOf(cfg)){spawnEnemy(type);msg('УГРОЗА '+threat+': '+RAMP_MSG[type]);}
       }
-      if(got>=cfg.goal&&!boss&&!portal){
+      if(got>=goalOf(cfg)&&!boss&&!portal){
         if(cfg.boss)spawnBoss();
         else{spawnPortal();msg('ДАННЫЕ СОБРАНЫ — ПОРТАЛ ОТКРЫТ, ВХОДИ!');}
       }
@@ -1474,7 +1487,7 @@ function step(){
     if(Math.hypot(p.x-player.x,p.y-player.y)<player.r+p.r+4){
       // при полном здоровье аптечка остаётся лежать, пока не понадобится
       if(p.type==='hp'){
-        if(lives>=3)return true;
+        if(lives>=maxLives())return true;
         lives++;
         burst(p.x,p.y,'#e33',14);popup(p.x,p.y,'+♥','#e02444');msg('АПТЕЧКА: +1 жизнь');buzz(40);
         return false;
@@ -1500,6 +1513,21 @@ function step(){
   compact(texts,t=>{t.y-=0.7;t.life--;return t.life>0;});
 }
 
+// ход босса: движение и стрельба
+function bossAct(b){
+  b.t++;
+  const dx=player.x-b.x,dy=player.y-b.y,d=Math.hypot(dx,dy)||1;
+  if(b.kind==='charge')bossCharge(b);
+  else if(b.kind==='orbit')bossOrbit(b);
+  else if(b.kind==='cloak'&&b.hid){b.vx=0;b.vy=0;}
+  else{
+    const ba=b.kind==='final'||b.kind==='admin'||b.kind==='omega'?0.055:(b.kind==='pack'||b.kind==='captcha'||b.kind==='balance'?0.035:0.045);
+    b.vx+=(dx/d)*ba;b.vy+=(dy/d)*ba;
+    b.vx*=0.97;b.vy*=0.97;
+    b.x+=b.vx;b.y+=b.vy;
+  }
+  bossVolley=true;bossFire(b,Math.atan2(dy,dx));bossVolley=false;
+}
 // точки, по которым считаются касание и попадание EMP: ядро и, у Балансировщика, две сферы
 function bossPoints(b){
   if(b.kind!=='balance')return [[b.x,b.y]];
@@ -1518,14 +1546,14 @@ function bossFire(b,aim){
   b.pull=false;b.shield=false;
   if(kind==='seeker'){
     // Поисковик: пары самонаводящихся пуль и время от времени кольцо
-    if(b.t%80===0)for(const o of [-0.6,0.6])bullets.push({x:b.x,y:b.y,vx:Math.cos(aim+o)*2.3,vy:Math.sin(aim+o)*2.3,r:5,life:260,home:90});
+    if(b.t%80===0)for(const o of [-0.6,0.6])bullets.push({x:b.x,y:b.y,vx:Math.cos(aim+o)*2.3*D().bullet,vy:Math.sin(aim+o)*2.3*D().bullet,r:5,life:260,home:90});
     if(b.t%260===130){const n=10+lost;for(let i=0;i<n;i++)shoot(b.x,b.y,i/n*TAU,2.1);}
     return;
   }
   if(kind==='orbit'){
     // Перехватчик: тройные очереди в игрока и обломки
     if(b.t%70===0)for(let i=-1;i<=1;i++)shoot(b.x,b.y,aim+i*0.15,3,4);
-    if(b.t%200===100){const sp=1.5;bullets.push({x:b.x,y:b.y,vx:Math.cos(aim)*sp,vy:Math.sin(aim)*sp,r:15,life:600,rock:1,rot:0});}
+    if(b.t%200===100){const sp=1.5*D().bullet;bullets.push({x:b.x,y:b.y,vx:Math.cos(aim)*sp,vy:Math.sin(aim)*sp,r:15,life:600,rock:1,rot:0});}
     return;
   }
   if(kind==='cloak'){bossCloak(b,aim);return;}
@@ -1979,7 +2007,8 @@ function drawPlayer(){
 
   // сердечки над игроком; с аксессуаром — чуть выше, чтобы не налезали
   const hy=L.h&&L.h!==4?36:30;
-  for(let i=0;i<3;i++)drawHeart(p.x-20+i*16,p.y-hy,6,i<lives);
+  const ml=maxLives();
+  for(let i=0;i<ml;i++)drawHeart(p.x-(ml-1)*7+i*14,p.y-hy,6,i<lives);
 
   // полоски: рывок, подножка и оставшийся разгон
   ctx.fillStyle='#0001';ctx.fillRect(p.x-16,p.y+22,32,4);ctx.fillRect(p.x-16,p.y+27,32,3);
@@ -2073,7 +2102,7 @@ function render(opaque){
   for(const p of pickups){
     const y=p.y+Math.sin(p.t*0.08)*3,col=PICK[p.type].color;
     // запасная аптечка при полном здоровье бледнее — её пока не взять
-    if(p.type==='hp'&&lives>=3)ctx.globalAlpha=0.45;
+    if(p.type==='hp'&&lives>=maxLives())ctx.globalAlpha=0.45;
     ctx.strokeStyle=col;ctx.setLineDash([4,4]);
     ctx.beginPath();ctx.arc(p.x,y,p.r,0,TAU);ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle=col;
@@ -2135,7 +2164,7 @@ function render(opaque){
   }
 
   // в темноте прячутся данные и бонусы, а враги, портал и пули видны — иначе нечестно
-  if(cfg.dark)ctx.drawImage(darkSprite(cfg.dark),player.x-W,player.y-H,W*2,H*2);
+  if(cfg.dark)ctx.drawImage(darkSprite(cfg.dark+D().dark),player.x-W,player.y-H,W*2,H*2);
 
   // портал
   if(portal){
@@ -2234,7 +2263,7 @@ function render(opaque){
     ctx.fillStyle=low?'#c22':'#057';
     ctx.fillText('ОЧИСТКА '+cfg.name+' ЧЕРЕЗ '+s+' с',W/2,H-22);
     ctx.fillStyle='#0001';ctx.fillRect(W/2-100,H-14,200,4);
-    ctx.fillStyle=low?'#e33':'#0a5';ctx.fillRect(W/2-100,H-14,200*purge/(cfg.timer*60),4);
+    ctx.fillStyle=low?'#e33':'#0a5';ctx.fillRect(W/2-100,H-14,200*purge/(timerOf(cfg)*60),4);
   }
 
   // заставка уровня
@@ -2288,11 +2317,10 @@ function setHud(k,v){v=String(v);if(hudLast[k]!==v){hudLast[k]=v;hudEl[k].textCo
 function setOff(k,off){if(hudLast[k+'Off']!==off){hudLast[k+'Off']=off;hudEl[k].classList.toggle('off',off);}}
 function updateHud(){
   const c=LEVELS[lvl];
-  setHud('data',Math.min(got,c.goal)+'/'+c.goal);
+  setHud('data',Math.min(got,goalOf(c))+'/'+goalOf(c));
   setHud('score',score);
   setHud('level',(lvl+1)+'/'+LEVELS.length);
-  const l=Math.max(0,Math.min(3,lives));
-  setHud('hearts','♥'.repeat(l)+'♡'.repeat(3-l));
+  setHud('hearts',heartsStr(lives));
   const cd=Math.min(5,Math.ceil(player.dashCd/14));
   setHud('dash','▓'.repeat(5-cd)+'░'.repeat(cd));
   const tc=Math.min(5,Math.ceil((player.tripCd||0)/(tripCdMax()/5)));
@@ -2307,7 +2335,7 @@ function updateHud(){
 // ================= МЕНЮ =================
 const menuEl=$id('menu'),panelEl=$id('panel');
 function mb(act,label,cls){return '<button type="button" class="mbtn'+(cls?' '+cls:'')+'" data-act="'+act+'">'+label+'</button>';}
-function heartsStr(n){return '♥'.repeat(n)+'♡'.repeat(3-n);}
+function heartsStr(n){const m=maxLives(),l=Math.max(0,Math.min(m,n));return '♥'.repeat(l)+'♡'.repeat(m-l);}
 function chip(act,label,on){return '<button type="button" class="chip" data-act="'+act+'" aria-pressed="'+on+'">'+label+'</button>';}
 // кнопки входа: настроенные сервисы и свой аккаунт на сайте, для которого никакие компании не нужны
 function loginBtns(){
@@ -2338,7 +2366,7 @@ function panelHTML(s){
       '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
       (CAN_DONATE?mb('donate','♥ Поддержать игру','donate'):'')+
-      '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+'</p>';
+      '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+' · сложность: '+D().name.toLowerCase()+' (меняется в настройках)</p>';
   }
   if(s==='levels'){
     const lv=(l,i)=>{
@@ -2384,7 +2412,7 @@ function panelHTML(s){
       '<li>Игра, её код и всё, из чего она сделана, принадлежат автору. Тебе разрешено играть в личных целях.</li>'+
       '<li>Биты и предметы облика — часть игры, а не деньги: их нельзя продать или обменять на реальные деньги, а их цена и свойства могут меняться.</li>'+
       '<li>Игру обновляют: функции могут меняться, временно отключаться или исчезать.</li>'+
-      '<li>Прогресс гостя хранится только в этом браузере и может пропасть.</li>'+
+      '<li>Береги пароль от аккаунта и не давай вход в него другим.</li>'+
       '<li>За нарушение соглашения, читы, использование ошибок игры и мошенничество доступ могут ограничить.</li>'+
       '<li>Права, которые даёт тебе закон, соглашение не отменяет.</li>'+
       '</ul></div>'+
@@ -2396,12 +2424,12 @@ function panelHTML(s){
     const page=!IN_CLAUDE&&/^https?:$/.test(location.protocol)?'<p class="foot"><a href="terms.html" target="_blank" rel="noopener">Открыть соглашение отдельной страницей</a></p>':'';
     return '<div class="terms"></div>'+page+mb(termsBack,termsBack==='terms'?'Назад к принятию':'Назад','primary');
   }
-  // экран входа на сайте: его видит каждый, кто открыл ссылку и ещё не вошёл
+  // экран входа на сайте: без аккаунта играть нельзя — его видит каждый, кто ещё не вошёл
   if(s==='gate'){
     return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+
-      '<p>Войди или создай аккаунт: уровни, рекорд и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
-      '<p class="err" hidden></p>'+loginBtns()+mb('guest','Играть как гость')+
-      '<p class="foot">Гость играет без входа: прогресс хранится только в этом браузере.</p>';
+      '<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
+      '<p class="err" hidden></p>'+loginBtns()+
+      '<p class="foot">Аккаунт на сайте — это только логин и пароль: почта и телефон не нужны.</p>';
   }
   if(s==='signin'||s==='signup'){
     const up=s==='signup';
@@ -2462,7 +2490,7 @@ function panelHTML(s){
       '<li><b>Цель.</b> Собирай ♦ данные. Набрал норму уровня — открывается портал. На уровнях с боссом сначала разбей его зарядами EMP.</li>'+
       '<li><b>Клавиатура.</b> WASD или стрелки — движение, SPACE — рывок, E — подножка, Q — EMP, P или Esc — пауза.</li>'+
       '<li><b>Телефон.</b> Палец на левой половине поля — джойстик, справа кнопки РЫВОК, ПОДНОЖКА и EMP.</li>'+
-      '<li><b>Подножка</b> роняет охотников, снайперов, глитчей, червей и ботов рядом на 5 секунд: они не двигаются, не стреляют и не опасны — самое время удрать. Щитоносца, трояна и босса не свалить. Перезарядка 12 секунд, на самых трудных уровнях — 6–8.</li>'+
+      '<li><b>Подножка</b> роняет охотников, снайперов, глитчей, червей и ботов рядом на 5 секунд: они не двигаются, не стреляют и не опасны — самое время удрать. Щитоносца, трояна и босса не свалить. Перезарядка '+Math.round(TRIP_CD*D().trip/60)+' секунд (на сложности «'+D().name+'»), на некоторых уровнях — меньше.</li>'+
       '<li><b>Рывок</b> на миг делает неуязвимым. <b>EMP</b> уничтожает врагов рядом, стирает пули и бьёт босса.</li>'+
       '<li class="r"><b>▲ Охотник</b> догоняет и множится, поедая данные.</li>'+
       '<li class="y"><b>◆ Снайпер</b> держится на расстоянии и стреляет.</li>'+
@@ -2477,11 +2505,12 @@ function panelHTML(s){
       '<li><b>Интернет.</b> Фиолетовые кольца — роутеры: войди в одно, выйдешь из парного. В штрихованных кругах ЛАГ — там вязнут все, рывок вытаскивает.</li>'+
       '<li><b>Орбита.</b> В невесомости разгон и торможение медленные — поворачивай заранее. Серые обломки ранят, EMP их стирает.</li>'+
       '<li><b>Глубокая сеть.</b> Луч сканера крутится вокруг центра: пунктир — отдыхает, сплошной — ранит. Перепрыгни его рывком или пережди у оси.</li>'+
-      '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые 10 — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
+      '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули медленнее, данных нужно меньше, боссы слабее; «Средняя» — 4 жизни; «Высокая» — 3 жизни и прежний баланс.</li>'+
+      '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
   }
   if(s==='pause'){
-    return '<h2>ПАУЗА</h2><p>Уровень '+(lvl+1)+' · '+c.name+' — данные '+Math.min(got,c.goal)+'/'+c.goal+'</p>'+
+    return '<h2>ПАУЗА</h2><p>Уровень '+(lvl+1)+' · '+c.name+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p>'+
       '<div class="mcol">'+mb('resume','Продолжить','primary')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu','Главное меню')+'</div>'+
       '<p class="foot">P или Esc — продолжить</p>';
   }
@@ -2493,8 +2522,8 @@ function panelHTML(s){
       ?'<h2 class="good">АКТ '+(a+1)+' ПРОЙДЕН</h2><div class="story">'+story.map(t=>'<p>'+t+'</p>').join('')+'</div>'
       :'<h2>УРОВЕНЬ '+(lvl+1)+' ПРОЙДЕН</h2>';
     return head+'<p>'+c.name+' позади. Очки: <b>'+score+'</b> · биты: <b>+'+lvBits+'</b> (всего ◈ '+coins()+')</p>'+
-      '<p class="hp">'+heartsStr(Math.min(3,lives+1))+'</p>'+
-      (lives<3?'<p>Восстановлена одна жизнь.</p>':'')+
+      '<p class="hp">'+heartsStr(Math.min(maxLives(),lives+D().heal))+'</p>'+
+      (lives<maxLives()?'<p>'+(lives+D().heal>=maxLives()?'Жизни восстановлены.':'Восстановлена '+(D().heal>1?D().heal+' жизни':'одна жизнь')+'.')+'</p>':'')+
       '<p>Дальше: <b>'+(lvl+2)+' · '+n.name+'</b><br>'+objective(n)+(f?'<br>'+f:'')+'</p>'+
       '<div class="mcol">'+mb('next','Дальше','primary')+mb('menu','Главное меню')+'</div>';
   }
@@ -2515,6 +2544,8 @@ function panelHTML(s){
   if(s==='settings'){
     const cur=QUALITY[save.q==='auto'?save.autoTier:save.q];
     return '<h2>НАСТРОЙКИ</h2>'+
+      '<p class="lbl2">СЛОЖНОСТЬ</p><div class="chips">'+DIFFS.map(k=>chip('diff:'+k,DIFF[k].name,save.diff===k)).join('')+'</div>'+
+      '<p>'+D().hint+(phase==='pause'?' Число жизней сменится со следующего уровня.':'')+'</p>'+
       '<p class="lbl2">ГРАФИКА</p><div class="chips">'+
       chip('q:auto','Авто',save.q==='auto')+chip('q:high','Высокая',save.q==='high')+chip('q:med','Средняя',save.q==='med')+chip('q:low','Низкая',save.q==='low')+'</div>'+
       '<p>'+(save.q==='auto'?'Сейчас: <b>'+cur.name.toLowerCase()+(save.autoRes<1?', разрешение '+Math.round(save.autoRes*100)+'%':'')+'</b>. Если игра не успевает, «Авто» само снизит графику и запомнит это для устройства.':cur.hint)+'</p>'+
@@ -2584,6 +2615,7 @@ function buyItem(){
 }
 function act(a){
   const k=a.split(':')[0],n=Number(a.split(':')[1]);
+  if((k==='play'||k==='new'||k==='again'||k==='lv')&&needLogin()){showMenu('gate');return;}
   if(k==='play')newRun(save.unlocked-1);
   else if(k==='new'||k==='again')newRun(0);
   else if(k==='lv'){if(n<save.unlocked)newRun(n);}
@@ -2608,11 +2640,11 @@ function act(a){
     if(v==='auto'){save.autoTier=guessTier();save.autoRes=1;}
     persist();applyQuality();showMenu('settings',a);
   }
+  else if(k==='diff'){const v=a.split(':')[1];if(DIFFS.indexOf(v)>=0){save.diff=v;persist();}lives=Math.min(lives,maxLives());showMenu('settings',a);}
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
   else if(k==='login')netLogin(a.split(':')[1]);
   else if(k==='signin'||k==='signup'){if(menuScreen==='gate'||menuScreen==='acct')loginBack=menuScreen;showMenu(k);}
-  else if(k==='guest'){setGuest(true);NET.err='';showMenu('main');}
   else if(k==='logout')netLogout();
   else if(k==='termstext'){if(menuScreen!=='termstext')termsBack=menuScreen;showMenu('termstext');}
   else if(k==='termsok')acceptTerms();
@@ -2647,7 +2679,7 @@ function acceptTerms(){
   if(!cb||!cb.checked)return;
   save.terms=TERMS_VER;save.termsAt=Date.now();persist();
   // на сайте без входа дальше — экран входа; с сохранённой сессией — сразу меню
-  if(NET_ON&&!NET.sess&&!isGuest())showMenu('gate');
+  if(needLogin())showMenu('gate');
   else if(NET.thanks&&NET.user){showMenu('donate');supPoll(1);}
   else showMenu('main');
 }
@@ -3018,14 +3050,13 @@ async function initAccount(){
 // VK ID и Яндекс ID входят через функцию ru-login (online/ru-login.ts): игра получает от сервиса код,
 // функция проверяет его у VK или Яндекса и выдаёт сессию Supabase. Секретных ключей в игре нет.
 // Аккаунт на сайте — логин и пароль без всяких сервисов: регистрирует та же функция, входит игра сама.
-const SESS_KEY='dataout-session',FLOW_KEY='dataout-login',GUEST_KEY='dataout-guest';
-// выбор «гость» живёт до закрытия вкладки: по новой ссылке экран входа покажется снова
-function isGuest(){try{return sessionStorage.getItem(GUEST_KEY)==='1';}catch(_){return false;}}
-function setGuest(on){try{if(on)sessionStorage.setItem(GUEST_KEY,'1');else sessionStorage.removeItem(GUEST_KEY);}catch(_){}}
+const SESS_KEY='dataout-session',FLOW_KEY='dataout-login';
+// на сайте с базой играть можно только с аккаунтом. Сохранённая сессия тоже считается входом:
+// если сервер временно недоступен, вошедший раньше игрок играет дальше, а прогресс досохранится потом
+function needLogin(){return NET_ON&&!NET.sess;}
 function maybeGate(){
   if(NET.user||phase!=='menu'||menuEl.hidden||!termsOk())return;
-  if(menuScreen!=='main'&&menuScreen!=='acct'&&menuScreen!=='gate')return;
-  if(isGuest()&&!NET.err)return;
+  if(menuScreen==='terms'||menuScreen==='termstext'||menuScreen==='signin'||menuScreen==='signup')return;
   showMenu('gate');
 }
 const RETURN_URL=location.origin+location.pathname.replace(/index\.html$/,'');
@@ -3177,7 +3208,7 @@ async function netSiteAuth(mode,form){
     btn.disabled=false;btn.textContent=label;
     return fail(siteErr(mode,e));
   }
-  NET.err='';setGuest(false);
+  NET.err='';
   if(phase==='menu')showMenu('main');
   await netLoadUser();
 }
@@ -3254,7 +3285,6 @@ async function netInit(){
   // вернулись со страницы VK или Яндекса — пока функция проверяет код, показываем «подключаю»
   if(/[?&#](code|access_token|error)=/.test(location.search+location.hash))setAcctState('loading');
   try{await netHandleReturn();}catch(e){NET.err='Не получилось войти: '+errMsg(e);}
-  if(NET.sess)setGuest(false);
   // экран входа рисуется без сервера, поэтому появляется сразу, даже когда связи нет
   if(!NET.sess){setAcctState('netout');maybeGate();return;}
   await netLoadUser();
