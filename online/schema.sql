@@ -85,6 +85,7 @@ create table if not exists public.donations (
   amount       numeric(12,2) not null default 0,
   created_at   timestamptz not null default now()
 );
+create index if not exists donations_user_id_idx on public.donations (user_id);
 alter table public.donations enable row level security;
 revoke all on public.donations from anon, authenticated;
 
