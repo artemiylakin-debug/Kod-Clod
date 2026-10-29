@@ -861,18 +861,25 @@ const RAMP_MSG={heavy:'ТЯЖЁЛЫЙ ЩИТОНОСЕЦ',sniper:'СНАЙПЕР
   turret:'ТУРЕЛЬ ПОДНЯЛАСЬ',thief:'ВОР ДАННЫХ',missile:'РАКЕТА НА ХВОСТЕ',mirror:'ЗЕРКАЛО ПОВТОРЯЕТ ЗА ТОБОЙ',miner:'МИНЁР ЗА РАБОТОЙ'};
 // червь: число звеньев и шаг между ними в кадрах истории пути головы
 const WORM_SEGS=6,WORM_GAP=6,WORM_HIST=WORM_SEGS*WORM_GAP+1;
-// сложность: множители для врагов, пуль, опасностей и наград. «Высокая» — баланс до упрощения,
-// «Лёгкая» — по умолчанию: игроки жаловались, что игра слишком трудная
+// сложность: множители для врагов, пуль, опасностей и наград на официальных уровнях. Автор просил
+// сделать их вдвое легче: даже он проходил некоторые с сотой попытки. Замер ботом с человеческой
+// реакцией на всех 200 уровнях: гибнет в 2,4–6 раз реже, попаданий на 30–38% меньше
 const DIFF={
-  easy:{name:'Лёгкая',hint:'5 жизней, враги и пули медленнее, данных нужно меньше, боссы слабее.',
-    lives:5,cool:150,speed:0.78,bullet:0.78,fire:1.6,boss:0.72,bossHp:2,bossMin:2,thin:3,gate:60,goal:0.7,cap:2,ramp:8,hp:6,hazard:1.7,timer:20,dark:70,trip:0.6,heal:5,breed:0.4,trojan:0.6,startCut:1},
-  med:{name:'Средняя',hint:'4 жизни, враги чуть медленнее, данных и врагов немного меньше.',
-    lives:4,cool:120,speed:0.88,bullet:0.88,fire:1.3,boss:0.85,bossHp:1,bossMin:3,thin:5,gate:80,goal:0.85,cap:1,ramp:6,hp:8,hazard:1.3,timer:10,dark:35,trip:0.8,heal:2,breed:0.7,trojan:0.8,startCut:0},
-  hard:{name:'Высокая',hint:'3 жизни и прежний баланс — для тех, кому мало.',
-    lives:3,cool:90,speed:1,bullet:1,fire:1,boss:1,bossHp:0,bossMin:3,thin:0,gate:100,goal:1,cap:0,ramp:5,hp:10,hazard:1,timer:0,dark:0,trip:1,heal:1,breed:1,trojan:1,startCut:0}
+  easy:{name:'Лёгкая',hint:'5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые.',
+    lives:5,cool:180,speed:0.6,bullet:0.6,fire:2.4,boss:0.5,bossHp:4,bossMin:2,thin:2,gate:45,goal:0.6,cap:4,ramp:8,hp:4,hazard:2.2,timer:30,dark:100,trip:0.5,heal:5,breed:0.25,trojan:0.35,startCut:1},
+  med:{name:'Средняя',hint:'4 жизни, враги медленнее, данных и врагов меньше, боссы слабее.',
+    lives:4,cool:165,speed:0.66,bullet:0.66,fire:2.1,boss:0.56,bossHp:3,bossMin:2,thin:2,gate:50,goal:0.65,cap:3,ramp:9,hp:5,hazard:2,timer:25,dark:85,trip:0.55,heal:4,breed:0.3,trojan:0.45,startCut:1},
+  hard:{name:'Высокая',hint:'3 жизни, враги быстрее и злее — для тех, кому мало.',
+    lives:3,cool:150,speed:0.78,bullet:0.75,fire:1.6,boss:0.62,bossHp:3,bossMin:2,thin:2,gate:60,goal:0.75,cap:2,ramp:8,hp:6,hazard:1.6,timer:20,dark:60,trip:0.7,heal:3,breed:0.5,trojan:0.65,startCut:0}
+};
+// уровни игроков идут по прежним множителям: их авторы проходили свои уровни именно так
+const DIFF_COMM={
+  easy:{...DIFF.easy,cool:150,speed:0.78,bullet:0.78,fire:1.6,boss:0.72,bossHp:2,bossMin:2,thin:3,gate:60,goal:0.7,cap:2,ramp:8,hp:6,hazard:1.7,timer:20,dark:70,trip:0.6,heal:5,breed:0.4,trojan:0.6,startCut:1},
+  med:{...DIFF.med,cool:120,speed:0.88,bullet:0.88,fire:1.3,boss:0.85,bossHp:1,bossMin:3,thin:5,gate:80,goal:0.85,cap:1,ramp:6,hp:8,hazard:1.3,timer:10,dark:35,trip:0.8,heal:2,breed:0.7,trojan:0.8,startCut:0},
+  hard:{...DIFF.hard,cool:90,speed:1,bullet:1,fire:1,boss:1,bossHp:0,bossMin:3,thin:0,gate:100,goal:1,cap:0,ramp:5,hp:10,hazard:1,timer:0,dark:0,trip:1,heal:1,breed:1,trojan:1,startCut:0}
 };
 const DIFFS=['easy','med','hard'];
-function D(){return DIFF[save.diff]||DIFF.easy;}
+function D(){const t=CUSTOM?DIFF_COMM:DIFF;return t[save.diff]||t.easy;}
 function maxLives(){return D().lives;}
 function goalOf(c){return Math.max(6,Math.round(c.goal*D().goal));}
 function timerOf(c){return c.timer?c.timer+D().timer:0;}
@@ -3302,7 +3309,7 @@ function panelHTML(s){
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
-      '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули медленнее, данных нужно меньше, боссы слабее; «Средняя» — 4 жизни; «Высокая» — 3 жизни и прежний баланс.</li>'+
+      '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
   }
