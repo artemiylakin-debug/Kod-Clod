@@ -1338,7 +1338,9 @@ const SKIN_COLORS=[
   {name:'ПЕСОК',main:'#e0b45c',dark:'#5a3e10',ring:'#c99838',trail:'#f0d08c',act:17,price:2000},
   {name:'СОЛНЦЕ',main:'#f5b800',dark:'#6b3a00',ring:'#ff8a00',trail:'#ffd84d',act:20,price:2300},
   {name:'БРОНЗА',main:'#b87333',dark:'#3d1f08',ring:'#9a5b24',trail:'#d9995e',act:23,price:2600},
-  {name:'ИСТОК',shimmer:true,main:'#fef9c3',dark:'#3b2f00',ring:'#fde047',trail:'#ffffff',act:26,price:2900,sw:'linear-gradient(135deg,#ffffff,#fef08a,#fde047,#ffffff)'}
+  {name:'ИСТОК',shimmer:true,main:'#fef9c3',dark:'#3b2f00',ring:'#fde047',trail:'#ffffff',act:26,price:2900,sw:'linear-gradient(135deg,#ffffff,#fef08a,#fde047,#ffffff)'},
+  // костюм исследователя Зоны: ремни, подсумки, потёртости и нашивка (drawSuit)
+  {name:'ЗОНА',suit:true,main:'#56683a',dark:'#1d2418',ring:'#6b7b44',trail:'#34d399',price:1200,sw:'linear-gradient(135deg,#56683a,#3d4a2c 55%,#2b2f2c)'}
 ];
 const SKIN_SHAPES=[
   {name:'ГЕКСАГОН'},{name:'ЯДРО'},{name:'РОМБ'},
@@ -1348,7 +1350,8 @@ const SKIN_SHAPES=[
 const TRAILS=[
   {name:'ОБЫЧНЫЙ'},{name:'ПИКСЕЛИ',price:200},{name:'ИСКРЫ',price:350},{name:'ОГОНЬ',price:500},
   {name:'ДВОИЧНЫЙ',price:700},{name:'РАДУГА',price:1000},{name:'КОМЕТА',act:1,price:400},{name:'ЗОЛОТАЯ ПЫЛЬ',sup:true,price:2000},
-  {name:'СОЗВЕЗДИЕ',act:9,price:1200},{name:'СЕРДЕЧКИ',sup:true,price:2000},{name:'ПУЗЫРИ',price:900},{name:'ХВОСТ ЧЁРТА',price:666}
+  {name:'СОЗВЕЗДИЕ',act:9,price:1200},{name:'СЕРДЕЧКИ',sup:true,price:2000},{name:'ПУЗЫРИ',price:900},{name:'ХВОСТ ЧЁРТА',price:666},
+  {name:'АНОМАЛИЯ',price:1300}
 ];
 const HATS=[
   {name:'БЕЗ НИЧЕГО'},{name:'АНТЕННА',price:150},{name:'КЕПКА',price:300},{name:'НАУШНИКИ',price:400},
@@ -1357,10 +1360,12 @@ const HATS=[
   // обновление 6.0: двенадцать новых — восемь за биты и четыре за новые акты
   {name:'ПИКСЕЛЬНАЯ КОРОНА',price:700},{name:'СКАН-ПОЛОСА',price:500},{name:'ГЛИТЧ-ОРЕОЛ',price:800},{name:'НЕОНОВАЯ АУРА',price:1000},
   {name:'ГОЛОКУБ',price:900},{name:'ОРБИТА БИТОВ',price:600},{name:'УШКИ-ДАТЧИКИ',price:350},{name:'МОНОКЛЬ',price:400},
-  {name:'СПИННЕР ЗАГРУЗКИ',act:13,price:1600},{name:'ОГНЕННЫЙ ГРЕБЕНЬ',act:16,price:1900},{name:'СПУТНИК',act:18,price:2100},{name:'ПЕСОЧНЫЕ ЧАСЫ',act:23,price:2600}
+  {name:'СПИННЕР ЗАГРУЗКИ',act:13,price:1600},{name:'ОГНЕННЫЙ ГРЕБЕНЬ',act:16,price:1900},{name:'СПУТНИК',act:18,price:2100},{name:'ПЕСОЧНЫЕ ЧАСЫ',act:23,price:2600},
+  // капюшон, противогаз с тёмными линзами, перчатки и укороченный автомат
+  {name:'СНАРЯЖЕНИЕ ЗОНЫ',price:1500}
 ];
 // аксессуары на уровне глаз: над ними сердечки не нужно поднимать
-const EYE_HATS=[4,14,20];
+const EYE_HATS=[4,14,20,25];
 const CATS=[
   {id:'c',name:'ЦВЕТ',list:SKIN_COLORS,key:'color'},
   {id:'s',name:'ФОРМА',list:SKIN_SHAPES,key:'shape'},
@@ -1486,7 +1491,7 @@ const OUTFIT_IDEAS=[
   {n:'СЫЩИК',c:20,s:2,t:0,h:20},{n:'ДЖЕНТЛЬМЕН',c:9,s:2,t:0,h:12},{n:'СТРОИТЕЛЬ',c:2,s:6,t:1,h:8},{n:'ПОДВОДНИК',c:15,s:10,t:10,h:9},
   {n:'ФЕНИКС',c:16,s:5,t:3,h:22},{n:'ХАКЕР',c:14,s:4,t:4,h:18},{n:'ЗВЕЗДОЧЁТ',c:6,s:5,t:8,h:23},{n:'КИБЕРКОТ',c:8,s:3,t:2,h:19},
   {n:'ГОЛОГРАММА',c:5,s:7,t:2,h:17},{n:'ПУТЕШЕСТВЕННИК',c:20,s:2,t:6,h:2},{n:'СВЕТИЛО',c:21,s:5,t:3,h:16},{n:'ЗАГРУЗКА',c:0,s:4,t:1,h:21},
-  {n:'ЧАСОВЩИК',c:22,s:6,t:2,h:24}
+  {n:'ЧАСОВЩИК',c:22,s:6,t:2,h:24},{n:'ZONE GUARDIAN',c:24,s:0,t:12,h:25}
 ];
 function outfitName(v){return typeof v==='string'?v.replace(/[\u0000-\u001f\u007f<>&"'`\\]/g,'').replace(/\s+/g,' ').trim().slice(0,16):'';}
 function parseOutfits(v){
@@ -3083,12 +3088,43 @@ function drawHat(c,h,rr,sk,t,f){
     c.beginPath();c.moveTo(-4*(1-k),-6+6*k);c.lineTo(4*(1-k),-6+6*k);c.lineTo(0,0);c.closePath();c.fill();
     c.fillRect(-3*k,6-4*k,6*k,4*k);
     c.restore();
+  }else if(h===25){
+    // снаряжение Зоны: капюшон, противогаз с тёмными линзами и фильтром, руки в перчатках с автоматом
+    c.lineCap='round';
+    c.strokeStyle='#2c3622';c.lineWidth=5;c.beginPath();c.arc(0,0,rr+1.5,Math.PI*1.02,Math.PI*1.98);c.stroke();
+    c.strokeStyle='#55653a';c.lineWidth=1;c.beginPath();c.arc(0,0,rr+1.5,Math.PI*1.12,Math.PI*1.88);c.stroke();
+    // глаза — там же, где их рисует тело
+    const ex=Math.cos(f)*4,ey=Math.sin(f)*4;
+    const e1x=ex-4+ey*0.5,e1y=ey-ex*0.5,e2x=ex+4+ey*0.5,e2y=ey+ex*0.5,mx=(e1x+e2x)/2,my=(e1y+e2y)/2,ang=Math.atan2(e2y-e1y,e2x-e1x);
+    c.fillStyle='#2b2f2a';c.beginPath();c.arc(mx,my+6.5,3.2,0,TAU);c.fill();
+    c.strokeStyle='#4a4f48';c.lineWidth=0.8;c.beginPath();c.moveTo(mx-2.4,my+5.6);c.lineTo(mx+2.4,my+5.6);c.moveTo(mx-2.6,my+7.4);c.lineTo(mx+2.6,my+7.4);c.stroke();
+    c.fillStyle='#3f5a2c';c.strokeStyle='#1b2414';c.lineWidth=1.2;
+    c.beginPath();c.ellipse(mx,my+0.5,9.5,6.2,ang,0,TAU);c.fill();c.stroke();
+    for(const [x,y] of [[e1x,e1y],[e2x,e2y]]){
+      c.fillStyle='#0d1512';c.strokeStyle='#6b7b44';c.lineWidth=1.2;
+      c.beginPath();c.arc(x,y,3.4,0,TAU);c.fill();c.stroke();
+      c.strokeStyle='#9fd8b8';c.globalAlpha=0.7;c.lineWidth=0.9;c.beginPath();c.arc(x,y,2,Math.PI*1.1,Math.PI*1.5);c.stroke();c.globalAlpha=1;
+    }
+    // автомат с коротким стволом и складным прикладом — у бока, стволом туда, куда смотрит файл
+    c.save();c.rotate(f);if(Math.cos(f)<0)c.scale(1,-1);c.translate(rr*0.1,rr*0.6);
+    c.strokeStyle='#3a3d3a';c.lineWidth=1;c.strokeRect(-7,-1.5,7,3);
+    c.fillStyle='#2c2f2e';c.fillRect(0,-2,11,4);
+    c.fillStyle='#4a4e4b';c.fillRect(1,-2,9,1);
+    c.fillStyle='#6b3f1f';c.fillRect(11,-1.8,5,3.6);
+    c.fillStyle='#1f2120';c.fillRect(16,-1,4,2);
+    c.fillStyle='#3b3e3c';c.fillRect(20,-1.7,3,3.4);
+    c.fillStyle='#7a3e1d';c.beginPath();c.moveTo(5,2);c.lineTo(8.5,2);c.quadraticCurveTo(9.5,6,11.5,9);c.lineTo(8.3,10);c.quadraticCurveTo(6.5,6,5,2);c.closePath();c.fill();
+    c.fillStyle='#3a2414';c.beginPath();c.moveTo(1,2);c.lineTo(3.6,2);c.lineTo(2.8,6.5);c.lineTo(0.4,6.2);c.closePath();c.fill();
+    c.fillStyle='#20251c';c.beginPath();c.arc(2,4,2.5,0,TAU);c.fill();c.beginPath();c.arc(13.5,2,2.4,0,TAU);c.fill();
+    c.restore();
+    c.lineCap='butt';
   }
 }
 // шлейф по стилю следа; pts — точки {x,y,life,hot}, max — их полная жизнь
 function drawTrail(c,pts,L,sk,max,t){
   const st=L.t;
   if(st===11){drawTail(c,pts,sk,t);return;}
+  if(st===12){drawAnomaly(c,pts,max,t);return;}
   for(let i=0;i<pts.length;i++){
     const q=pts[i],a=Math.min(1,q.life/max);
     c.globalAlpha=a*(q.hot?0.6:(st===0?0.35:0.5));
@@ -3125,6 +3161,71 @@ function drawTrail(c,pts,L,sk,max,t){
     else{c.fillStyle=q.hot===1?sk.main:sk.trail;c.beginPath();c.arc(q.x,q.y,3+6*a,0,TAU);c.fill();}
   }
   c.globalAlpha=1;c.lineCap='butt';
+}
+// аномалия: полупрозрачный изумрудный шлейф, искры уплывают в стороны и гаснут, изредка — цифровые
+// помехи; рывок оставляет расходящиеся вспышки. Без shadowBlur: свечение — второй круг пошире и бледнее
+function drawAnomaly(c,pts,max,t){
+  const n=pts.length;
+  c.lineCap='round';
+  for(let i=1;i<n;i++){
+    const o=pts[i-1],q=pts[i],a=Math.min(1,q.life/max);
+    c.globalAlpha=a*0.22;c.strokeStyle='#10b981';c.lineWidth=3+8*a;
+    c.beginPath();c.moveTo(o.x,o.y);c.lineTo(q.x,q.y);c.stroke();
+    c.globalAlpha=a*0.45;c.strokeStyle='#6ee7b7';c.lineWidth=1+2*a;
+    c.beginPath();c.moveTo(o.x,o.y);c.lineTo(q.x,q.y);c.stroke();
+  }
+  for(let i=0;i<n;i++){
+    const q=pts[i],a=Math.min(1,q.life/max);
+    if(q.sd===undefined)q.sd=Math.random();
+    // разгон всегда оранжевый, иначе его не заметить
+    if(q.hot===2){c.globalAlpha=a*0.6;c.fillStyle='#fa0';c.beginPath();c.arc(q.x,q.y,3+6*a,0,TAU);c.fill();continue;}
+    if(q.hot===1&&i%2===0){c.globalAlpha=a*0.6;c.strokeStyle='#a7f3d0';c.lineWidth=1.5;c.beginPath();c.arc(q.x,q.y,4+12*(1-a),0,TAU);c.stroke();}
+    if(i%2===0){
+      const g=q.sd*TAU,d=(1-a)*10,x=q.x+Math.cos(g)*d,y=q.y+Math.sin(g)*d-(1-a)*4,r=1+1.5*a;
+      c.globalAlpha=a*0.25;c.fillStyle='#34d399';c.beginPath();c.arc(x,y,r*2.6,0,TAU);c.fill();
+      c.globalAlpha=a*0.9;c.fillStyle=q.sd>0.5?'#d1fae5':'#6ee7b7';c.beginPath();c.arc(x,y,r,0,TAU);c.fill();
+    }
+    // помеха: короткие сдвинутые полоски, у каждой точки — на миг и редко
+    if(q.sd>0.82&&Math.floor(t/3+q.sd*97)%6===0){
+      const w=6+q.sd*10,j=(Math.floor(t)%3-1)*3;
+      c.globalAlpha=a*0.7;c.fillStyle='#d1fae5';c.fillRect(q.x-w/2+j,q.y-2,w,1.5);
+      c.fillStyle='#059669';c.fillRect(q.x-w/2-j,q.y+1,w*0.7,1.5);
+    }
+  }
+  c.globalAlpha=1;c.lineCap='butt';
+}
+// костюм Зоны поверх тела (в рамке тела, без поворота формы): плечевой ремень, пояс с подсумками,
+// нашивка и потёртости; всё обрезано по форме тела, чтобы не вылезало за контур
+function drawSuit(c,s,rr,rot){
+  c.save();shapePath(c,s,rr,rot);c.clip();
+  c.globalAlpha=0.35;c.fillStyle='#2f3b24';
+  c.beginPath();c.arc(-rr*0.45,-rr*0.5,rr*0.38,0,TAU);c.fill();
+  c.beginPath();c.arc(rr*0.55,rr*0.05,rr*0.32,0,TAU);c.fill();
+  c.globalAlpha=1;
+  // плечевой ремень и пояс
+  c.strokeStyle='#23281e';c.lineWidth=3;
+  c.beginPath();c.moveTo(rr*0.25,-rr*1.1);c.lineTo(rr*1.05,rr*0.2);c.stroke();
+  c.fillStyle='#23281e';c.fillRect(-rr,rr*0.45,rr*2,3);
+  c.fillStyle='#8a8f6a';for(let x=-rr+2;x<rr;x+=4)c.fillRect(x,rr*0.45+1,1,1);
+  // подсумки с клапанами
+  for(const x of [-rr*0.55,-rr*0.05,rr*0.45]){
+    c.fillStyle='#5e6842';c.fillRect(x-2.5,rr*0.45+2,5,5);
+    c.fillStyle='#3a4329';c.fillRect(x-2.5,rr*0.45+2,5,1.6);
+  }
+  // нашивка: жёлтый треугольник с тёмной точкой на оливковом прямоугольнике
+  c.save();c.translate(-rr*0.6,rr*0.08);c.rotate(-0.15);
+  c.fillStyle='#3d4a2c';c.fillRect(-3.5,-3,7,6);
+  c.fillStyle='#d4a72c';c.beginPath();c.moveTo(0,-2.2);c.lineTo(2.4,2);c.lineTo(-2.4,2);c.closePath();c.fill();
+  c.fillStyle='#1d2418';c.fillRect(-0.6,0,1.2,1.2);
+  c.restore();
+  // потёртости
+  c.strokeStyle='#c8cfa6';c.lineWidth=0.8;c.globalAlpha=0.35;
+  c.beginPath();
+  c.moveTo(-rr*0.2,-rr*0.75);c.lineTo(-rr*0.05,-rr*0.65);
+  c.moveTo(rr*0.35,rr*0.2);c.lineTo(rr*0.5,rr*0.3);
+  c.moveTo(-rr*0.8,-rr*0.15);c.lineTo(-rr*0.7,-rr*0.3);
+  c.stroke();
+  c.restore();
 }
 // хвост чёрта: гибкий хвост тянется за телом по пути движения, виляет и кончается стрелкой-пикой.
 // Стоишь на месте — хвост свисает и покачивается
@@ -3304,7 +3405,8 @@ function drawPlayerBody(c,p,t,full,L){
   }else c.fillStyle=sk.main;
   shapePath(c,L.s,rr,rot);
   c.fill();
-  c.strokeStyle=sk.dark;c.lineWidth=1.5;c.stroke();
+  if((SKIN_COLORS[L.c]||{}).suit)drawSuit(c,L.s,rr,rot);
+  c.strokeStyle=sk.dark;c.lineWidth=1.5;shapePath(c,L.s,rr,rot);c.stroke();
 
   // глаза; в очках — тёмные стёкла с перемычкой
   const ex=Math.cos(f)*4,ey=Math.sin(f)*4;
