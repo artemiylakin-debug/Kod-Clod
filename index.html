@@ -1507,8 +1507,44 @@ function wearOutfit(o){
   if(!o)return;
   const miss=outfitMissing(o);
   tryOn=null;
-  if(!miss.length){save.color=o.c;save.shape=o.s;save.trail=o.t;save.hat=o.h;tryLook=null;persist();msg('Наряд «'+o.n+'» надет.');}
-  else{tryLook={c:o.c,s:o.s,t:o.t,h:o.h};msg('Примеряешь «'+o.n+'». Не хватает: '+miss.join(', ')+'.',6000);}
+  if(!miss.length){save.color=o.c;save.shape=o.s;save.trail=o.t;save.hat=o.h;tryLook=null;tryOutfit=null;persist();msg('Наряд «'+o.n+'» надет.');}
+  else{tryLook={c:o.c,s:o.s,t:o.t,h:o.h};tryOutfit=o;msg('Примеряешь «'+o.n+'». Не хватает: '+miss.join(', ')+'.',6000);}
+}
+// чего не хватает в наряде: что продаётся за биты (и сколько это стоит) и что открывается иначе
+function outfitShop(o){
+  const sale=[],locked=[];
+  for(const [k,i] of [['c',o.c],['s',o.s],['t',o.t],['h',o.h]]){
+    if(owned(k,i))continue;
+    const it=catOf(k).list[i];
+    (it.price?sale:locked).push({k,i,it});
+  }
+  return {sale,locked,sum:sale.reduce((n,x)=>n+x.it.price,0)};
+}
+// покупка наряда в один клик: все недостающие вещи, что продаются, по их обычной цене
+function buyOutfit(){
+  const o=tryOutfit;
+  if(!o)return;
+  const sh=outfitShop(o);
+  if(!sh.sale.length||coins()<sh.sum)return;
+  for(const x of sh.sale)save.own.push(x.k+x.i);
+  buzz(40);
+  if(!sh.locked.length){wearOutfit(o);msg('Наряд «'+o.n+'» куплен и надет.');return;}
+  // надеваем всё, что теперь есть; остальное остаётся примеркой
+  for(const [k,i] of [['c',o.c],['s',o.s],['t',o.t],['h',o.h]])if(owned(k,i))save[catOf(k).key]=i;
+  persist();
+  msg('Куплено: '+sh.sale.map(x=>x.it.name).join(', ')+'. Ещё нужно: '+sh.locked.map(x=>x.it.name).join(', ')+'.',6000);
+}
+function outfitBuyHTML(o){
+  const sh=outfitShop(o),n=escHTML(o.n);
+  if(!sh.sale.length&&!sh.locked.length)return '';
+  let h='';
+  if(sh.sale.length){
+    const what=sh.sale.map(x=>x.it.name).join(', ');
+    h+=coins()>=sh.sum?mb('ofbuy',(sh.locked.length?'Купить, что продаётся, из «':'Купить наряд «')+n+'» за ◈ '+sh.sum,'buy')+'<p class="foot">В покупку войдёт: '+what+'.</p>'
+      :'<p>Недостающее для «'+n+'» ('+what+') стоит ◈ '+sh.sum+' — не хватает '+(sh.sum-coins())+'. Биты дают за данные, уровни и боссов.</p>';
+  }
+  for(const x of sh.locked)h+='<p>«'+x.it.name+'» '+(x.it.act?'откроется, когда '+(x.it.act<ACTS.length?'пройдёшь акт '+x.it.act+' · '+ACTS[x.it.act-1].name:'пройдёшь всю игру'):'— подарок за поддержку игры')+'.</p>';
+  return h;
 }
 function saveOutfit(){
   const inp=$id('of-name');
@@ -1535,7 +1571,7 @@ function outfitsHTML(){
     '<p class="lbl2">ИДЕИ — НАЖМИ, ЧТОБЫ ПРИМЕРИТЬ · ✓ — ВСЁ УЖЕ ЕСТЬ</p><div class="chips">'+OUTFIT_IDEAS.map((o,i)=>chip('ofidea:'+i,o.n+(outfitMissing(o).length?'':'<small>✓</small>'),outfitOn(o))).join('')+'</div>';
 }
 // примерка в магазине: показывается только в превью, в игре — надетое
-let shopTab='c',tryOn=null,tryLook=null;
+let shopTab='c',tryOn=null,tryLook=null,tryOutfit=null;
 function previewLook(){const L=wornLook();if(tryLook)Object.assign(L,tryLook);if(tryOn)L[tryOn.cat]=tryOn.i;return L;}
 // у радуги цвет меняется со временем; остальные цвета — как есть
 function hslHex(h,s,l){
@@ -3937,7 +3973,8 @@ function panelHTML(s){
   if(s==='skins'){
     const cat=catOf(shopTab),L=previewLook(),cur=L[shopTab],it=cat.list[cur];
     let info='';
-    if(!owned(shopTab,cur)){
+    if(tryOutfit&&tryLook&&!tryOn)info=outfitBuyHTML(tryOutfit);
+    else if(!owned(shopTab,cur)){
       if(it.price)info=coins()>=it.price?mb('buy','Купить «'+it.name+'» за ◈ '+it.price,'buy')
         :'<p>«'+it.name+'» стоит ◈ '+it.price+' — не хватает '+(it.price-coins())+'. Биты дают за данные, уровни и боссов.</p>';
       else if(it.act)info='<p>«'+it.name+'» откроется, когда '+(it.act<ACTS.length?'пройдёшь акт '+it.act+' · '+ACTS[it.act-1].name:'пройдёшь всю игру')+'.</p>';
@@ -4041,7 +4078,7 @@ function panelHTML(s){
   return '';
 }
 function showMenu(s,focusAct){
-  if(s!=='skins'){tryOn=null;tryLook=null;}
+  if(s!=='skins'){tryOn=null;tryLook=null;tryOutfit=null;}
   if(s!=='profile')pvLook=null;
   // новый ключ MCP показывается один раз — уходим с экрана, и он больше не виден
   if(s!=='mcp')mcpNewKey='';
@@ -4102,7 +4139,7 @@ function itemChip(cat,i,cur){
 function pickItem(cat,i,focusAct){
   const c=catOf(cat);
   if(!c.list[i])return;
-  tryLook=null;
+  tryLook=null;tryOutfit=null;
   if(owned(cat,i)){save[c.key]=i;tryOn=null;persist();}
   else tryOn={cat,i};
   showMenu('skins',focusAct||'item:'+cat+':'+i);
@@ -4132,6 +4169,7 @@ function act(a){
   else if(k==='buy')buyItem();
   else if(k==='outfit'){wearOutfit(save.outfits[n]);showMenu('skins',a);}
   else if(k==='ofidea'){wearOutfit(OUTFIT_IDEAS[n]);showMenu('skins',a);}
+  else if(k==='ofbuy'){buyOutfit();showMenu('skins','ofbuy');}
   else if(k==='ofsave'){saveOutfit();showMenu('skins','ofsave');}
   else if(k==='ofdel'){if(!sure){armBtn(a,'точно?');return;}delOutfit(n);showMenu('skins','ofsave');}
   else if(k==='sum'){donSum=n;showMenu('donate',a);}
