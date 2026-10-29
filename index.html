@@ -403,6 +403,11 @@ const W=800,H=500,TAU=Math.PI*2,STEP=1000/60;
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 // игра открыта внутри claude.ai (там есть аккаунты и рекорды) или как отдельная копия-файл
 const IN_CLAUDE=!!(window.claude&&typeof window.claude.use==='function');
+// официальная игра — сайт автора и артефакт на claude.ai (и проверка у себя на компьютере); в любой
+// другой копии меню и поле показывают, что копия неофициальная, и ссылку на настоящий сайт
+const OFFICIAL=IN_CLAUDE||(location.hostname==='artemiylakin-debug.github.io'&&/^\/Kod-Clod(\/|$)/.test(location.pathname))||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const COPY_NOTE='<p class="err">Это неофициальная копия DATA.OUT, выложенная без разрешения автора. Настоящая игра — <a href="https://artemiylakin-debug.github.io/Kod-Clod/" target="_blank" rel="noopener">artemiylakin-debug.github.io/Kod-Clod</a></p>';
+const COPYRIGHT='<p class="foot">© 2026 artemiylakin-debug · все права защищены · копировать и выкладывать игру без разрешения автора нельзя</p>';
 // копия игры на своём сайте (GitHub Pages) может подключить свою базу: настройки лежат рядом в online-config.js
 const ONLINE=(!IN_CLAUDE&&window.DATA_OUT_ONLINE)||{};
 const NET_ON=!!(ONLINE.supabaseUrl&&ONLINE.supabaseKey);
@@ -3461,6 +3466,11 @@ function render(opaque){
     ctx.globalAlpha=1;
   }
 
+  // в неофициальной копии — надпись на поле
+  if(!OFFICIAL){
+    ctx.font='bold 11px Courier New, monospace';ctx.textAlign='right';
+    ctx.fillStyle='rgba(204,34,34,0.75)';ctx.fillText('НЕОФИЦИАЛЬНАЯ КОПИЯ · artemiylakin-debug.github.io/Kod-Clod',W-8,H-8);
+  }
   // счётчик кадров — включается в настройках
   if(save.fps){
     const s=fpsShown+' FPS · '+tierName();
@@ -3585,7 +3595,7 @@ function panelHTML(s){
   const c=cfgNow();
   if(s==='main'){
     const cont=save.unlocked>1;
-    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+
+    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       ACCT_ROW+
       '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</p>'+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
@@ -3595,7 +3605,7 @@ function panelHTML(s){
       mb('community','Сообщество · уровни игроков')+
       (NET.admin?mb('admin','Админ-панель'):'')+
       (CAN_DONATE?mb('donate','♥ Поддержать игру','donate'):'')+
-      '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+' · сложность: '+D().name.toLowerCase()+' (меняется в настройках)</p>';
+      '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+' · сложность: '+D().name.toLowerCase()+' (меняется в настройках)</p>'+COPYRIGHT;
   }
   if(s==='levels'){
     const lv=(l,i)=>{
@@ -3663,7 +3673,7 @@ function panelHTML(s){
   }
   // экран входа на сайте: без аккаунта играть нельзя — его видит каждый, кто ещё не вошёл
   if(s==='gate'){
-    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+
+    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       '<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
       '<p class="err" hidden></p>'+loginBtns()+
       '<p class="foot">Аккаунт на сайте — это только логин и пароль: почта и телефон не нужны.</p>';
