@@ -4,13 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f6fa">
-<title>DATA.OUT v5.0</title>
+<!-- политика безопасности сайта: скрипты, стили, музыка и данные — только свои и из базы игры;
+     формы — только оплата ЮMoney; встраивать плагины и менять базовый адрес нельзя.
+     'unsafe-inline' нужен, потому что вся игра — один встроенный скрипт -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://lnkekrusqjdroomcufen.supabase.co wss://lnkekrusqjdroomcufen.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action https://yoomoney.ru; frame-src 'none'; worker-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>DATA.OUT v6.0</title>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <!-- настройки входа (Supabase, VK ID, Яндекс ID, Google, Apple); без этого файла игра работает без аккаунтов -->
 <script src="online-config.js"></script>
 </head>
 <body>
-<title>DATA.OUT v5.0</title>
+<title>DATA.OUT v6.0</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
   /* Раскладка: на компьютере — заголовок, полоса HUD, холст 800×500, строка сообщений; меню лежит поверх поля. На сенсорном экране поле занимает весь экран, HUD, джойстик и кнопки лежат прямо на нём (боком — по краям поля). Одна светлая тема, как в оригинале. */
@@ -237,7 +242,7 @@
 </style>
 
 <div id="app">
-  <h1>DATA.OUT v5.0 — ПОБЕГ ИЗ КОРЗИНЫ</h1>
+  <h1>DATA.OUT v6.0 — ПОБЕГ ИЗ КОРЗИНЫ</h1>
   <div id="ui">
     <div class="stat s-data"><span class="lbl">ДАННЫЕ</span><span class="val" id="dataVal">0/15</span></div>
     <div class="stat s-score"><span class="lbl">ОЧКИ</span><span class="val" id="scoreVal">0</span></div>
@@ -3688,7 +3693,7 @@ function panelHTML(s){
   const c=cfgNow();
   if(s==='main'){
     const cont=save.unlocked>1;
-    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
+    return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       ACCT_ROW+
       '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</p>'+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
@@ -3766,7 +3771,7 @@ function panelHTML(s){
   }
   // экран входа на сайте: без аккаунта играть нельзя — его видит каждый, кто ещё не вошёл
   if(s==='gate'){
-    return '<h2>DATA.OUT</h2><p class="sub">v5.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
+    return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       '<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
       '<p class="err" hidden></p>'+loginBtns()+
       '<p class="foot">Аккаунт на сайте — это только логин и пароль: почта и телефон не нужны.</p>';
@@ -4062,6 +4067,7 @@ function act(a){
   else if(k==='admin'){if(NET.admin)showMenu('admin');}
   else if(k==='atab'){if(ADM_TABS.some(t=>t[0]===arg)){admTab=arg;showMenu('admin',a);}}
   else if(k==='ahide'||k==='abio'||k==='asup')admAct(k,arg);
+  else if(k==='areset'){if(sure)admAct(k,arg);else armBtn(a,'Точно обнулить?');}
   else if(k==='ednew'){if(needLogin()){showMenu('gate');return;}edBrush='#';edSym='none';edTab='map';edOpen(edBlank(),null,'');}
   else if(k==='edopen'){const d=draftsLoad().find(x=>x.id===arg);if(d)edOpen(edFromData(d.lv),{id:d.id,pub:Number(d.pub)||null},typeof d.ok==='string'?d.ok:'');}
   else if(k==='eddel'){
@@ -5199,6 +5205,7 @@ function renderAdmPlayers(){
       if(p.unlocked>0)btn('ahide:'+p.id,p.hidden?'Показать':'Скрыть');
       if(p.bio)btn('abio:'+p.id,'Стереть описание');
       btn('asup:'+p.id,p.sup?'Забрать ★':'Выдать ★');
+      if(p.best>0)btn('areset:'+p.id,armed==='areset:'+p.id?'Точно обнулить?':'Обнулить рекорд');
     }
     card.appendChild(row);box.appendChild(card);
   }
@@ -5224,6 +5231,11 @@ async function admAct(k,id){
       if(Array.isArray(rows)&&rows.length)await netFetch('/rest/v1/supporters?user_id=eq.'+id,{method:'DELETE',headers:h});
       else await netFetch('/rest/v1/supporters',{method:'POST',headers:Object.assign({},h,{Prefer:'return=minimal'}),body:JSON.stringify({user_id:id})});
       msg('Готово.');
+    }else if(k==='areset'){
+      // поддельный рекорд: обнулить. Игра игрока может прислать его снова, но база (progress_guard)
+      // даёт рекорду расти только с той скоростью, с какой его можно набрать
+      await netFetch('/rest/v1/progress?user_id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({best:0})});
+      msg('Рекорд обнулён. Если игрок жульничает и дальше — скрой его.',6000);
     }
   }catch(e){msg('Не получилось: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
   showMenu(menuScreen);

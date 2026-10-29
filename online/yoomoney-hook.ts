@@ -15,6 +15,14 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const env = (k) => Deno.env.get(k) ?? '';
 const text = (body, status = 200) => new Response(body, { status, headers: { 'Content-Type': 'text/plain' } });
 
+// сравнение за одно и то же время, сколько бы символов ни совпало
+function sameHex(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
 async function sha1hex(s) {
   const d = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -30,7 +38,9 @@ Deno.serve(async (req) => {
   // подпись по правилам ЮMoney: поля через «&» в этом порядке, секрет — между codepro и label
   const line = [g('notification_type'), g('operation_id'), g('amount'), g('currency'), g('datetime'),
     g('sender'), g('codepro'), secret, g('label')].join('&');
-  if ((await sha1hex(line)) !== g('sha1_hash').toLowerCase()) return text('неверная подпись', 400);
+  if (!sameHex(await sha1hex(line), g('sha1_hash').toLowerCase())) return text('неверная подпись', 400);
+  // поддержка — только в рублях (код валюты 643)
+  if (g('currency') !== '643') return text('ok');
 
   // проверка из настроек кошелька и платежи, которые ещё не зачислены, ничего не открывают
   if (g('test_notification') === 'true') return text('ok');

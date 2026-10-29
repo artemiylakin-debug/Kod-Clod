@@ -5,7 +5,7 @@
 // Токен создаётся на supabase.com/dashboard/account/tokens (это доступ ко всему аккаунту Supabase:
 // не публикуй его, а после настройки можно удалить). Скрипт:
 //   1) создаёт проект «data-out» (или берёт готовый из SUPABASE_PROJECT_REF) и ждёт его запуска;
-//   2) выполняет online/schema.sql — таблицы прогресса, рекордов и поддержки;
+//   2) выполняет online/schema.sql — таблицы прогресса, рекордов и поддержки — и online/security-6.0.sql (защита прогресса);
 //   3) задаёт адрес сайта для входа;
 //   4) разворачивает функции ru-login и yoomoney-hook (без проверки JWT — их вызывают до входа);
 //   5) записывает секреты функций: SITE_ORIGIN и те из VK_APP_ID, YANDEX_CLIENT_ID,
@@ -73,6 +73,8 @@ for (let i = 0; ; i++) {
 // 2. таблицы
 step('Создаю таблицы (online/schema.sql)');
 await api('POST', '/v1/projects/' + ref + '/database/query', { query: await readFile(join(here, 'schema.sql'), 'utf8') });
+step('Включаю защиту прогресса (online/security-6.0.sql)');
+await api('POST', '/v1/projects/' + ref + '/database/query', { query: await readFile(join(here, 'security-6.0.sql'), 'utf8') });
 
 // 3. адрес сайта: на него Supabase возвращает после входа через Google и Apple
 step('Задаю адрес сайта ' + SITE_URL);

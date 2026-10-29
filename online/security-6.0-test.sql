@@ -1,0 +1,184 @@
+-- Проверка обновления 6.0 на живой базе БЕЗ изменений: блок применяет security-6.0.sql,
+-- от имени тестовых аккаунтов пробует подделать прогресс, выдать себе звезду и права администратора,
+-- изменить чужую строку, и в конце сам вызывает ошибку — Postgres откатывает всё, в базе ничего не остаётся.
+-- Запуск: Supabase → SQL Editor → вставить файл → Run. Результат — в тексте ошибки «RESULT {...}».
+-- Нужны аккаунты max2016 (обычный игрок), artemiy123 (администратор) и тестовый claudetest… без прогресса.
+do $test$
+declare
+  mx uuid := (select id from auth.users where email='max2016@player.data-out.app');
+  ad uuid := (select id from auth.users where email='artemiy123@player.data-out.app');
+  nw uuid := (select u.id from auth.users u where u.email like 'claudetest%' and not exists (select 1 from public.progress p where p.user_id=u.id) order by u.created_at limit 1);
+  res jsonb := '{}'; before jsonb; n int; cost_old int;
+begin
+  execute $mig$
+-- DATA.OUT 6.0 — защита данных в базе. Файл можно запускать повторно.
+-- 1) Отзывает лишние права на запись, которые Supabase выдаёт новым таблицам по умолчанию:
+--    от записи и так защищают правила RLS, но лишнее право — это одна ошибка до дыры (TRUNCATE RLS не проверяет).
+-- 2) Проверяет правдоподобие прогресса, который присылает игра: открывать уровни, набирать рекорд и биты
+--    можно не быстрее, чем это возможно в игре, побег — только с открытым последним уровнем,
+--    надеть можно только свой предмет облика, купить — только на заработанные биты.
+--    Значения, которые уже лежат в базе, не трогаются: проверяется только то, что меняется.
+--    Неправдоподобное не отвергается, а урезается до допустимого — так игра никогда не «ломается»
+--    на сохранении, а честный игрок, играющий очень быстро, догонит своё на следующих сохранениях.
+-- 3) Журнал регистраций для ограничения их числа в функции ru-login.
+-- Администраторы и сервер (service_role, функции) проверку не проходят — им можно всё, как и раньше.
+
+-- ---------- 1. права ----------
+revoke insert, update, delete, truncate on public.donations from anon, authenticated;
+revoke insert, update, delete, truncate on public.supporters from anon;
+revoke update, truncate on public.supporters from authenticated;
+revoke insert, update, delete, truncate on public.progress from anon;
+revoke delete, truncate on public.progress from authenticated;
+revoke truncate on all tables in schema public from anon, authenticated;
+-- новые таблицы впредь без прав на запись: каждая выдаёт их себе явно (как в schema.sql)
+alter default privileges in schema public revoke insert, update, delete, truncate on tables from anon, authenticated;
+
+-- ---------- 2. проверка прогресса ----------
+-- каталог облика и границы актов — копия из index.html (tools/cosmetics-catalog.mjs);
+-- при новых предметах или актах обновлять вместе с игрой (тест tools/check-catalog.mjs это проверяет)
+create or replace function public.data_out_items() returns jsonb
+language sql immutable set search_path = '' as $fn$
+  select '{"c":[{},{},{},{},{"p":150},{"p":150},{"p":250},{"p":250},{"p":350},{"p":400},{"a":2},{"a":4},{"p":1500},{"s":1},{"p":800},{"a":8},{"a":11},{"s":1},{"s":1},{"a":14},{"a":17},{"a":20},{"a":23},{"a":26}],"s":[{},{},{},{"p":200},{"p":300},{"p":500},{"p":600},{"a":3},{"a":5},{"s":1},{"p":900}],"t":[{},{"p":200},{"p":350},{"p":500},{"p":700},{"p":1000},{"a":1},{"s":1},{"a":9},{"s":1},{"p":900}],"h":[{},{"p":150},{"p":300},{"p":400},{"p":450},{"p":600},{"a":6},{"s":1},{"a":7},{"a":10},{"s":1},{"s":1},{"p":1200},{"p":700},{"p":500},{"p":800},{"p":1000},{"p":900},{"p":600},{"p":350},{"p":400},{"a":13},{"a":16},{"a":18},{"a":23}],"ends":[10,20,39,59,79,99,119,139,159,179,199,219,239,259,279,299,319,339,359,379,399,419,439,459,479,499]}'::jsonb
+$fn$;
+
+-- пройден ли акт n (с единицы), как actDone в игре
+create or replace function public.data_out_act_done(n int, unlocked int, wins int) returns boolean
+language sql immutable set search_path = '' as $fn$
+  select case
+    when n < 1 then true
+    when n < jsonb_array_length(public.data_out_items()->'ends')
+      then unlocked > (public.data_out_items()->'ends'->>(n - 1))::int + 1
+    else unlocked >= (public.data_out_items()->'ends'->>-1)::int + 1 and wins > 0
+  end
+$fn$;
+
+create or replace function public.progress_guard() returns trigger
+language plpgsql set search_path = '' as $fn$
+declare
+  cat jsonb := public.data_out_items();
+  el numeric;      -- секунд с прошлого сохранения
+  o_unl int := 1; o_best int := 0; o_wins int := 0; o_earned int := 0; o_own text := '';
+  cost int := 0; it text; r jsonb; k text; idx int; ok boolean; sup boolean;
+begin
+  -- сервер, владелец проекта и администраторы игры не проверяются
+  if current_user not in ('anon', 'authenticated') or public.is_admin() then return new; end if;
+  if tg_op = 'UPDATE' then
+    o_unl := old.unlocked; o_best := old.best; o_wins := old.wins; o_earned := old.earned; o_own := old.own;
+    el := greatest(0, extract(epoch from now() - old.updated_at));
+  else
+    -- первая запись аккаунта: в расчёт идёт не больше 10 минут с регистрации
+    el := least(600, greatest(0, extract(epoch from now() - coalesce((select u.created_at from auth.users u where u.id = new.user_id), now()))));
+  end if;
+
+  -- уровни: каждый новый — не чаще раза в 10 секунд
+  new.unlocked := least(new.unlocked, o_unl + 1 + floor(el / 10)::int);
+  -- побег — только с открытым последним уровнем и по одному за сохранение
+  if new.wins > o_wins then
+    new.wins := case when new.unlocked >= (cat->'ends'->>-1)::int + 1 then o_wins + 1 else o_wins end;
+  end if;
+  -- рекорд: не больше 300 очков на открытый уровень и не быстрее 5 очков в секунду (+100 сразу)
+  if new.best > o_best then
+    new.best := least(new.best, greatest(o_best, least(o_best + 100 + floor(el * 5)::int, new.unlocked * 300)));
+  end if;
+  -- биты: не быстрее 6 в секунду (+200 сразу)
+  if new.earned > o_earned then
+    new.earned := least(new.earned, o_earned + 200 + floor(el * 6)::int);
+  end if;
+
+  -- купленное: только предметы с ценой и на сумму не больше заработанного
+  if new.own is distinct from o_own then
+    ok := true;
+    foreach it in array string_to_array(new.own, ',') loop
+      continue when it = '';
+      k := left(it, 1); idx := substr(it, 2)::int;
+      r := cat->k->idx;
+      if r is null or r->'p' is null then ok := false; exit; end if;
+      cost := cost + (r->>'p')::int;
+    end loop;
+    if not ok or cost > new.earned then new.own := o_own; end if;
+  end if;
+
+  -- надетое: только своё (бесплатное, купленное, за пройденный акт, за поддержку)
+  sup := exists (select 1 from public.supporters s where s.user_id = new.user_id);
+  foreach k in array array['c', 's', 't', 'h'] loop
+    idx := case k when 'c' then new.color when 's' then new.shape when 't' then new.trail else new.hat end;
+    continue when tg_op = 'UPDATE' and idx = case k when 'c' then old.color when 's' then old.shape when 't' then old.trail else old.hat end;
+    r := cat->k->idx;
+    ok := r is not null and (
+      (r->'p' is null and r->'a' is null and r->'s' is null)
+      or (r->'p' is not null and (k || idx) = any (string_to_array(new.own, ',')))
+      or (r->'a' is not null and public.data_out_act_done((r->>'a')::int, new.unlocked, new.wins))
+      or (r->'s' is not null and sup));
+    if not ok then
+      idx := case when tg_op = 'UPDATE' then case k when 'c' then old.color when 's' then old.shape when 't' then old.trail else old.hat end else 0 end;
+      if k = 'c' then new.color := idx; elsif k = 's' then new.shape := idx; elsif k = 't' then new.trail := idx; else new.hat := idx; end if;
+    end if;
+  end loop;
+  return new;
+end $fn$;
+revoke execute on function public.progress_guard() from public;
+drop trigger if exists progress_guard on public.progress;
+create trigger progress_guard before insert or update on public.progress
+  for each row execute function public.progress_guard();
+
+-- ---------- 3. журнал регистраций ----------
+-- функция ru-login пишет сюда хеш адреса каждой регистрации и считает их за час; игрокам таблица не видна
+create table if not exists public.signup_log (
+  ip_hash text not null,
+  at      timestamptz not null default now()
+);
+create index if not exists signup_log_ip_at_idx on public.signup_log (ip_hash, at desc);
+alter table public.signup_log enable row level security;
+revoke all on public.signup_log from anon, authenticated;
+$mig$;
+  res := res || jsonb_build_object('anon_ins_donations', has_table_privilege('anon','public.donations','INSERT'),
+    'auth_trunc_progress', has_table_privilege('authenticated','public.progress','TRUNCATE'),
+    'auth_upd_progress', has_table_privilege('authenticated','public.progress','UPDATE'));
+  select to_jsonb(p) into before from public.progress p where user_id=mx;
+  res := res || jsonb_build_object('max_before', before - 'bio' - 'name' - 'terms' - 'terms_at' - 'created_at');
+  perform set_config('request.jwt.claims', json_build_object('sub',mx,'role','authenticated')::text, true);
+  set local role authenticated;
+  update public.progress set name=name where user_id=mx;
+  -- подделка
+  update public.progress set unlocked=500,best=999999,wins=50,earned=99999999,own='h13,h16,c12',hat=16,color=13 where user_id=mx;
+  res := res || jsonb_build_object('forged', (select jsonb_build_object('unlocked',unlocked,'best',best,'wins',wins,'earned',earned,'own',own,'hat',hat,'color',color) from public.progress where user_id=mx));
+  update public.progress set unlocked=500,best=999999,wins=50,earned=99999999 where user_id=mx;
+  res := res || jsonb_build_object('forged_replay', (select jsonb_build_object('unlocked',unlocked,'best',best,'earned',earned) from public.progress where user_id=mx));
+  -- честное: уровень +1, рекорд чуть выше, покупка ушек (350) и надеть их
+  update public.progress set unlocked=unlocked+1,best=best+40,earned=earned+150,own=case when own='' then 'h19' else own||',h19' end,hat=19 where user_id=mx;
+  res := res || jsonb_build_object('honest', (select jsonb_build_object('unlocked',unlocked,'best',best,'earned',earned,'own',own,'hat',hat) from public.progress where user_id=mx));
+  -- чужая строка
+  update public.progress set best=0 where user_id=ad;
+  get diagnostics n = row_count;
+  res := res || jsonb_build_object('foreign_rows_updated', n);
+  begin
+    insert into public.supporters (user_id) values (mx);
+    res := res || jsonb_build_object('self_supporter','ВСТАВЛЕНО');
+  exception when others then res := res || jsonb_build_object('self_supporter', sqlerrm);
+  end;
+  begin
+    insert into public.admins (user_id) values (mx);
+    res := res || jsonb_build_object('self_admin','ВСТАВЛЕНО');
+  exception when others then res := res || jsonb_build_object('self_admin', sqlerrm);
+  end;
+  begin
+    perform public.admin_players();
+    res := res || jsonb_build_object('admin_players','ДОСТУПНО');
+  exception when others then res := res || jsonb_build_object('admin_players', sqlerrm);
+  end;
+  -- первая запись нового аккаунта с подделкой
+  reset role;
+  perform set_config('request.jwt.claims', json_build_object('sub',nw,'role','authenticated')::text, true);
+  set local role authenticated;
+  insert into public.progress (user_id,name,unlocked,best,wins,earned,own,hat) values (nw,'t',300,50000,3,500000,'h16',16);
+  res := res || jsonb_build_object('new_insert', (select jsonb_build_object('unlocked',unlocked,'best',best,'wins',wins,'earned',earned,'own',own,'hat',hat) from public.progress where user_id=nw));
+  -- администратор
+  reset role;
+  perform set_config('request.jwt.claims', json_build_object('sub',ad,'role','authenticated')::text, true);
+  set local role authenticated;
+  update public.progress set best=best where user_id=ad;
+  update public.progress set unlocked=500 where user_id=mx;
+  res := res || jsonb_build_object('admin_sets_max_500', (select unlocked from public.progress where user_id=mx));
+  reset role;
+  raise exception 'RESULT %', res;
+end $test$;

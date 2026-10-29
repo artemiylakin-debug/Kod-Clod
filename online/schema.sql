@@ -361,3 +361,6 @@ drop policy if exists "drafts remove own" on public.level_drafts;
 create policy "drafts remove own" on public.level_drafts
   for delete to authenticated using (owner = (select auth.uid()));
 grant select, delete on public.level_drafts to authenticated;
+
+-- Защита прогресса, права и журнал регистраций (обновление 6.0) — в online/security-6.0.sql:
+-- его выполняют после этого файла (скрипт setup-supabase.mjs делает это сам).

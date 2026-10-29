@@ -15,11 +15,17 @@
 //   YANDEX_CLIENT_SECRET  Client secret приложения Яндекс ID
 // SUPABASE_URL, SUPABASE_ANON_KEY и SUPABASE_SERVICE_ROLE_KEY Supabase подставляет сам.
 // В настройках функции выключи «Verify JWT»: её вызывают игроки, которые ещё не вошли.
+//
+// Защита (6.0): регистраций по логину — не больше SIGNUP_PER_HOUR в час с одного адреса (журнал
+// public.signup_log, в нём только хеш адреса); логин, занятый в обход игры неподтверждённой
+// регистрацией Supabase, освобождается; игроку не уходят внутренние тексты ошибок сервера.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const env = (k) => Deno.env.get(k) ?? '';
-const SITE = env('SITE_ORIGIN') || '*';
+// без SITE_ORIGIN — адрес официального сайта, а не «любой сайт»
+const SITE = env('SITE_ORIGIN') || 'https://artemiylakin-debug.github.io';
+const SIGNUP_PER_HOUR = 5;
 const CORS = {
   'Access-Control-Allow-Origin': SITE,
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
@@ -40,12 +46,12 @@ async function vkUser(p) {
     grant_type: 'authorization_code', code: p.code, code_verifier: p.code_verifier,
     client_id: clientId, device_id: p.device_id, redirect_uri: p.redirect_uri, state: p.state,
   })).then((r) => r.json());
-  if (!tok.access_token) throw new Error('VK: ' + (tok.error_description || tok.error || 'нет токена'));
+  if (!tok.access_token) throw new Shown('VK: ' + (tok.error_description || tok.error || 'нет токена'));
   const info = await fetch('https://id.vk.com/oauth2/user_info', form({
     client_id: clientId, access_token: tok.access_token,
   })).then((r) => r.json());
   const u = info.user;
-  if (!u || !u.user_id) throw new Error('VK: нет данных пользователя');
+  if (!u || !u.user_id) throw new Shown('VK: нет данных пользователя');
   return { id: 'vk_' + u.user_id, provider: 'vk', name: [u.first_name, u.last_name].filter(Boolean).join(' '), avatar: u.avatar || '' };
 }
 
@@ -55,11 +61,11 @@ async function yandexUser(p) {
     grant_type: 'authorization_code', code: p.code, code_verifier: p.code_verifier,
     client_id: env('YANDEX_CLIENT_ID'), client_secret: env('YANDEX_CLIENT_SECRET'),
   })).then((r) => r.json());
-  if (!tok.access_token) throw new Error('Яндекс: ' + (tok.error_description || tok.error || 'нет токена'));
+  if (!tok.access_token) throw new Shown('Яндекс: ' + (tok.error_description || tok.error || 'нет токена'));
   const info = await fetch('https://login.yandex.ru/info?format=json', {
     headers: { Authorization: 'OAuth ' + tok.access_token },
   }).then((r) => r.json());
-  if (!info.id) throw new Error('Яндекс: нет данных пользователя');
+  if (!info.id) throw new Shown('Яндекс: нет данных пользователя');
   return { id: 'ya_' + info.id, provider: 'yandex', name: info.display_name || info.real_name || info.login || '', avatar: '' };
 }
 
@@ -73,6 +79,16 @@ async function siteEmail(login) {
   const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('data-out:' + login)));
   return 'u' + [...h.slice(0, 20)].map((x) => x.toString(16).padStart(2, '0')).join('') + '@player.data-out.app';
 }
+
+async function sha256hex(s) {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+  return [...h].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+// адрес игрока — первый в x-forwarded-for; хранится только хеш с солью проекта
+const ipHash = (req) => sha256hex('data-out-ip:' + ((req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown'));
+
+// ошибки, которые можно показать игроку как есть; остальные — общим текстом, подробности — в журнал функции
+class Shown extends Error {}
 
 const session = (s) => json({ access_token: s.access_token, refresh_token: s.refresh_token, expires_in: s.expires_in });
 
@@ -94,15 +110,32 @@ Deno.serve(async (req) => {
       const password = typeof p.password === 'string' ? p.password : '';
       if (!/^[a-z0-9а-яё_ -]{3,20}$/.test(login)) return json({ error: 'логин — от 3 до 20 знаков: буквы, цифры, пробел, «_» или «-»' }, 400);
       if (password.length < 8 || password.length > 72) return json({ error: 'пароль — от 8 до 72 символов' }, 400);
+      // не больше SIGNUP_PER_HOUR регистраций в час с одного адреса; журнал недоступен — не мешаем регистрации
+      const ih = await ipHash(req);
+      const since = new Date(Date.now() - 3600e3).toISOString();
+      const recent = await admin.from('signup_log').select('ip_hash', { count: 'exact', head: true }).eq('ip_hash', ih).gte('at', since);
+      if (!recent.error && (recent.count ?? 0) >= SIGNUP_PER_HOUR) return json({ error: 'слишком много регистраций с этого адреса — попробуй через час' }, 429);
       const email = await siteEmail(login);
-      const created = await admin.auth.admin.createUser({
+      const make = () => admin.auth.admin.createUser({
         email, password, email_confirm: true,
         user_metadata: { name, provider: 'site' }, app_metadata: { data_out: 'site' },
       });
+      let created = await make();
+      if (created.error && exists(created.error)) {
+        // логин мог занять кто-то обычной регистрацией Supabase в обход игры: такой аккаунт не подтверждён
+        // (почты нет) и войти в него нельзя — освобождаем логин. Аккаунты игры (метка data_out) не трогаем
+        const found = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+        const u = found.data?.user;
+        if (u && u.app_metadata?.data_out !== 'site' && !u.email_confirmed_at) {
+          const del = await admin.auth.admin.deleteUser(u.id);
+          if (!del.error) created = await make();
+        }
+      }
       if (created.error) {
         if (exists(created.error)) return json({ error: 'этот логин уже занят' }, 409);
         throw created.error;
       }
+      await admin.from('signup_log').insert({ ip_hash: ih });
       const s = await pub.auth.signInWithPassword({ email, password });
       if (s.error || !s.data.session) throw s.error || new Error('Supabase не выдал сессию');
       return session(s.data.session);
@@ -137,6 +170,8 @@ Deno.serve(async (req) => {
     if (v.error || !v.data.session) throw v.error || new Error('Supabase не выдал сессию');
     return session(v.data.session);
   } catch (e) {
-    return json({ error: String(e?.message || e) }, 400);
+    if (e instanceof Shown) return json({ error: String(e.message).slice(0, 200) }, 400);
+    console.error('ru-login', e);
+    return json({ error: 'не получилось — попробуй ещё раз чуть позже' }, 400);
   }
 });
