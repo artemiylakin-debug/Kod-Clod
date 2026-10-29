@@ -9,7 +9,8 @@ const grab = (name) => {
   if (i < 0) throw new Error('нет ' + name);
   return Function('return ' + src.slice(i + name.length + 7, src.indexOf('\n];', i) + 2))();
 };
-const rule = (it) => it.price ? { p: it.price } : it.act ? { a: it.act } : it.sup ? { s: 1 } : {};
+// у вещи может быть и цена, и бесплатный путь (акт или поддержка)
+const rule = (it) => ({ ...(it.price ? { p: it.price } : {}), ...(it.act ? { a: it.act } : {}), ...(it.sup ? { s: 1 } : {}) });
 export const catalog = () => ({
   c: grab('SKIN_COLORS').map(rule), s: grab('SKIN_SHAPES').map(rule),
   t: grab('TRAILS').map(rule), h: grab('HATS').map(rule),
