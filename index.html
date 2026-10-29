@@ -1143,6 +1143,8 @@ function startLevel(i,cust){
   lag=0;last=performance.now();
   if(c.news)msg(c.news,7000);
   else msg((CUSTOM?'Уровень игрока':'Уровень '+(i+1))+' · '+c.name+': '+objective(c)+'.');
+  // музыку — сразу, пока идёт нажатие на кнопку: иначе телефон может не дать включить трек
+  musUpdate();
 }
 // стены, потоки, барьеры, зоны лага, роутеры и сканер уровня
 function setLayout(c){
@@ -3326,7 +3328,7 @@ function panelHTML(s){
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
       '<li><b>Гонка.</b> Вдвоём проходите один и тот же уровень, каждый со своими врагами; соперника видно полупрозрачным двойником. Побеждает тот, кто раньше дойдёт до портала. Погибнешь — начнёшь уровень сначала, а часы гонки идут дальше. Соперник находится сам («Случайный соперник») или по коду комнаты от друга. Гонки — на сайте игры, с аккаунтом.</li>'+
-      '<li><b>Музыка.</b> У каждого уровня своя мелодия, а в бою с боссом она ускоряется и звучит жёстче. Громкость и выключение — в настройках.</li>'+
+      '<li><b>Музыка.</b> На сайте у каждого акта три записанных трека — уровни берут их по очереди, — и свой трек для боя с боссом. Если трек не загрузился (или игра открыта не с сайта), у каждого уровня играет своя синтезированная мелодия. Громкость и выключение — в настройках.</li>'+
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
@@ -3618,6 +3620,7 @@ function resume(){
   hideMenu();
   phase='game';
   lag=0;last=performance.now();
+  musUpdate();
 }
 function onPress(code){
   if(phase==='game'){
@@ -5258,7 +5261,55 @@ const MUS_THEMES=[
 ];
 // бой с боссом: темп выше, бочка на каждую долю, минорные аккорды
 const MUS_BOSS={ch:['i','VI','VII','V'],k:'x.x.x.x.x.x.x.x.',s:'....x.......x.x.',h:'xxxxxxxxxxxxxxxx',b:'xoxoxoxoxoxoxoxo',a:'0123012301230123'};
-const MUS={ctx:null,out:null,dly:null,noise:null,timer:0,stopT:0,next:0,step:0,want:'',cur:'',T:null};
+const MUS={ctx:null,out:null,syn:null,dly:null,noise:null,timer:0,stopT:0,next:0,step:0,want:'',cur:'',T:null,file:null,useSyn:true};
+// записанная музыка — файлы music/aNN-lvK.mp3 и aNN-boss.mp3 рядом с игрой (откуда они, — в music/CREDITS.md):
+// у каждого акта три трека для уровней по очереди и один для боя с боссом. В артефакте файлов нет,
+// и если трек не загрузился, играет синтезатор выше — та же пьеса уровня, что раньше
+const MUS_FILES=!IN_CLAUDE&&/^https?:$/.test(location.protocol)?'music/':'';
+function musFileOf(key){
+  if(!MUS_FILES||!key)return '';
+  const p=key.split(':'),a=Math.max(0,Math.min(ACTS.length-1,parseInt(p[0],10)||0)),n=parseInt(p[1],10)||0;
+  const pre='a'+(a<10?'0':'')+a;
+  if(key.slice(-1)==='B')return pre+'-boss';
+  // уровни игроков (зерно от названия) — по зерну, остальные — по номеру внутри акта
+  return pre+'-lv'+(1+(n>=1000?n:n-actStart(a))%3);
+}
+// трек играет через <audio>, подключённый к той же громкости: так он не держит в памяти весь файл.
+// Новый трек плавно сменяет старый; на паузе трек замирает и потом продолжается с того же места
+function musFilePlay(name){
+  const c=MUS.ctx,t=c.currentTime,old=MUS.file;
+  if(old&&old.name===name){if(old.el.paused)old.el.play().catch(()=>{});return;}
+  if(old){
+    old.g.gain.cancelScheduledValues(t);old.g.gain.setValueAtTime(old.g.gain.value,t);old.g.gain.linearRampToValueAtTime(0,t+0.8);
+    setTimeout(()=>{try{old.el.pause();old.src.disconnect();}catch(_){}},900);
+    MUS.file=null;
+  }
+  if(!name){musSynOn(true);return;}
+  const el=new Audio();
+  el.loop=true;el.preload='auto';el.src=MUS_FILES+name+'.mp3';
+  let src;
+  try{src=c.createMediaElementSource(el);}catch(_){musSynOn(true);return;}
+  const g=c.createGain();g.gain.value=0;src.connect(g);g.connect(MUS.out);
+  const f={name,el,src,g,ok:false};
+  MUS.file=f;
+  // пока трек грузится, тихо; не загрузился за 6 секунд или с ошибкой — синтезатор
+  musSynOn(false);
+  const fail=()=>{if(MUS.file===f&&!f.ok)musSynOn(true);};
+  el.addEventListener('error',fail);
+  setTimeout(fail,6000);
+  el.addEventListener('playing',()=>{
+    if(MUS.file!==f)return;
+    f.ok=true;musSynOn(false);
+    const n=c.currentTime;f.g.gain.cancelScheduledValues(n);f.g.gain.setValueAtTime(f.g.gain.value,n);f.g.gain.linearRampToValueAtTime(1,n+0.8);
+  });
+  el.play().catch(e=>{if(e&&e.name==='NotAllowedError')MUS.blocked=f;else fail();});
+}
+function musSynOn(on){
+  MUS.useSyn=on;
+  if(!MUS.syn)return;
+  const g=MUS.syn.gain,t=MUS.ctx.currentTime;
+  g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(on?1:0,t+0.5);
+}
 function musInit(){
   if(MUS.ctx)return true;
   const AC=window.AudioContext||window.webkitAudioContext;
@@ -5272,14 +5323,18 @@ function musChain(c){
   const out=c.createGain();out.gain.value=0;out.connect(comp);
   const dly=c.createDelay(1),fb=c.createGain(),wet=c.createGain();
   dly.delayTime.value=0.3;fb.gain.value=0.28;wet.gain.value=0.35;
-  dly.connect(fb);fb.connect(dly);dly.connect(wet);wet.connect(out);
+  const syn=c.createGain();syn.connect(out);
+  dly.connect(fb);fb.connect(dly);dly.connect(wet);wet.connect(syn);
   const noise=c.createBuffer(1,c.sampleRate,c.sampleRate),d=noise.getChannelData(0);
   for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-  return{ctx:c,out,dly,noise};
+  return{ctx:c,out,syn,dly,noise};
 }
 function musUnlock(){
   if(!save.mus||!musInit())return;
   if(MUS.ctx.state==='suspended')MUS.ctx.resume().catch(()=>{});
+  // браузер не дал включить трек без нажатия — включаем на этом нажатии
+  const b=MUS.blocked;MUS.blocked=null;
+  if(b&&MUS.file===b)b.el.play().catch(()=>{if(MUS.file===b)musSynOn(true);});
 }
 // последовательности аккордов для пьес уровней: минорные и мажорные
 const MUS_PROG={
@@ -5354,8 +5409,10 @@ function musUpdate(){
     g.linearRampToValueAtTime(MUS_VOL[save.mus]||0,t+0.6);
     clearTimeout(MUS.stopT);
     if(!MUS.timer){MUS.next=t+0.08;MUS.step=0;MUS.cur=want;MUS.T=musTheme(want);MUS.timer=setInterval(musSched,50);}
+    if(MUS_FILES)musFilePlay(musFileOf(want));
   }else{
     g.linearRampToValueAtTime(0,t+0.4);
+    if(MUS.file)setTimeout(()=>{if(!MUS.want&&MUS.file)MUS.file.el.pause();},450);
     clearTimeout(MUS.stopT);
     MUS.stopT=setTimeout(()=>{if(!MUS.want){clearInterval(MUS.timer);MUS.timer=0;}},600);
   }
@@ -5371,7 +5428,7 @@ function musSched(){
     // тема меняется с начала такта
     if(MUS.step%16===0&&MUS.want&&MUS.want!==MUS.cur){MUS.cur=MUS.want;MUS.T=musTheme(MUS.cur);}
     const dt=60/MUS.T.bpm/4;
-    musStep(MUS.T,MUS.step,MUS.next,dt);
+    if(MUS.useSyn)musStep(MUS.T,MUS.step,MUS.next,dt);
     MUS.next+=dt;MUS.step++;
   }
 }
@@ -5400,7 +5457,7 @@ function musTone(t,hz,dur,type,vol,cut,echo,att){
   // короткие ноты затухают сразу, длинные (подклад) держатся до конца такта
   if(dur>1){g.gain.linearRampToValueAtTime(vol,t+a);g.gain.setValueAtTime(vol,t+dur-0.4);g.gain.linearRampToValueAtTime(0.0001,t+dur);}
   else{g.gain.exponentialRampToValueAtTime(vol,t+a);g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(a+0.02,dur));}
-  o.connect(f);f.connect(g);g.connect(MUS.out);
+  o.connect(f);f.connect(g);g.connect(MUS.syn);
   if(echo)g.connect(MUS.dly);
   o.start(t);o.stop(t+dur+0.05);
 }
@@ -5408,13 +5465,13 @@ function musKick(t){
   const c=MUS.ctx,o=c.createOscillator(),g=c.createGain();
   o.frequency.setValueAtTime(140,t);o.frequency.exponentialRampToValueAtTime(42,t+0.12);
   g.gain.setValueAtTime(0.7,t);g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
-  o.connect(g);g.connect(MUS.out);o.start(t);o.stop(t+0.25);
+  o.connect(g);g.connect(MUS.syn);o.start(t);o.stop(t+0.25);
 }
 function musNoise(t,dur,type,hz,vol){
   const c=MUS.ctx,n=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
   n.buffer=MUS.noise;f.type=type;f.frequency.value=hz;
   g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  n.connect(f);f.connect(g);g.connect(MUS.out);
+  n.connect(f);f.connect(g);g.connect(MUS.syn);
   n.start(t,Math.random()*0.5,dur+0.02);
 }
 function musSnare(t){musNoise(t,0.13,'bandpass',1800,0.32);musTone(t,190,0.09,'triangle',0.12,2000,false);}
