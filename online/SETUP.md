@@ -192,3 +192,10 @@ select id from auth.users where email = 'логин@player.data-out.app';
 (таблица `progress`, столбец `name`) и вставить его `user_id`. Убрать администратора:
 `delete from public.admins where user_id = '…';`.
 
+## 10. ИИ через MCP
+
+Функция `mcp` (`online/mcp.ts`) — сервер MCP для ИИ-помощников: без ключа он даёт читать уровни,
+рекорды и профили, с ключом игрока — складывать ему черновики уровней. Развернуть её так же, как
+`ru-login`, с **выключенным Verify JWT**. Таблицы `mcp_keys` и `level_drafts` и функцию
+`mcp_key_create` создаёт `schema.sql`. Как подключить ИИ — [MCP.md](MCP.md).
+

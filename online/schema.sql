@@ -297,3 +297,67 @@ begin
 end $$;
 revoke execute on function public.admin_players() from public, anon;
 grant execute on function public.admin_players() to authenticated;
+
+-- ================= ИИ ЧЕРЕЗ MCP =================
+-- Ключи, которыми игрок подключает ИИ-помощника к функции mcp. В базе лежит только SHA-256
+-- ключа; сам ключ игрок видит один раз — при создании. Создаёт ключ функция mcp_key_create,
+-- игрок видит и отзывает только свои ключи
+create table if not exists public.mcp_keys (
+  id           bigint generated always as identity primary key,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  label        text not null default '' check (char_length(label) <= 40),
+  key_hash     text not null unique,
+  created_at   timestamptz not null default now(),
+  last_used_at timestamptz
+);
+create index if not exists mcp_keys_user_idx on public.mcp_keys (user_id);
+alter table public.mcp_keys enable row level security;
+revoke all on public.mcp_keys from anon, authenticated;
+drop policy if exists "mcp keys read own" on public.mcp_keys;
+create policy "mcp keys read own" on public.mcp_keys
+  for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "mcp keys remove own" on public.mcp_keys;
+create policy "mcp keys remove own" on public.mcp_keys
+  for delete to authenticated using (user_id = (select auth.uid()));
+grant select (id, user_id, label, created_at, last_used_at), delete on public.mcp_keys to authenticated;
+
+create or replace function public.mcp_key_create(label text default '') returns text
+language plpgsql security definer set search_path = '' as $$
+declare
+  uid uuid := (select auth.uid());
+  k text;
+begin
+  if uid is null then
+    raise exception 'нужно войти в аккаунт' using errcode = '42501';
+  end if;
+  if (select count(*) from public.mcp_keys where user_id = uid) >= 5 then
+    raise exception 'не больше 5 ключей — отзови ненужный' using errcode = '23514';
+  end if;
+  k := 'dok_' || encode(extensions.gen_random_bytes(24), 'hex');
+  insert into public.mcp_keys (user_id, label, key_hash)
+    values (uid, left(regexp_replace(coalesce(label, ''), '[[:cntrl:]]', '', 'g'), 40), encode(extensions.digest(k, 'sha256'), 'hex'));
+  return k;
+end $$;
+revoke execute on function public.mcp_key_create(text) from public, anon;
+grant execute on function public.mcp_key_create(text) to authenticated;
+
+-- Черновики уровней, которые ИИ сложил игроку через MCP. Пишет их только функция mcp
+-- (ключом service_role); игрок видит свои в «Мои уровни», переносит в редактор или удаляет
+create table if not exists public.level_drafts (
+  id         bigint generated always as identity primary key,
+  owner      uuid not null references auth.users(id) on delete cascade,
+  name       text not null default '' check (char_length(name) <= 30 and name !~ '[[:cntrl:]]'),
+  data       jsonb not null check (jsonb_typeof(data) = 'object' and pg_column_size(data) <= 12000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists level_drafts_owner_idx on public.level_drafts (owner);
+alter table public.level_drafts enable row level security;
+revoke all on public.level_drafts from anon, authenticated;
+drop policy if exists "drafts read own" on public.level_drafts;
+create policy "drafts read own" on public.level_drafts
+  for select to authenticated using (owner = (select auth.uid()));
+drop policy if exists "drafts remove own" on public.level_drafts;
+create policy "drafts remove own" on public.level_drafts
+  for delete to authenticated using (owner = (select auth.uid()));
+grant select, delete on public.level_drafts to authenticated;

@@ -11,8 +11,10 @@
 - `online-config.js` — только открытые настройки: адрес Supabase, ключ `anon`, ID приложений VK и Яндекса,
   номер кошелька ЮMoney. Секреты (`service_role`, токены, Client secret) в репозиторий не кладутся никогда.
 - `online/` — сервер на Supabase: `schema.sql` (можно запускать повторно), функции `ru-login.ts`
-  (VK ID, Яндекс ID, регистрация по логину) и `yoomoney-hook.ts` (поддержка игры), скрипт
-  `setup-supabase.mjs` и ручная инструкция `SETUP.md`.
+  (VK ID, Яндекс ID, регистрация по логину), `yoomoney-hook.ts` (поддержка игры) и `mcp.ts`
+  (сервер MCP для ИИ-помощников, см. `MCP.md`), скрипт `setup-supabase.mjs` и ручная инструкция `SETUP.md`.
+  Уровень игрока — карта из клеток 32×20 (формат 2, `map` из 20 строк по 32 символа); правила карты
+  повторены в `mcp.ts` (`cleanLevel`) и в `index.html` (`normLevel`, `mapToCfg`) — менять вместе.
   Логин на сайте — русские или латинские буквы, цифры, пробел, «_», «-». Латинский логин входит по адресу
   `<логин>@player.data-out.app`, остальные — по `u<первые 40 hex SHA-256 от «data-out:<логин>»>@player.data-out.app`;
   считают одинаково `siteEmail` в `index.html` и в `ru-login.ts` — менять только вместе.
@@ -24,7 +26,8 @@
 Создана 28.10.2026: проект Supabase `data-out` (ref `lnkekrusqjdroomcufen`, регион `eu-central-1`),
 таблицы из `schema.sql`, функции `ru-login` и `yoomoney-hook` (Verify JWT выключен). Потом предел
 уровней в `progress` поднят до 200 (миграция `allow_200_levels`), добавлены профили, уровни
-сообщества, лайки, запуски и администраторы (миграции `community_profiles_admin`, `is_admin_invoker`).
+сообщества, лайки, запуски и администраторы (миграции `community_profiles_admin`, `is_admin_invoker`),
+ключи MCP и черновики от ИИ (миграция `mcp_keys_and_drafts`, функция `mcp`, Verify JWT выключен).
 Администратор игры — аккаунт автора `artemiy123` (таблица `admins`). Пароль автора не нужен ни для
 чего: права выдаются в базе по `user_id`. Управлять удобнее всего через
 коннектор Supabase (MCP). Секреты функций (`VK_APP_ID`, `YANDEX_CLIENT_ID`,

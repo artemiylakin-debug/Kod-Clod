@@ -113,6 +113,24 @@
   .top li.pay{grid-template-columns:auto minmax(0,1fr) auto}
   /* редактор уровней, карточки сообщества, профиль */
   #ed{display:block;width:100%;height:auto;aspect-ratio:8/5;box-sizing:border-box;border:2px solid var(--ink);border-radius:8px;touch-action:none;cursor:crosshair}
+  /* конструктор карт: поле всегда на виду, листается только палитра и настройки.
+     Раскладка смотрит на размер самого поля игры (#menu), а не окна: широкое — две колонки */
+  #menu{container-type:size}
+  .panel.wide{max-width:none;height:100%;overflow:hidden}
+  .edwrap{display:flex;flex-direction:column;gap:8px;height:100%;min-height:0}
+  .edmain{flex:none;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .edside{flex:1;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px;padding-right:2px}
+  .panel .edside h2{font-size:18px;letter-spacing:2px}
+  .pal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  @container (min-aspect-ratio:4/3) and (min-width:560px){
+    .edwrap{display:grid;grid-template-columns:minmax(0,1fr) 250px;grid-template-rows:minmax(0,1fr)}
+    .edside{max-height:100%}
+    .pal{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  .tbtn2{display:flex;align-items:center;gap:6px;font:bold 11px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:4px 6px;cursor:pointer;text-align:left;touch-action:manipulation;min-width:0}
+  .tbtn2[aria-pressed="true"]{border-color:var(--ink);background:var(--keys-bg)}
+  .tbtn2:focus-visible{outline:3px solid var(--level);outline-offset:1px}
+  .tsw{width:20px;height:20px;flex:none;box-sizing:border-box;border:2px solid;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1}
   .nick select{font:14px var(--font);padding:8px 10px;border:2px solid var(--line);border-radius:8px;color:var(--ink);background:var(--panel)}
   .nick select:focus-visible{outline:3px solid var(--level);outline-offset:1px}
   @media (pointer:coarse){.nick select{font-size:16px}}
@@ -129,6 +147,9 @@
   .lacts{display:flex;flex-wrap:wrap;gap:6px}
   .mbtn.sm{padding:6px 10px;font-size:12px;border-width:1px}
   .mbtn.liked{border-color:var(--heart);color:var(--heart)}
+  .copyrow{display:flex;gap:6px;align-items:center}
+  .copyrow input{flex:1;min-width:0;font:12px var(--font);padding:7px 8px;border:2px solid var(--line);border-radius:8px;color:var(--ink);background:var(--keys-bg)}
+  .help code{font-family:var(--font);background:var(--keys-bg);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
   @media (max-height:420px){.panel .intro{display:none}}
   .mbtn{font:bold 14px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--ink);border-radius:8px;padding:10px 12px;cursor:pointer;touch-action:manipulation}
   .mbtn:hover:not(:disabled){background:var(--keys-bg)}
@@ -404,6 +425,12 @@ addEventListener('keydown',e=>{
     return;
   }
   kbUser=true;
+  // в конструкторе карт: Ctrl+Z — отменить, Ctrl+Y или Ctrl+Shift+Z — вернуть
+  if(phase==='menu'&&menuScreen==='editor'&&(e.ctrlKey||e.metaKey)&&(e.code==='KeyZ'||e.code==='KeyY')){
+    e.preventDefault();
+    if(e.code==='KeyY'||e.shiftKey)edRedo();else edUndo();
+    return;
+  }
   // пробел на кнопке меню должен её нажимать, поэтому прокрутку гасим только вне кнопок
   if(NO_SCROLL.has(e.code)&&!(e.target instanceof HTMLButtonElement))e.preventDefault();
   keys[e.code]=true;
@@ -810,9 +837,9 @@ function features(c){
   if(c.dark)f.push('темнота');
   if(c.fast)f.push('быстрые охотники');
   if(c.trojan)f.push('трояны');
-  if(c.flow)f.push('потоки трафика');
+  if(c.flow||c.zFlow)f.push('потоки трафика');
   if(c.gates)f.push('барьеры файрвола');
-  if(c.lag)f.push('зоны лага');
+  if(c.lag||c.zLag)f.push('зоны лага');
   if(c.tps)f.push('роутеры');
   if(c.ice)f.push('невесомость');
   if(c.debris)f.push('космический мусор');
@@ -820,9 +847,10 @@ function features(c){
   if(c.mov)f.push('подвижные блоки');
   if(c.holes)f.push('чёрные дыры');
   if(c.strike)f.push('удары с орбиты');
-  if(c.inv)f.push('зоны инверсии');
+  if(c.inv||c.zInv)f.push('зоны инверсии');
   // враги города и дальше — их легко не заметить в списке, поэтому называем
-  for(const t in ENEMY_TAGS)if(c.start.indexOf(t)>=0||c.ramp.indexOf(t)>=0)f.push(ENEMY_TAGS[t]);
+  const has=t=>c.start.indexOf(t)>=0||c.ramp.indexOf(t)>=0||!!c.place&&c.place.some(q=>q.t===(t==='miner'?'mine':t));
+  for(const t in ENEMY_TAGS)if(has(t))f.push(ENEMY_TAGS[t]);
   if(c.boss)f.push('босс');
   return f.join(' · ');
 }
@@ -1050,6 +1078,8 @@ computeQuality();
 let player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,walls=[],flows=[],gates=[],lags=[],tps=[],scan=null,bgAct=0;
 // solids — всё, обо что ударяются: стены и подвижные блоки; strikes — метки ударов с орбиты
 let movers=[],solids=[],holes=[],invs=[],strikes=[],strikeT=0;
+// лаг, инверсия и потоки из клеток карты игрока (zmap — 640 символов, см. КАРТА ИЗ КЛЕТОК)
+let zmap='',zLag=false,zInv=false,zFlow=false;
 let score=0,lives=5,emp=1,boost=0,shake=0,time=0,phase='menu',tripFx=null;
 let lvl=0,got=0,threat=1,purge=0,stormT=0,intro=0,lastEmpDrop=0,debrisT=0;
 let lvStart={score:0,emp:1,lives:3};
@@ -1078,6 +1108,7 @@ function startLevel(i,cust){
   const c=cfgNow();
   clearField();
   setLayout(c);bgAct=CUSTOM?CUSTOM.theme:actOf(i);
+  if(c.startPos){player.x=c.startPos.x;player.y=c.startPos.y;}
   got=0;threat=1;time=0;debrisT=c.debris?Math.round(c.debris*D().hazard):0;
   strikeT=c.strike?Math.round(c.strike*D().hazard):0;
   purge=timerOf(c)*60;
@@ -1087,6 +1118,7 @@ function startLevel(i,cust){
   player.cool=60;
   for(let k=0;k<4;k++)spawnData();
   c.start.slice(0,Math.max(1,c.start.length-D().startCut)).forEach(t=>spawnEnemy(t));
+  if(c.place)c.place.forEach(placeEnemy);
   buildBg();
   hideMenu();
   phase='game';
@@ -1100,6 +1132,8 @@ function setLayout(c){
   scan=c.scan?{x:c.scan.x,y:c.scan.y,arms:c.scan.arms,v:c.scan.v,gap:c.scan.gap,a:0}:null;
   movers=(c.mov||[]).map(m=>({x:m.x,y:m.y,w:m.w,h:m.h,bx:m.x,by:m.y,ax:m.ax,ay:m.ay,sp:m.sp,ph:m.ph}));
   holes=c.holes||[];invs=c.inv||[];strikes=[];
+  zmap=typeof c.zmap==='string'&&c.zmap.length===TILE_N?c.zmap:'';
+  zLag=!!zmap&&!!c.zLag;zInv=!!zmap&&!!c.zInv;zFlow=!!zmap&&!!c.zFlow;
   solids=walls.concat(movers);
   moveMovers();
 }
@@ -1111,7 +1145,7 @@ function inMoverZone(x,y,pad){
     if(x>m.bx-ax-pad&&x<m.bx+ax+m.w+pad&&y>m.by-ay-pad&&y<m.by+ay+m.h+pad)return true;}
   return false;
 }
-function inInv(x,y){for(const z of invs)if(Math.hypot(x-z.x,y-z.y)<z.r)return true;return false;}
+function inInv(x,y){if(zInv&&zoneAt(x,y)==='I')return true;for(const z of invs)if(Math.hypot(x-z.x,y-z.y)<z.r)return true;return false;}
 function nearHole(x,y,pad){for(const h of holes)if(Math.hypot(x-h.x,y-h.y)<h.r+pad)return true;return false;}
 // расстояние от точки до щупальца: отрезок из (x,y) под углом a от r0 до r1
 function armDist(px,py,x,y,a,r0,r1){
@@ -1147,6 +1181,7 @@ function inGate(x,y,pad){
 // 0 — выключен, 1 — мигает (вот-вот загорится), 2 — горит и ранит; на лёгкой сложности горит меньше
 function gateState(g){const c=(time+g.o)%300,lit=D().gate;return c<250-lit?0:(c<300-lit?1:2);}
 function inLag(x,y){
+  if(zLag&&zoneAt(x,y)==='~')return true;
   for(const z of lags)if(Math.hypot(x-z.x,y-z.y)<z.r)return true;
   return false;
 }
@@ -1211,12 +1246,26 @@ function dropPickup(type){
   popup(s.x,s.y-18,PICK[type].label,PICK[type].color);
 }
 // случайная точка поля вне стен и не ближе minDist к игроку
+// ближайшая к точке свободная от стен и блоков точка: по кольцам вокруг неё
+function nearFree(x,y,r){
+  for(let d=8;d<=240;d+=8)for(let k=0;k<16;k++){
+    const a=k/16*TAU,qx=x+Math.cos(a)*d,qy=y+Math.sin(a)*d;
+    if(qx>=r&&qx<=W-r&&qy>=r&&qy<=H-r&&!inWall(qx,qy,r-2))return{x:qx,y:qy};
+  }
+  return freeSpot(0,r,r);
+}
 function freeSpot(minDist,margin,pad){
   for(let i=0;i<80;i++){
     const x=margin+Math.random()*(W-margin*2),y=margin+Math.random()*(H-margin*2);
     if(inWall(x,y,pad)||inGate(x,y,pad)||inTp(x,y,pad)||inMoverZone(x,y,pad)||nearHole(x,y,pad+30))continue;
     if(i<50&&Math.hypot(x-player.x,y-player.y)<minDist)continue;
     return{x,y};
+  }
+  const k0=Math.floor(Math.random()*640);
+  for(let k=0;k<640;k++){
+    const q=(k0+k)%640,x=(q%32)*25+12.5,y=Math.floor(q/32)*25+12.5;
+    if(x<margin||x>W-margin||y<margin||y>H-margin)continue;
+    if(!inWall(x,y,pad)&&!inGate(x,y,pad)&&!inMoverZone(x,y,pad)&&!nearHole(x,y,pad+30))return{x,y};
   }
   return{x:W/2,y:H/2};
 }
@@ -1336,6 +1385,9 @@ function teleport(){
     if(Math.hypot(player.x-a.x,player.y-a.y)>=TP_R)continue;
     burst(a.x,a.y,'#7a4fd6',12);
     player.x=b.x;player.y=b.y;player.tpCd=20;
+    // выход у самой кромки поля или вплотную к стене (бывает на картах игроков) — на ближайшее свободное место
+    player.x=Math.max(player.r,Math.min(W-player.r,player.x));player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+    if(solids.length&&inWall(player.x,player.y,-2)){const q=nearFree(player.x,player.y,player.r);player.x=q.x;player.y=q.y;}
     trail.length=0;
     burst(b.x,b.y,'#7a4fd6',12);buzz(20);
     return;
@@ -1381,9 +1433,9 @@ function step(){
   let iy=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+joy.y;
   const il=Math.hypot(ix,iy);if(il>1){ix/=il;iy/=il;}
   // в зоне инверсии управление наоборот
-  if(invs.length&&inInv(player.x,player.y)){ix=-ix;iy=-iy;}
+  if((invs.length||zInv)&&inInv(player.x,player.y)){ix=-ix;iy=-iy;}
   player.vx+=ix*acc*mult;player.vy+=iy*acc*mult;
-  const fr=(cfg.ice?0.975:0.94)*(lags.length&&inLag(player.x,player.y)?0.93:1);
+  const fr=(cfg.ice?0.975:0.94)*((lags.length||zLag)&&inLag(player.x,player.y)?0.93:1);
   player.vx*=fr;player.vy*=fr;
   if(Math.hypot(player.vx,player.vy)>0.5)player.face=Math.atan2(player.vy,player.vx);
 
@@ -1429,6 +1481,7 @@ function step(){
 
   // потоки трафика сносят в сторону
   for(const f of flows)if(player.y>f.y&&player.y<f.y+f.h)player.vx+=f.dir*0.12;
+  if(zFlow){const fd=FLOW_DIR[zoneAt(player.x,player.y)];if(fd){player.vx+=fd[0]*0.12;player.vy+=fd[1]*0.12;}}
   // чёрные дыры тянут к себе: чем ближе, тем сильнее; бегом можно уйти, рывком — легко
   for(const h of holes){
     const hx=h.x-player.x,hy=h.y-player.y,hd=Math.hypot(hx,hy)||1;
@@ -1437,7 +1490,13 @@ function step(){
 
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+player.vx));
   player.y=Math.max(player.r,Math.min(H-player.r,player.y+player.vy));
-  if(solids.length)pushOut(player,player.r);
+  if(solids.length){
+    pushOut(player,player.r);
+    // стена у самого края поля могла вытолкнуть за край
+    player.x=Math.max(player.r,Math.min(W-player.r,player.x));player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+    // зажало между блоками или у края — переносим в ближайшее свободное место
+    if(inWall(player.x,player.y,-2)){const q=nearFree(player.x,player.y,player.r);player.x=q.x;player.y=q.y;}
+  }
   if(tps.length)teleport();
   if(player.cool>0)player.cool--;
   if(player.empCd>0)player.empCd--;
@@ -1540,7 +1599,7 @@ function step(){
       while(da>Math.PI)da-=TAU;
       while(da<-Math.PI)da+=TAU;
       e.ang+=Math.max(-0.05,Math.min(0.05,da))+Math.sin(e.t*0.08)*0.03;
-      const ws=lags.length&&inLag(e.x,e.y)?0.5:1;
+      const ws=(lags.length||zLag)&&inLag(e.x,e.y)?0.5:1;
       e.vx=Math.cos(e.ang)*e.speed*ws;e.vy=Math.sin(e.ang)*e.speed*ws;
       e.x+=e.vx;e.y+=e.vy;
       keepIn(e);
@@ -1645,8 +1704,9 @@ function step(){
     e.vx+=mx*k*e.speed*2;e.vy+=my*k*e.speed*2;
     e.vx*=0.96;e.vy*=0.96;
     for(const f of flows)if(e.y>f.y&&e.y<f.y+f.h)e.vx+=f.dir*0.05;
+    if(zFlow){const fd=FLOW_DIR[zoneAt(e.x,e.y)];if(fd){e.vx+=fd[0]*0.05;e.vy+=fd[1]*0.05;}}
     for(const h of holes){const hx=h.x-e.x,hy=h.y-e.y,hd=Math.hypot(hx,hy)||1;if(hd<h.R){const k=h.f*0.5*(1-hd/h.R);e.vx+=hx/hd*k;e.vy+=hy/hd*k;}}
-    if(lags.length&&inLag(e.x,e.y)){e.vx*=0.93;e.vy*=0.93;}
+    if((lags.length||zLag)&&inLag(e.x,e.y)){e.vx*=0.93;e.vy*=0.93;}
     e.x+=e.vx;e.y+=e.vy;
     keepIn(e);
     // боты расталкивают друг друга, чтобы стайка не слипалась в одну точку
@@ -2480,6 +2540,25 @@ function buildBg(){
     bgx.fillText('⇄',z.x,z.y-2);
     bgx.font='bold 10px Courier New, monospace';bgx.fillText('ИНВЕРСИЯ',z.x,z.y+14);
   }
+  // лаг, инверсия и потоки из клеток карты игрока
+  if(zmap){
+    bgx.textAlign='center';bgx.font='bold 14px Courier New, monospace';
+    for(let i=0;i<TILE_N;i++){
+      const ch=zmap.charAt(i);
+      if(ch==='.')continue;
+      const x=(i%TCOLS)*TILE,y=Math.floor(i/TCOLS)*TILE;
+      if(ch==='~'){
+        bgx.fillStyle='rgba(120,90,200,0.12)';bgx.fillRect(x,y,TILE,TILE);
+        bgx.strokeStyle='rgba(120,90,200,0.28)';bgx.lineWidth=2;bgx.beginPath();bgx.moveTo(x,y+TILE);bgx.lineTo(x+TILE,y);bgx.moveTo(x,y+TILE/2);bgx.lineTo(x+TILE/2,y);bgx.moveTo(x+TILE/2,y+TILE);bgx.lineTo(x+TILE,y+TILE/2);bgx.stroke();
+      }else if(ch==='I'){
+        bgx.fillStyle='rgba(219,39,119,0.1)';bgx.fillRect(x,y,TILE,TILE);
+        bgx.fillStyle='rgba(190,24,93,0.45)';bgx.fillText('⇄',x+TILE/2,y+TILE/2+5);
+      }else{
+        bgx.fillStyle='rgba(51,153,204,0.12)';bgx.fillRect(x,y,TILE,TILE);
+        bgx.fillStyle='rgba(30,110,180,0.55)';bgx.fillText({'>':'→','<':'←','^':'↑','v':'↓'}[ch]||'',x+TILE/2,y+TILE/2+5);
+      }
+    }
+  }
   // зоны лага — штрихованные круги
   for(const z of lags){
     bgx.save();bgx.beginPath();bgx.arc(z.x,z.y,z.r,0,TAU);
@@ -3083,6 +3162,7 @@ function panelHTML(s){
         (site?'<p class="lbl2">СМЕНИТЬ ПАРОЛЬ</p><label class="nick">Новый пароль<input id="np1" type="password" maxlength="72" autocomplete="new-password"></label>'+
           '<label class="nick">Новый пароль ещё раз<input id="np2" type="password" maxlength="72" autocomplete="new-password"></label>'+
           '<p class="pass-msg" hidden></p>'+mb('pass','Сменить пароль'):'')+
+        mb('mcp','ИИ через MCP — помощник делает карты')+
         mb('logout','Выйти');
     }else if(NET_ON){
       body='<p>Войди, чтобы прогресс хранился в аккаунте, открывался на других устройствах и попадал в общую таблицу рекордов. Пока не войдёшь, прогресс хранится в этом браузере.</p>'+
@@ -3166,6 +3246,7 @@ function panelHTML(s){
   if(s==='mylevels')return myLevelsHTML();
   if(s==='community')return comHTML();
   if(s==='profile')return profHTML();
+  if(s==='mcp')return mcpHTML();
   if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
   if(s==='cclear'){
     const cc=CUSTOM||{};
@@ -3220,7 +3301,7 @@ function panelHTML(s){
       '<li><b>Океан.</b> Чёрные дыры тянут к себе всех, тёмное ядро ранит. Рывок вытаскивает.</li>'+
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
-      '<li><b>Сообщество.</b> В редакторе можно собрать свой уровень из препятствий, врагов и босса, пройти его и опубликовать. Уровни игроков не влияют на рекорд, уровни и биты.</li>'+
+      '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули медленнее, данных нужно меньше, боссы слабее; «Средняя» — 4 жизни; «Высокая» — 3 жизни и прежний баланс.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
@@ -3274,9 +3355,13 @@ function panelHTML(s){
 function showMenu(s,focusAct){
   if(s!=='skins')tryOn=null;
   if(s!=='profile')pvLook=null;
+  // новый ключ MCP показывается один раз — уходим с экрана, и он больше не виден
+  if(s!=='mcp')mcpNewKey='';
   // перерисовка того же экрана (выбор вкладки, правка в редакторе) не сбрасывает прокрутку
   const keep=s===menuScreen&&!menuEl.hidden?panelEl.scrollTop:0;
   menuScreen=s;
+  // конструктору карт нужна вся ширина
+  panelEl.classList.toggle('wide',s==='editor');
   panelEl.innerHTML=panelHTML(s);
   menuEl.hidden=false;
   screenEl.classList.add('menu-open');
@@ -3296,6 +3381,8 @@ function showMenu(s,focusAct){
   if(s==='community'&&NET_ON)fillCommunity();
   if(s==='profile')fillProfile();
   if(s==='admin')fillAdmin();
+  if(s==='mcp')fillMcp();
+  if(s==='mylevels')fillAiDrafts();
   if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
 }
 function hideMenu(){
@@ -3305,7 +3392,7 @@ function hideMenu(){
 }
 function goMenu(){
   bankBits();
-  phase='menu';
+  phase='menu';zmap='';zLag=zInv=zFlow=false;
   // с уровня игрока — обратно к своему уровню основной игры (он виден в полосе сверху)
   if(CUSTOM){CUSTOM=null;lvl=lvlMain;}
   walls=[];flows=[];gates=[];lags=[];tps=[];scan=null;movers=[];solids=[];holes=[];invs=[];strikes=[];bgAct=0;boost=0;shake=0;
@@ -3394,7 +3481,7 @@ function act(a){
   else if(k==='admin'){if(NET.admin)showMenu('admin');}
   else if(k==='atab'){if(ADM_TABS.some(t=>t[0]===arg)){admTab=arg;showMenu('admin',a);}}
   else if(k==='ahide'||k==='abio'||k==='asup')admAct(k,arg);
-  else if(k==='ednew'){if(needLogin()){showMenu('gate');return;}edTool='wall';edOpen(edBlank(),null,'');}
+  else if(k==='ednew'){if(needLogin()){showMenu('gate');return;}edBrush='#';edSym='none';edTab='map';edOpen(edBlank(),null,'');}
   else if(k==='edopen'){const d=draftsLoad().find(x=>x.id===arg);if(d)edOpen(edFromData(d.lv),{id:d.id,pub:Number(d.pub)||null},typeof d.ok==='string'?d.ok:'');}
   else if(k==='eddel'){
     if(!sure){armBtn(a,'Точно удалить?');return;}
@@ -3403,13 +3490,20 @@ function act(a){
     showMenu('mylevels');
   }
   else if(k==='mylevels')showMenu('mylevels');
+  else if(k==='mcpnew'){if(NET.user)mcpCreate();}
+  else if(k==='mcpdel'){if(n>0){if(sure)mcpRevoke(n);else armBtn(a,'Точно отозвать?');}}
+  else if(k==='mcpcopy')mcpCopy(arg);
+  else if(k==='aiopen'){if(n>0)aiOpen(n);}
+  else if(k==='aidel'){if(n>0){if(sure)aiDelete(n);else armBtn(a,'Точно удалить?');}}
   else if(k.slice(0,2)==='ed'&&ED){
-    if(k==='edtool'){if(ED_HINTS[arg]){edTool=arg;edTp=null;edNote='';showMenu('editor',a);}}
+    if(k==='edbrush'){const pl=PALETTE[n];if(pl){edBrush=pl[0];edNote='';showMenu('editor',a);}}
+    else if(k==='edsym'){if(SYMS.some(x=>x[0]===arg)){edSym=arg;showMenu('editor',a);}}
+    else if(k==='edtab'){if(['map','rules','done'].indexOf(arg)>=0){edTab=arg;showMenu('editor',a);}}
     else if(k==='edundo')edUndo();
+    else if(k==='edredo')edRedo();
     else if(k==='edclear'){
       if(!sure){armBtn(a,'Точно очистить?');return;}
-      for(const key of ['walls','gates','flow','lag','inv','holes','tps','mov'])ED[key]=[];
-      edHist=[];edTp=null;edChanged();
+      edPushUndo();edRedoS=[];edCells=new Array(TILE_N).fill('.');edChanged();
     }
     else if(k==='edgoal'){ED.goal=Math.max(5,Math.min(30,ED.goal+(n>0?1:-1)));edChanged();showMenu('editor',a);}
     else if(k==='edcap'){ED.cap=Math.max(3,Math.min(9,ED.cap+(n>0?1:-1)));edChanged();showMenu('editor',a);}
@@ -3517,7 +3611,7 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&menuScreen==='termstext'){showMenu(termsBack);return;}
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
   if(phase==='menu'&&code==='Escape'){
-    const back={profile:profBack,editor:'community',mylevels:'community'}[menuScreen];
+    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct'}[menuScreen];
     if(back){showMenu(back);return;}
   }
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
@@ -3677,26 +3771,14 @@ function frame(now){
 }
 
 // ================= УРОВНИ ИГРОКОВ: ФОРМАТ И ПРОВЕРКА =================
-// Уровень из редактора хранится в «формате редактора» — числа, флаги и короткие строки; так же он
+// Уровень из редактора хранится в «формате редактора» — карта из клеток, числа, флаги и короткие строки; так же он
 // лежит в базе (levels.data). Перед игрой normLevel превращает его в конфиг как у LEVELS. Чужой
 // уровень — чужой ввод, поэтому normLevel заново проверяет и обрезает всё, что в нём есть
 const ED_TYPES=['chaser','sniper','heavy','glitch','worm','botnet','turret','thief','miner','missile','mirror'];
 const ED_NAMES={chaser:'Охотник',sniper:'Снайпер',heavy:'Щитоносец',glitch:'Глитч',worm:'Червь',botnet:'Ботнет',turret:'Турель',thief:'Вор',miner:'Минёр',missile:'Ракета',mirror:'Зеркало'};
 const BOSS_KINDS=[['ring','кольца пуль'],['aimed','стреляет в тебя'],['pack','затягивает'],['charge','таранит'],['spiral','спираль'],['balance','две сферы'],['captcha','щит'],['seeker','самонаведение'],['orbit','кружит'],['cloak','исчезает'],['traffic','светофор'],['kraken','щупальца'],['nova','сверхновая'],['twin','двойник'],['final','всё понемногу'],['admin','зовёт ботнет'],['omega','всё сразу'],['singularity','сингулярность']];
 const ED_MAX={walls:24,gates:8,flow:4,lag:6,inv:6,holes:4,tps:3,mov:6};
-const ED_TOOLS=[['wall','Стена'],['gate','Барьер'],['mov','Блок'],['flow','Поток'],['lag','Лаг'],['inv','Инверсия'],['hole','Дыра'],['tp','Роутер'],['erase','Ластик']];
 const ED_FLAGS=[['dark','Темнота'],['ice','Невесомость'],['storm','Спам-пули'],['debris','Мусор'],['strike','Удары с орбиты'],['timer','Очистка по таймеру']];
-const ED_HINTS={
-  wall:'Стена: протяни по полю — получится прямоугольник; просто нажми — короткая стена.',
-  gate:'Барьер файрвола: мигает и загорается по очереди с остальными. Протяни или нажми.',
-  mov:'Подвижный блок: широкий ездит влево-вправо, высокий — вверх-вниз. Пунктир — его путь.',
-  flow:'Поток: нажми на высоте полосы. Потоки по очереди дуют в разные стороны.',
-  lag:'Зона лага: протяни от центра, чтобы задать размер; просто нажми — средний круг.',
-  inv:'Зона инверсии: протяни от центра, чтобы задать размер; просто нажми — средний круг.',
-  hole:'Чёрная дыра: нажми, куда поставить. Пунктир — докуда она тянет.',
-  tp:'Роутер: нажми два раза — для каждого кольца пары.',
-  erase:'Ластик: нажми на препятствие, чтобы убрать его.'
-};
 // адрес сайта — для копии игры без своей базы (например, в артефакте): сообщество живёт там
 const SITE_URL='https://artemiylakin-debug.github.io/Kod-Clod/';
 // вокруг старта игрока (центр поля) препятствия не ставятся
@@ -3729,11 +3811,132 @@ function moverZone(m){return{x:m.x-m.ax,y:m.y-m.ay,w:m.w+m.ax*2,h:m.h+m.ay*2};}
 // облик босса берём у первого босса того же вида из основной игры
 function bossPreset(kind){for(const l of LEVELS)if(l.boss&&l.boss.kind===kind)return l.boss;return LEVELS[4].boss;}
 // формат редактора → конфиг уровня; null — это не уровень
+// ================= КАРТА ИЗ КЛЕТОК (ФОРМАТ 2) =================
+// Поле 800×500 делится на клетки 25×25 — 32 столбца и 20 строк. Карта — 20 строк по 32 символа,
+// что значит каждый символ — в TILES. Такую карту удобно рисовать кистью в редакторе и писать
+// текстом (так её пишет ИИ через MCP). Стены, барьеры и блоки из соседних клеток сливаются в один
+const TILE=25,TCOLS=32,TROWS=20,TILE_N=TCOLS*TROWS;
+const TILES={'.':'пусто','#':'стена','F':'барьер файрвола','~':'лаг','I':'инверсия','>':'поток вправо','<':'поток влево','^':'поток вверх','v':'поток вниз',
+  'H':'подвижный блок ↔','V':'подвижный блок ↕','O':'чёрная дыра','1':'роутер 1','2':'роутер 2','3':'роутер 3','T':'турель','M':'мина','S':'старт игрока'};
+// сколько каких клеток может быть на карте; у роутера — пара клеток одной цифры
+const TILE_MAX={O:4,T:6,M:12,S:1,'1':2,'2':2,'3':2};
+// эти клетки не ставятся вплотную к старту игрока
+const SOLID_TILES='#FHVOTM123';
+const FLOW_DIR={'>':[1,0],'<':[-1,0],'^':[0,-1],'v':[0,1]};
+function mapCells(rows){
+  const out=new Array(TILE_N).fill('.');
+  if(!Array.isArray(rows))return out;
+  for(let y=0;y<TROWS;y++){
+    const r=typeof rows[y]==='string'?rows[y]:'';
+    for(let x=0;x<TCOLS;x++){const ch=r.charAt(x);if(TILES[ch])out[y*TCOLS+x]=ch;}
+  }
+  return out;
+}
+function cellsRows(cells){const rows=[];for(let y=0;y<TROWS;y++)rows.push(cells.slice(y*TCOLS,(y+1)*TCOLS).join(''));return rows;}
+// лишние клетки сверх TILE_MAX убираются
+function cleanCells(cells){
+  const n={};
+  for(let i=0;i<TILE_N;i++){const ch=cells[i],lim=TILE_MAX[ch];if(lim){n[ch]=(n[ch]||0)+1;if(n[ch]>lim)cells[i]='.';}}
+  return cells;
+}
+function cellCenter(i){return{x:(i%TCOLS)*TILE+TILE/2,y:Math.floor(i/TCOLS)*TILE+TILE/2};}
+function startOf(cells){const i=cells.indexOf('S');return i>=0?cellCenter(i):{x:W/2,y:H/2};}
+function nearStartCell(i,st){const p=cellCenter(i);return Math.hypot(p.x-st.x,p.y-st.y)<START_R;}
+// жадное слияние клеток одного вида в прямоугольники: стен на карте — десятки, а не сотни
+function mergeTiles(cells,ch){
+  const used=new Uint8Array(TILE_N),out=[];
+  for(let y=0;y<TROWS;y++)for(let x=0;x<TCOLS;x++){
+    const i=y*TCOLS+x;
+    if(cells[i]!==ch||used[i])continue;
+    let w=1;
+    while(x+w<TCOLS&&cells[i+w]===ch&&!used[i+w])w++;
+    let h=1,ok=true;
+    while(ok&&y+h<TROWS){
+      for(let k=0;k<w;k++){const j=(y+h)*TCOLS+x+k;if(cells[j]!==ch||used[j]){ok=false;break;}}
+      if(ok)h++;
+    }
+    for(let yy=0;yy<h;yy++)for(let k=0;k<w;k++)used[(y+yy)*TCOLS+x+k]=1;
+    out.push({x:x*TILE,y:y*TILE,w:w*TILE,h:h*TILE});
+  }
+  return out;
+}
+// карта → препятствия конфига уровня; твёрдое вплотную к старту пропускается, чтобы было где появиться
+function mapToCfg(c,cells){
+  const st=startOf(cells);
+  cells=cells.map((ch,i)=>SOLID_TILES.indexOf(ch)>=0&&nearStartCell(i,st)?'.':ch);
+  if(cells.indexOf('S')>=0)c.startPos=st;
+  const set=(k,v)=>{if(v.length)c[k]=v;};
+  set('walls',mergeTiles(cells,'#').slice(0,160));
+  set('gates',mergeTiles(cells,'F').slice(0,24).map((g,k)=>Object.assign(g,{o:k*100%300})));
+  const mov=[];
+  for(const ch of ['H','V'])mergeTiles(cells,ch).forEach(m=>{
+    m.ax=ch==='H'?Math.max(0,Math.min(75,m.x,W-m.x-m.w)):0;
+    m.ay=ch==='V'?Math.max(0,Math.min(75,m.y,H-m.y-m.h)):0;
+    m.sp=0.012;m.ph=mov.length*1.6;mov.push(m);
+  });
+  set('mov',mov.slice(0,12));
+  const holes=[],tp={},place=[];
+  cells.forEach((ch,i)=>{
+    const p=cellCenter(i);
+    if(ch==='O')holes.push({x:p.x,y:p.y,R:150,r:15,f:0.085});
+    else if(ch==='1'||ch==='2'||ch==='3')(tp[ch]=tp[ch]||[]).push({x:p.x,y:p.y});
+    else if(ch==='T')place.push({t:'turret',x:p.x,y:p.y});
+    else if(ch==='M')place.push({t:'mine',x:p.x,y:p.y});
+  });
+  set('holes',holes.filter(h=>Math.hypot(h.x-st.x,h.y-st.y)>=h.r+START_R+40));
+  set('tps',Object.keys(tp).sort().map(k=>tp[k]).filter(pr=>pr.length===2&&Math.hypot(pr[0].x-pr[1].x,pr[0].y-pr[1].y)>60));
+  set('place',place);
+  // лаг, инверсия и потоки остаются клетками: движок смотрит, в какой клетке стоит игрок или враг
+  let z='',zl=false,zi=false,zf=false;
+  for(const ch of cells){
+    if(ch==='~'){z+=ch;zl=true;}
+    else if(ch==='I'){z+=ch;zi=true;}
+    else if(FLOW_DIR[ch]){z+=ch;zf=true;}
+    else z+='.';
+  }
+  if(zl||zi||zf){c.zmap=z;c.zLag=zl;c.zInv=zi;c.zFlow=zf;}
+}
+// старый формат (прямоугольники и круги) → клетки: клетка занята, если предмет закрывает хотя бы её четверть
+function cfgToCells(c){
+  const cells=new Array(TILE_N).fill('.');
+  const put=(x,y,ch)=>{const cx=Math.floor(x/TILE),cy=Math.floor(y/TILE);if(cx>=0&&cy>=0&&cx<TCOLS&&cy<TROWS)cells[cy*TCOLS+cx]=ch;};
+  const rect=(q,ch)=>{
+    for(let y=0;y<TROWS;y++)for(let x=0;x<TCOLS;x++){
+      const ox=Math.min(q.x+q.w,(x+1)*TILE)-Math.max(q.x,x*TILE),oy=Math.min(q.y+q.h,(y+1)*TILE)-Math.max(q.y,y*TILE);
+      if(ox>0&&oy>0&&ox*oy>=TILE*TILE/4)cells[y*TCOLS+x]=ch;
+    }
+  };
+  const circ=(z,ch)=>{for(let i=0;i<TILE_N;i++){const p=cellCenter(i);if(Math.hypot(p.x-z.x,p.y-z.y)<z.r)cells[i]=ch;}};
+  (c.flow||[]).forEach(f=>rect({x:0,y:f.y,w:W,h:f.h},f.dir>0?'>':'<'));
+  (c.lag||[]).forEach(z=>circ(z,'~'));
+  (c.inv||[]).forEach(z=>circ(z,'I'));
+  (c.walls||[]).forEach(q=>rect(q,'#'));
+  (c.gates||[]).forEach(q=>rect(q,'F'));
+  (c.mov||[]).forEach(m=>rect(m,m.ay>m.ax?'V':'H'));
+  (c.holes||[]).forEach(h=>put(h.x,h.y,'O'));
+  (c.tps||[]).forEach((pr,k)=>pr.forEach(p=>put(p.x,p.y,String(k+1))));
+  return cleanCells(cells);
+}
+// клетка поля в точке (для лага, инверсии и потоков из клеток)
+function zoneAt(x,y){
+  const cx=Math.floor(x/TILE),cy=Math.floor(y/TILE);
+  return cx>=0&&cy>=0&&cx<TCOLS&&cy<TROWS?zmap.charAt(cy*TCOLS+cx):'.';
+}
+// турели и мины, которые автор поставил на карту, — на месте с начала уровня; мины не исчезают
+function placeEnemy(q){
+  if(q.t==='mine'){enemies.push({x:q.x,y:q.y,vx:0,vy:0,r:8,type:'mine',t:0,arm:60,life:1e9,inside:true});return;}
+  spawnEnemy('turret');
+  const e=enemies[enemies.length-1];
+  if(e&&e.type==='turret'){e.x=q.x;e.y=q.y;}
+}
 function normLevel(d){
   if(!d||typeof d!=='object'||Array.isArray(d))return null;
   const okType=t=>ED_TYPES.indexOf(t)>=0;
   const c={name:edStr(d.name,30)||'Без названия',descr:edStr(d.descr,200),goal:edNum(d.goal,5,30,15),cap:edNum(d.cap,3,9,6),tripCd:420,
     start:edArr(d.start,8).filter(okType),ramp:edArr(d.ramp,6).filter(okType),theme:edNum(d.theme,0,ACTS.length-1,0)};
+  // формат 2 — карта из клеток; формат 1 (первый редактор) — прямоугольники и круги
+  if(Array.isArray(d.map))mapToCfg(c,cleanCells(mapCells(d.map)));
+  else{
   const set=(k,v)=>{if(v.length)c[k]=v;};
   set('walls',edArr(d.walls,ED_MAX.walls).map(q=>edRect(q,10)).filter(q=>q&&!rectNearStart(q,START_R)));
   set('gates',edArr(d.gates,ED_MAX.gates).map(q=>{const r=edRect(q,10);if(r)r.o=edNum(q.o,0,299,0);return r;}).filter(q=>q&&!rectNearStart(q,START_R)));
@@ -3745,6 +3948,7 @@ function normLevel(d){
   set('tps',edArr(d.tps,ED_MAX.tps).map(pr=>Array.isArray(pr)&&pr.length===2?[edPt(pr[0]),edPt(pr[1])]:null)
     .filter(pr=>pr&&pr[0]&&pr[1]&&Math.hypot(pr[0].x-pr[1].x,pr[0].y-pr[1].y)>60&&!pr.some(p=>Math.hypot(p.x-W/2,p.y-H/2)<START_R)));
   set('mov',edArr(d.mov,ED_MAX.mov).map(edMover).filter(m=>m&&!rectNearStart(moverZone(m),START_R)));
+  }
   if(d.scan===1||d.scan===2)c.scan=d.scan===2?SCANS.two:SCANS.one;
   if(d.dark)c.dark=220;
   if(d.ice)c.ice=true;
@@ -3770,18 +3974,44 @@ function customClear(){
 }
 function leaveCustom(){const back=customBack;goMenu();showMenu(back);}
 
-// ================= РЕДАКТОР =================
-// черновики живут в этом браузере; опубликованный черновик помнит номер уровня в базе (pub)
+// ================= КОНСТРУКТОР КАРТ =================
+// как в Brawl Stars: поле из клеток, палитра, кисть, зеркальная симметрия, отмена и повтор;
+// правила уровня и публикация — на соседних вкладках. Черновики живут в этом браузере,
+// опубликованный черновик помнит номер уровня в базе (pub)
 const DRAFT_KEY='dataout-drafts',DRAFT_MAX=30;
-let ED=null,edDraft=null,edTool='wall',edDrag=null,edTp=null,edHist=[],edTested='',edNote='',armed='';
-function edBlank(){return{v:1,name:'',descr:'',goal:15,cap:6,start:['chaser','chaser'],ramp:['chaser','sniper'],walls:[],gates:[],flow:[],lag:[],inv:[],holes:[],tps:[],mov:[],scan:0,dark:0,ice:0,storm:0,debris:0,strike:0,timer:0,trojan:0,theme:0,boss:null};}
-// сохранённый уровень → черновик редактора (через ту же проверку, что и перед игрой)
+const PALETTE=[['#','Стена'],['F','Барьер'],['H','Блок ↔'],['V','Блок ↕'],['~','Лаг'],['I','Инверсия'],['>','Поток →'],['<','Поток ←'],['^','Поток ↑'],['v','Поток ↓'],
+  ['O','Чёрная дыра'],['1','Роутер 1'],['2','Роутер 2'],['3','Роутер 3'],['T','Турель'],['M','Мина'],['S','Старт'],['.','Ластик']];
+const TILE_HINT={
+  '#':'Стена: веди пальцем или мышью — рисуется по клеткам.',
+  F:'Барьер файрвола: мигает и загорается. Соседние клетки — один барьер.',
+  H:'Подвижный блок: ездит влево-вправо на три клетки. Соседние клетки — один блок.',
+  V:'Подвижный блок: ездит вверх-вниз на три клетки. Соседние клетки — один блок.',
+  '~':'Лаг: в этих клетках вязнут все — и ты, и враги.',
+  I:'Инверсия: в этих клетках управление наоборот.',
+  '>':'Поток: сносит всех в сторону стрелки.',
+  O:'Чёрная дыра: тянет к себе, ядро ранит. На карте — до 4.',
+  '1':'Роутер: две клетки с одной цифрой — пара колец. С зеркалом вторая встаёт сама.',
+  T:'Турель стоит здесь с начала уровня. На карте — до 6.',
+  M:'Мина лежит здесь с начала уровня и не исчезает. На карте — до 12.',
+  S:'Старт игрока: нажми, где появиться. Вплотную к старту твёрдое не ставится.',
+  '.':'Ластик: стирает клетки.'
+};
+TILE_HINT['<']=TILE_HINT['^']=TILE_HINT.v=TILE_HINT['>'];TILE_HINT['2']=TILE_HINT['3']=TILE_HINT['1'];
+const SYMS=[['none','Без зеркала'],['h','Зеркало ↔'],['v','Зеркало ↕'],['hv','Четыре угла'],['r','Поворот 180°']];
+// вид клетки: заливка, обводка и значок — одинаково на поле и на кнопках палитры
+const TILE_LOOK={'#':['#cfd8e3','#64748b',''],F:['rgba(220,38,38,0.28)','#dc2626','⚡'],H:['#e2e9f1','#ca8a04','↔'],V:['#e2e9f1','#ca8a04','↕'],
+  '~':['rgba(120,90,200,0.22)','#7c5cc4','≈'],I:['rgba(219,39,119,0.18)','#be185d','⇄'],
+  '>':['rgba(51,153,204,0.2)','#1e6eb4','→'],'<':['rgba(51,153,204,0.2)','#1e6eb4','←'],'^':['rgba(51,153,204,0.2)','#1e6eb4','↑'],v:['rgba(51,153,204,0.2)','#1e6eb4','↓'],
+  O:['#1e1b4b','#a78bfa','●'],'1':['rgba(122,79,214,0.16)','#7a4fd6','1'],'2':['rgba(214,64,138,0.16)','#d6408a','2'],'3':['rgba(43,138,158,0.16)','#2b8a9e','3'],
+  T:['#cbd5e1','#334155','⊕'],M:['#fecaca','#b91c1c','✸'],S:['rgba(0,204,204,0.25)','#008b8b','★'],'.':['#ffffff','#94a3b8','⌫']};
+let ED=null,edDraft=null,edCells=null,edBrush='#',edSym='none',edTab='map',edUndoS=[],edRedoS=[],edStroke=null,edHover=-1,edTested='',edNote='',armed='';
+function edBlank(){return{v:2,name:'',descr:'',map:cellsRows(new Array(TILE_N).fill('.')),goal:15,cap:6,start:['chaser','chaser'],ramp:['chaser','sniper'],scan:0,dark:0,ice:0,storm:0,debris:0,strike:0,timer:0,trojan:0,theme:0,boss:null};}
+// сохранённый уровень (любого формата) → черновик редактора, через ту же проверку, что и перед игрой
 function edFromData(d){
   const c=normLevel(d),e=edBlank();
   if(!c)return e;
   e.name=edStr(d.name,30);e.descr=c.descr;e.goal=c.goal;e.cap=c.cap;e.start=c.start;e.ramp=c.ramp;e.theme=c.theme;
-  for(const k of ['walls','gates','flow','lag','inv','tps','mov'])e[k]=c[k]||[];
-  e.holes=(c.holes||[]).map(h=>({x:h.x,y:h.y,R:h.R}));
+  e.map=cellsRows(Array.isArray(d.map)?cleanCells(mapCells(d.map)):cfgToCells(c));
   e.scan=c.scan===SCANS.two?2:(c.scan?1:0);
   for(const f of ED_FLAGS)e[f[0]]=c[f[0]]?1:0;
   e.trojan=c.trojan?Math.round(c.trojan/0.15):0;
@@ -3809,7 +4039,7 @@ function edPersist(){
   draftsSave(a);
 }
 function edOpen(lv,draft,tested){
-  ED=lv;edDraft=draft;edHist=[];edTp=null;edDrag=null;edNote='';edTested=tested||'';
+  ED=lv;edCells=mapCells(lv.map);edDraft=draft;edUndoS=[];edRedoS=[];edStroke=null;edHover=-1;edNote='';edTested=tested||'';
   showMenu('editor');
 }
 function edCanPub(){return NET_ON&&!!NET.user&&!!edStr(ED.name,30)&&edTested===edKey();}
@@ -3819,193 +4049,213 @@ function edPubHint(){
   if(edTested!==edKey())return 'Сначала пройди уровень сам — «Проверить уровень» до портала. Так в сообществе не бывает непроходимых уровней.';
   return edDraft&&edDraft.pub?'Уровень опубликован. Правки увидят после «Обновить публикацию».':'Уровень пройден — можно публиковать.';
 }
-function edSay(t){edNote=t;const el=panelEl.querySelector('.ed-note');if(el)el.textContent=t||ED_HINTS[edTool];}
-// после правки: сохранить черновик, перерисовать поле, обновить кнопку публикации
+function edCount(ch){let n=0;for(const x of edCells)if(x===ch)n++;return n;}
+function edCountText(){return 'Дыр '+edCount('O')+'/4 · турелей '+edCount('T')+'/6 · мин '+edCount('M')+'/12';}
+function edSay(t){edNote=t;const el=panelEl.querySelector('.ed-note');if(el)el.textContent=t||TILE_HINT[edBrush];}
+// после правки: карта → черновик, перерисовать поле, обновить счётчики и кнопку публикации
 function edChanged(){
+  ED.map=cellsRows(edCells);
   edNote='';edPersist();edSay(edNote);edDraw();
-  const b=panelEl.querySelector('[data-act="edpub"]'),h=panelEl.querySelector('.ed-pubhint');
+  const b=panelEl.querySelector('[data-act="edpub"]'),h=panelEl.querySelector('.ed-pubhint'),n=panelEl.querySelector('.ed-count');
   if(b)b.disabled=!edCanPub();
   if(h)h.textContent=edPubHint();
+  if(n)n.textContent=edCountText();
 }
 function edHTML(){
   if(!ED)ED=edBlank();
-  const cnt=t=>ED.start.filter(x=>x===t).length;
+  if(!edCells)edCells=mapCells(ED.map);
   const opt=(v,label,on)=>'<option value="'+v+'"'+(on?' selected':'')+'>'+label+'</option>';
-  const tools=ED_TOOLS.map(t=>chip('edtool:'+t[0],t[1],edTool===t[0])).join('');
-  const startChips=ED_TYPES.map(t=>chip('edst:'+t,ED_NAMES[t]+(cnt(t)?' ×'+cnt(t):''),cnt(t)>0)).join('');
-  const rampChips=ED_TYPES.map(t=>chip('edrm:'+t,ED_NAMES[t],ED.ramp.indexOf(t)>=0)).join('');
-  const flags=ED_FLAGS.map(f=>chip('edflag:'+f[0],f[1],!!ED[f[0]])).join('')+
-    chip('edscan',ED.scan===2?'Два луча сканера':'Сканер',ED.scan>0)+chip('edtroj','Трояны'+(ED.trojan?' '+ED.trojan*15+'%':''),ED.trojan>0);
-  const b=ED.boss;
-  const bossSel='<select id="ed-boss">'+opt('','без босса',!b)+BOSS_KINDS.map(k=>opt(k[0],k[1],!!b&&b.kind===k[0])).join('')+'</select>';
-  const hpSel='<select id="ed-bhp"'+(b?'':' disabled')+'>'+[3,4,5,6,7,8].map(n=>opt(n,n+(n<5?' удара':' ударов'),!!b&&b.hp===n)).join('')+'</select>';
-  const themeSel='<select id="ed-theme">'+ACTS.map((a,i)=>opt(i,(i+1)+' · '+a.name,ED.theme===i)).join('')+'</select>';
-  const pub=NET_ON
-    ?'<button type="button" class="mbtn" data-act="edpub"'+(edCanPub()?'':' disabled')+'>'+(edDraft&&edDraft.pub?'Обновить публикацию':'Опубликовать в сообществе')+'</button><p class="foot ed-pubhint">'+escHTML(edPubHint())+'</p>'
-    :'<p class="foot">Публиковать уровни можно на сайте игры: '+escHTML(SITE_URL)+'</p>';
-  return '<h2>РЕДАКТОР УРОВНЯ</h2>'+
-    '<label class="nick">Название<input id="ed-name" maxlength="30" value="'+escHTML(ED.name)+'" placeholder="Например: Лабиринт с дырами"></label>'+
-    '<label class="nick">Описание — что ждёт игрока<input id="ed-descr" maxlength="200" value="'+escHTML(ED.descr)+'"></label>'+
-    '<p class="lbl2">ИНСТРУМЕНТ — НАЖМИ ИЛИ ПРОТЯНИ ПО ПОЛЮ</p><div class="chips">'+tools+'</div>'+
-    '<canvas id="ed" width="'+W+'" height="'+H+'" aria-label="Поле уровня: нажми, чтобы поставить выбранное препятствие"></canvas>'+
-    '<p class="ed-note" aria-live="polite">'+escHTML(edNote||ED_HINTS[edTool])+'</p>'+
-    '<div class="mrow2">'+mb('edundo','Отменить последнее')+mb('edclear',armed==='edclear'?'Точно очистить?':'Очистить поле')+'</div>'+
-    '<p class="lbl2">СКОЛЬКО ДАННЫХ СОБРАТЬ И СКОЛЬКО ВРАГОВ НА ПОЛЕ</p><div class="chips">'+
-    chip('edgoal:-1','−',false)+'<b class="ed-val" title="данных">◆ '+ED.goal+'</b>'+chip('edgoal:1','+',false)+
-    chip('edcap:-1','−',false)+'<b class="ed-val" title="врагов сразу">▲ '+ED.cap+'</b>'+chip('edcap:1','+',false)+'</div>'+
-    '<p class="lbl2">ВРАГИ НА СТАРТЕ — НАЖИМАЙ, ЧТОБЫ ДОБАВИТЬ (ДО 3 ОДНОГО ВИДА, ВСЕГО ДО 8)</p><div class="chips">'+startChips+'</div>'+
-    '<p class="lbl2">ПОДКРЕПЛЕНИЕ — КТО ПРИХОДИТ ПО ХОДУ УРОВНЯ (ДО 6)</p><div class="chips">'+rampChips+'</div>'+
-    '<p class="lbl2">ОПАСНОСТИ</p><div class="chips">'+flags+'</div>'+
-    '<div class="ed-row"><label class="nick">Босс в конце'+bossSel+'</label><label class="nick">Прочность'+hpSel+'</label></div>'+
-    (b?'<label class="nick">Имя босса<input id="ed-bname" maxlength="20" value="'+escHTML(b.name||'')+'" placeholder="'+escHTML(bossPreset(b.kind).name)+'"></label>':'')+
-    '<label class="nick">Оформление поля'+themeSel+'</label>'+
-    '<div class="mcol">'+mb('edtest','▶ Проверить уровень','primary')+pub+'</div>'+
-    '<div class="mrow2">'+mb('mylevels','Мои уровни')+mb('community','Назад')+'</div>';
+  let side='';
+  if(edTab==='map'){
+    side='<p class="lbl2">ПАЛИТРА</p><div class="pal">'+PALETTE.map((p,i)=>{
+      const L=TILE_LOOK[p[0]];
+      return '<button type="button" class="tbtn2" data-act="edbrush:'+i+'" aria-pressed="'+(edBrush===p[0])+'"><span class="tsw" style="background:'+L[0]+';border-color:'+L[1]+';color:'+L[1]+'">'+L[2]+'</span>'+p[1]+'</button>';
+    }).join('')+'</div>'+
+      '<p class="lbl2">СИММЕТРИЯ — РИСУЕТ СРАЗУ В ЗЕРКАЛЬНЫХ КЛЕТКАХ</p><div class="chips">'+SYMS.map(s=>chip('edsym:'+s[0],s[1],edSym===s[0])).join('')+'</div>'+
+      '<div class="mrow2">'+mb('edundo','↶ Отменить')+mb('edredo','↷ Вернуть')+'</div>'+
+      mb('edclear',armed==='edclear'?'Точно очистить?':'Очистить карту')+
+      '<p class="foot ed-count">'+edCountText()+'</p><p class="foot">На клавиатуре: Ctrl+Z — отменить, Ctrl+Y — вернуть.</p>';
+  }else if(edTab==='rules'){
+    const cnt=t=>ED.start.filter(x=>x===t).length;
+    const b=ED.boss;
+    side='<p class="lbl2">ДАННЫХ СОБРАТЬ И ВРАГОВ НА ПОЛЕ</p><div class="chips">'+
+      chip('edgoal:-1','−',false)+'<b class="ed-val" title="данных">◆ '+ED.goal+'</b>'+chip('edgoal:1','+',false)+
+      chip('edcap:-1','−',false)+'<b class="ed-val" title="врагов сразу">▲ '+ED.cap+'</b>'+chip('edcap:1','+',false)+'</div>'+
+      '<p class="lbl2">ВРАГИ НА СТАРТЕ (ДО 3 ОДНОГО ВИДА, ВСЕГО ДО 8)</p><div class="chips">'+ED_TYPES.map(t=>chip('edst:'+t,ED_NAMES[t]+(cnt(t)?' ×'+cnt(t):''),cnt(t)>0)).join('')+'</div>'+
+      '<p class="lbl2">ПОДКРЕПЛЕНИЕ ПО ХОДУ УРОВНЯ (ДО 6)</p><div class="chips">'+ED_TYPES.map(t=>chip('edrm:'+t,ED_NAMES[t],ED.ramp.indexOf(t)>=0)).join('')+'</div>'+
+      '<p class="lbl2">ОПАСНОСТИ</p><div class="chips">'+ED_FLAGS.map(f=>chip('edflag:'+f[0],f[1],!!ED[f[0]])).join('')+
+      chip('edscan',ED.scan===2?'Два луча сканера':'Сканер',ED.scan>0)+chip('edtroj','Трояны'+(ED.trojan?' '+ED.trojan*15+'%':''),ED.trojan>0)+'</div>'+
+      '<div class="ed-row"><label class="nick">Босс в конце<select id="ed-boss">'+opt('','без босса',!b)+BOSS_KINDS.map(k=>opt(k[0],k[1],!!b&&b.kind===k[0])).join('')+'</select></label>'+
+      '<label class="nick">Прочность<select id="ed-bhp"'+(b?'':' disabled')+'>'+[3,4,5,6,7,8].map(n=>opt(n,n+(n<5?' удара':' ударов'),!!b&&b.hp===n)).join('')+'</select></label></div>'+
+      (b?'<label class="nick">Имя босса<input id="ed-bname" maxlength="20" value="'+escHTML(b.name||'')+'" placeholder="'+escHTML(bossPreset(b.kind).name)+'"></label>':'')+
+      '<label class="nick">Оформление поля<select id="ed-theme">'+ACTS.map((a,i)=>opt(i,(i+1)+' · '+a.name,ED.theme===i)).join('')+'</select></label>';
+  }else{
+    side='<label class="nick">Название<input id="ed-name" maxlength="30" value="'+escHTML(ED.name)+'" placeholder="Например: Арена с дырами"></label>'+
+      '<label class="nick">Описание — что ждёт игрока<input id="ed-descr" maxlength="200" value="'+escHTML(ED.descr)+'"></label>'+
+      mb('edtest','▶ Проверить уровень','primary')+
+      (NET_ON?'<button type="button" class="mbtn" data-act="edpub"'+(edCanPub()?'':' disabled')+'>'+(edDraft&&edDraft.pub?'Обновить публикацию':'Опубликовать в сообществе')+'</button><p class="foot ed-pubhint">'+escHTML(edPubHint())+'</p>'
+        :'<p class="foot">Публиковать уровни можно на сайте игры: '+escHTML(SITE_URL)+'</p>')+
+      mb('mylevels','Мои уровни');
+  }
+  return '<div class="edwrap"><div class="edmain">'+
+    '<canvas id="ed" width="'+W+'" height="'+H+'" aria-label="Карта уровня: рисуй выбранной клеткой из палитры"></canvas>'+
+    '<p class="ed-note" aria-live="polite">'+escHTML(edNote||TILE_HINT[edBrush])+'</p></div>'+
+    '<div class="edside"><h2>КОНСТРУКТОР КАРТ</h2><div class="chips">'+[['map','Карта'],['rules','Правила'],['done','Готово']].map(t=>chip('edtab:'+t[0],t[1],edTab===t[0])).join('')+'</div>'+
+    side+mb('community','Назад')+'</div></div>';
 }
-// поле редактора: то же, что увидит игрок, только схематично
+// поле редактора: клетки, оси симметрии, старт и подсветка клетки под курсором
 function edDraw(){
   const cv=$id('ed');
-  if(!cv||!ED)return;
-  const g=cv.getContext('2d'),ac=ACTS[ED.theme]||ACTS[0];
-  g.setLineDash([]);g.globalAlpha=1;
+  if(!cv||!ED||!edCells)return;
+  const g=cv.getContext('2d'),ac=ACTS[ED.theme]||ACTS[0],st=startOf(edCells);
+  g.setLineDash([]);g.globalAlpha=1;g.textAlign='center';g.textBaseline='middle';
   g.fillStyle=ac.bg;g.fillRect(0,0,W,H);
-  g.strokeStyle=ac.grid;g.lineWidth=1;g.beginPath();
-  for(let x=40;x<W;x+=40){g.moveTo(x,0);g.lineTo(x,H);}
-  for(let y=40;y<H;y+=40){g.moveTo(0,y);g.lineTo(W,y);}
-  g.stroke();
-  g.textAlign='center';
-  for(const f of ED.flow){
-    g.fillStyle='rgba(56,140,220,0.13)';g.fillRect(0,f.y,W,f.h);
-    g.fillStyle='rgba(30,100,180,0.55)';g.font='bold 20px Courier New, monospace';
-    for(let x=60;x<W;x+=120)g.fillText(f.dir>0?'→':'←',x,f.y+f.h/2+7);
+  g.lineWidth=1;
+  for(let x=0;x<=TCOLS;x++){g.strokeStyle=x%4?'rgba(0,40,60,0.06)':ac.grid;g.beginPath();g.moveTo(x*TILE,0);g.lineTo(x*TILE,H);g.stroke();}
+  for(let y=0;y<=TROWS;y++){g.strokeStyle=y%4?'rgba(0,40,60,0.06)':ac.grid;g.beginPath();g.moveTo(0,y*TILE);g.lineTo(W,y*TILE);g.stroke();}
+  const tp={};
+  for(let i=0;i<TILE_N;i++){
+    const ch=edCells[i];
+    if(ch==='.'||ch==='S')continue;
+    const x=(i%TCOLS)*TILE,y=Math.floor(i/TCOLS)*TILE,L=TILE_LOOK[ch],cx=x+TILE/2,cy=y+TILE/2;
+    if(ch==='O'){
+      g.strokeStyle='rgba(76,29,149,0.35)';g.setLineDash([3,6]);g.beginPath();g.arc(cx,cy,150,0,TAU);g.stroke();g.setLineDash([]);
+      g.fillStyle=L[0];g.beginPath();g.arc(cx,cy,11,0,TAU);g.fill();g.strokeStyle=L[1];g.lineWidth=2;g.stroke();g.lineWidth=1;
+    }else if(ch==='1'||ch==='2'||ch==='3'){
+      (tp[ch]=tp[ch]||[]).push([cx,cy]);
+      g.strokeStyle=L[1];g.lineWidth=3;g.beginPath();g.arc(cx,cy,10,0,TAU);g.stroke();g.lineWidth=1;
+      g.fillStyle=L[1];g.font='bold 11px Courier New, monospace';g.fillText(ch,cx,cy+1);
+    }else{
+      g.fillStyle=L[0];g.fillRect(x+1,y+1,TILE-2,TILE-2);
+      g.strokeStyle=L[1];g.lineWidth=ch==='H'||ch==='V'?2.5:1.5;g.strokeRect(x+1.5,y+1.5,TILE-3,TILE-3);g.lineWidth=1;
+      if(L[2]){g.fillStyle=L[1];g.font='bold 14px Courier New, monospace';g.fillText(L[2],cx,cy+1);}
+    }
+    // твёрдое вплотную к старту в игре не сработает — помечаем крестом
+    if(SOLID_TILES.indexOf(ch)>=0&&nearStartCell(i,st)){
+      g.strokeStyle='#dc2626';g.lineWidth=2;g.beginPath();g.moveTo(x+4,y+4);g.lineTo(x+TILE-4,y+TILE-4);g.moveTo(x+TILE-4,y+4);g.lineTo(x+4,y+TILE-4);g.stroke();g.lineWidth=1;
+    }
   }
-  const circ=(x,y,r,fill,stroke,label)=>{
-    g.fillStyle=fill;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();
-    g.strokeStyle=stroke;g.lineWidth=2;g.setLineDash([4,5]);g.stroke();g.setLineDash([]);
-    if(label){g.fillStyle=stroke;g.font='bold 13px Courier New, monospace';g.fillText(label,x,y+5);}
-  };
-  for(const z of ED.lag)circ(z.x,z.y,z.r,'rgba(100,110,130,0.13)','#556','ЛАГ');
-  for(const z of ED.inv)circ(z.x,z.y,z.r,'rgba(219,39,119,0.09)','#be185d','ИНВЕРСИЯ');
-  for(const h of ED.holes){circ(h.x,h.y,h.R,'rgba(76,29,149,0.05)','rgba(76,29,149,0.6)','');g.fillStyle='#1e1b4b';g.beginPath();g.arc(h.x,h.y,15,0,TAU);g.fill();}
-  for(const q of ED.walls){g.fillStyle='#cfd8e3';g.fillRect(q.x,q.y,q.w,q.h);g.strokeStyle='#64748b';g.lineWidth=2;g.strokeRect(q.x+1,q.y+1,q.w-2,q.h-2);}
-  for(const q of ED.gates){g.fillStyle='rgba(220,38,38,0.25)';g.fillRect(q.x,q.y,q.w,q.h);g.strokeStyle='#dc2626';g.lineWidth=2;g.strokeRect(q.x+1,q.y+1,q.w-2,q.h-2);}
-  for(const m of ED.mov){
-    const z=moverZone(m);
-    g.strokeStyle='rgba(202,138,4,0.7)';g.lineWidth=1.5;g.setLineDash([3,4]);g.strokeRect(z.x,z.y,z.w,z.h);g.setLineDash([]);
-    g.fillStyle='#e2e9f1';g.fillRect(m.x,m.y,m.w,m.h);g.strokeStyle='#ca8a04';g.lineWidth=3;g.strokeRect(m.x+1.5,m.y+1.5,m.w-3,m.h-3);
+  for(const k in tp)if(tp[k].length===2){
+    g.strokeStyle=TILE_LOOK[k][1];g.globalAlpha=0.4;g.setLineDash([2,6]);g.beginPath();g.moveTo(tp[k][0][0],tp[k][0][1]);g.lineTo(tp[k][1][0],tp[k][1][1]);g.stroke();g.setLineDash([]);g.globalAlpha=1;
   }
-  ED.tps.forEach((pr,k)=>{
-    const col=['#7a4fd6','#d6408a','#2b8a9e'][k%3];
-    g.strokeStyle=col;g.lineWidth=3;
-    for(const q of pr){g.beginPath();g.arc(q.x,q.y,TP_R,0,TAU);g.stroke();}
-    g.globalAlpha=0.35;g.setLineDash([2,6]);g.beginPath();g.moveTo(pr[0].x,pr[0].y);g.lineTo(pr[1].x,pr[1].y);g.stroke();g.setLineDash([]);g.globalAlpha=1;
-  });
-  if(edTp){g.strokeStyle='#7a4fd6';g.lineWidth=3;g.setLineDash([4,4]);g.beginPath();g.arc(edTp.x,edTp.y,TP_R,0,TAU);g.stroke();g.setLineDash([]);}
-  if(ED.scan){
-    g.strokeStyle='rgba(220,38,38,0.5)';g.lineWidth=2;
-    for(let k=0;k<ED.scan;k++){const a=-Math.PI/2+k*Math.PI;g.beginPath();g.moveTo(W/2+Math.cos(a)*46,H/2+Math.sin(a)*46);g.lineTo(W/2+Math.cos(a)*470,H/2+Math.sin(a)*470);g.stroke();}
+  // старт и место вокруг него
+  g.strokeStyle='#0aa';g.lineWidth=2;g.setLineDash([5,5]);g.beginPath();g.arc(st.x,st.y,START_R,0,TAU);g.stroke();g.setLineDash([]);
+  g.fillStyle='#0cc';g.beginPath();g.arc(st.x,st.y,12,0,TAU);g.fill();
+  g.fillStyle='#057';g.font='bold 12px Courier New, monospace';g.fillText('СТАРТ',st.x,st.y+26);
+  // оси симметрии
+  if(edSym!=='none'){
+    g.strokeStyle='rgba(170,34,170,0.55)';g.lineWidth=2;g.setLineDash([8,6]);g.beginPath();
+    if(edSym==='h'||edSym==='hv'){g.moveTo(W/2,0);g.lineTo(W/2,H);}
+    if(edSym==='v'||edSym==='hv'){g.moveTo(0,H/2);g.lineTo(W,H/2);}
+    g.stroke();g.setLineDash([]);
+    if(edSym==='r'){g.fillStyle='rgba(170,34,170,0.7)';g.beginPath();g.arc(W/2,H/2,5,0,TAU);g.fill();}
+    g.lineWidth=1;
   }
-  g.strokeStyle='#0aa';g.lineWidth=2;g.setLineDash([5,5]);g.beginPath();g.arc(W/2,H/2,START_R,0,TAU);g.stroke();g.setLineDash([]);
-  g.fillStyle='#0cc';g.beginPath();g.arc(W/2,H/2,14,0,TAU);g.fill();
-  g.fillStyle='#057';g.font='bold 13px Courier New, monospace';g.fillText('СТАРТ',W/2,H/2+34);
-  if(edDrag&&edDrag.box){
-    const q=edDrag.box;
-    g.strokeStyle='#a2a';g.lineWidth=2;g.setLineDash([6,4]);
-    if(q.r){g.beginPath();g.arc(q.x,q.y,q.r,0,TAU);g.stroke();}else g.strokeRect(q.x,q.y,q.w,q.h);
-    g.setLineDash([]);
+  // клетка под курсором и её зеркальные копии
+  if(edHover>=0&&!edStroke){
+    const pts=edBrush==='S'?[[edHover%TCOLS,Math.floor(edHover/TCOLS)]]:symPoints(edHover%TCOLS,Math.floor(edHover/TCOLS));
+    g.strokeStyle='#a2a';g.lineWidth=2;
+    for(const p of pts)g.strokeRect(p[0]*TILE+1,p[1]*TILE+1,TILE-2,TILE-2);
+    g.lineWidth=1;
   }
+  g.textBaseline='alphabetic';
 }
-const edSnap=v=>Math.round(v/10)*10;
-const ED_SIZE={wall:[100,20],gate:[120,16],mov:[100,24]};
-function edPos(e,cv){const r=cv.getBoundingClientRect();return{x:Math.max(0,Math.min(W,(e.clientX-r.left)/r.width*W)),y:Math.max(0,Math.min(H,(e.clientY-r.top)/r.height*H))};}
+// зеркальные клетки для выбранной симметрии (с самой клеткой первой)
+function symPoints(x,y){
+  const pts=[[x,y]],add=(a,b)=>{if(!pts.some(p=>p[0]===a&&p[1]===b))pts.push([a,b]);};
+  const mx=TCOLS-1-x,my=TROWS-1-y;
+  if(edSym==='h')add(mx,y);
+  else if(edSym==='v')add(x,my);
+  else if(edSym==='hv'){add(mx,y);add(x,my);add(mx,my);}
+  else if(edSym==='r')add(mx,my);
+  return pts;
+}
+// в зеркальной клетке стрелка потока смотрит в зеркальную сторону
+function symTile(ch,x0,y0,x,y){
+  const fx=x!==x0,fy=y!==y0;
+  if(fx&&ch==='>')return '<';
+  if(fx&&ch==='<')return '>';
+  if(fy&&ch==='^')return 'v';
+  if(fy&&ch==='v')return '^';
+  return ch;
+}
+function edCellAt(e,cv){
+  const r=cv.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*TCOLS),y=Math.floor((e.clientY-r.top)/r.height*TROWS);
+  return x>=0&&y>=0&&x<TCOLS&&y<TROWS?y*TCOLS+x:-1;
+}
+// одиночные предметы ставятся нажатием, остальное рисуется, пока ведёшь
+const ED_ONE='OST123M';
 function edBind(){
   const cv=$id('ed');
   if(!cv)return;
-  cv.addEventListener('pointerdown',e=>{e.preventDefault();const p=edPos(e,cv);edDrag={x0:p.x,y0:p.y,box:null};try{cv.setPointerCapture(e.pointerId);}catch(_){}});
-  cv.addEventListener('pointermove',e=>{if(!edDrag)return;const p=edPos(e,cv);edDrag.box=edShape(edDrag.x0,edDrag.y0,p.x,p.y);edDraw();});
-  cv.addEventListener('pointerup',e=>{if(!edDrag)return;const p=edPos(e,cv),d=edDrag;edDrag=null;edPlace(d.x0,d.y0,p.x,p.y);});
-  cv.addEventListener('pointercancel',()=>{edDrag=null;edDraw();});
+  cv.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    const i=edCellAt(e,cv);
+    if(i<0)return;
+    try{cv.setPointerCapture(e.pointerId);}catch(_){}
+    edStroke={last:i,changed:false,note:''};edPushUndo();edPaint(i);edDraw();
+  });
+  cv.addEventListener('pointermove',e=>{
+    const i=edCellAt(e,cv);
+    if(edStroke){if(i>=0&&i!==edStroke.last&&ED_ONE.indexOf(edBrush)<0){edLine(edStroke.last,i);edStroke.last=i;edDraw();}}
+    else if(i!==edHover){edHover=i;edDraw();}
+  });
+  const end=()=>{
+    if(!edStroke)return;
+    const s=edStroke;edStroke=null;
+    if(s.changed){edRedoS=[];edChanged();}else edUndoS.pop();
+    if(s.note)edSay(s.note);
+    edDraw();
+  };
+  cv.addEventListener('pointerup',end);
+  cv.addEventListener('pointercancel',end);
+  cv.addEventListener('pointerleave',()=>{if(!edStroke&&edHover>=0){edHover=-1;edDraw();}});
   edDraw();
 }
-// что получится из нажатия (x0,y0) и отпускания (x1,y1) выбранным инструментом
-function edShape(x0,y0,x1,y1){
-  const t=edTool;
-  if(ED_SIZE[t]){
-    let x,y,w,h;
-    if(Math.abs(x1-x0)<12&&Math.abs(y1-y0)<12){w=ED_SIZE[t][0];h=ED_SIZE[t][1];x=edSnap(x0-w/2);y=edSnap(y0-h/2);}
-    else{x=edSnap(Math.min(x0,x1));y=edSnap(Math.min(y0,y1));w=Math.max(10,edSnap(Math.abs(x1-x0)));h=Math.max(10,edSnap(Math.abs(y1-y0)));}
-    w=Math.min(w,W);h=Math.min(h,H);
-    return{x:Math.max(0,Math.min(W-w,x)),y:Math.max(0,Math.min(H-h,y)),w,h};
+// клетки между двумя точками мазка (быстрое движение не оставляет дыр)
+function edLine(a,b){
+  let x0=a%TCOLS,y0=Math.floor(a/TCOLS);
+  const x1=b%TCOLS,y1=Math.floor(b/TCOLS),dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+  let err=dx+dy;
+  while(x0!==x1||y0!==y1){
+    const e2=2*err;
+    if(e2>=dy){err+=dy;x0+=sx;}
+    if(e2<=dx){err+=dx;y0+=sy;}
+    edPaint(y0*TCOLS+x0);
   }
-  if(t==='lag'||t==='inv'){const d=Math.hypot(x1-x0,y1-y0);return{x:edSnap(x0),y:edSnap(y0),r:d<12?80:Math.max(40,Math.min(130,edSnap(d)))};}
-  return null;
 }
-function edFull(k){if(ED[k].length<ED_MAX[k])return false;edSay('Больше '+ED_MAX[k]+' таких не поставить.');edDraw();return true;}
-function edNo(t){edSay(t);edDraw();}
-function edPlace(x0,y0,x1,y1){
-  const t=edTool,s=edShape(x0,y0,x1,y1);
-  let key=null;
-  if(t==='wall'||t==='gate'){
-    key=t==='wall'?'walls':'gates';
-    if(edFull(key))return;
-    if(rectNearStart(s,START_R))return edNo('Слишком близко к старту игрока — отодвинь.');
-    if(t==='gate')s.o=ED.gates.length*100%300;
-    ED[key].push(s);
-  }else if(t==='mov'){
-    key='mov';
-    if(edFull(key))return;
-    const m=Object.assign(s,{ax:0,ay:0,sp:0.012,ph:ED.mov.length*1.6});
-    if(m.w>=m.h)m.ax=Math.max(0,Math.min(120,m.x,W-m.x-m.w));else m.ay=Math.max(0,Math.min(120,m.y,H-m.y-m.h));
-    if(rectNearStart(moverZone(m),START_R))return edNo('Путь блока задевает старт игрока — отодвинь.');
-    ED.mov.push(m);
-  }else if(t==='lag'||t==='inv'){
-    key=t;
-    if(edFull(key))return;
-    ED[key].push(s);
-  }else if(t==='hole'){
-    key='holes';
-    if(edFull(key))return;
-    const x=Math.max(20,Math.min(W-20,edSnap(x1))),y=Math.max(20,Math.min(H-20,edSnap(y1)));
-    if(Math.hypot(x-W/2,y-H/2)<15+START_R+40)return edNo('Чёрная дыра у самого старта — поставь подальше.');
-    ED.holes.push({x,y,R:150});
-  }else if(t==='flow'){
-    key='flow';
-    if(edFull(key))return;
-    const y=Math.max(0,Math.min(H-60,edSnap(y1-30)));
-    if(ED.flow.some(f=>y<f.y+f.h&&f.y<y+60))return edNo('Здесь уже есть поток.');
-    ED.flow.push({y,h:60,dir:ED.flow.length%2?-1:1});
-  }else if(t==='tp'){
-    const p={x:Math.max(30,Math.min(W-30,edSnap(x1))),y:Math.max(30,Math.min(H-30,edSnap(y1)))};
-    if(Math.hypot(p.x-W/2,p.y-H/2)<START_R)return edNo('Роутер на старте не поставить.');
-    if(!edTp){
-      if(edFull('tps'))return;
-      edTp=p;return edNo('Теперь нажми, где будет второе кольцо этой пары.');
+function edPaint(i){
+  const ch=edBrush,x0=i%TCOLS,y0=Math.floor(i/TCOLS);
+  let pts=ch==='S'?[[x0,y0]]:symPoints(x0,y0);
+  if(ch==='1'||ch==='2'||ch==='3')pts=pts.slice(0,2);
+  const st=ch==='S'?cellCenter(i):startOf(edCells);
+  if(ch==='S'){
+    for(let k=0;k<TILE_N;k++)if(SOLID_TILES.indexOf(edCells[k])>=0&&nearStartCell(k,st)){edStroke.note='Здесь вплотную стены и предметы — освободи место для старта.';return;}
+    const old=edCells.indexOf('S');
+    if(old>=0)edCells[old]='.';
+  }
+  for(const [x,y] of pts){
+    const j=y*TCOLS+x,t=symTile(ch,x0,y0,x,y);
+    if(edCells[j]===t)continue;
+    if(t!=='.'&&t!=='S'){
+      if(SOLID_TILES.indexOf(t)>=0&&nearStartCell(j,st)){edStroke.note='Вплотную к старту ничего твёрдого не ставится.';continue;}
+      const lim=TILE_MAX[t];
+      if(lim&&edCount(t)>=lim){edStroke.note=TILES[t].charAt(0).toUpperCase()+TILES[t].slice(1)+': больше '+lim+' не поставить.';continue;}
     }
-    if(Math.hypot(p.x-edTp.x,p.y-edTp.y)<=60)return edNo('Кольца пары должны стоять подальше друг от друга.');
-    ED.tps.push([edTp,p]);edTp=null;key='tps';
-  }else if(t==='erase'){
-    const del=edErase(x1,y1);
-    if(!del)return edNo('Здесь нечего стирать.');
-    edHist.push(del);
+    edCells[j]=t;edStroke.changed=true;
   }
-  if(key)edHist.push({k:key});
-  edChanged();
 }
-function edErase(x,y){
-  const inR=q=>x>=q.x&&x<=q.x+q.w&&y>=q.y&&y<=q.y+q.h,inC=z=>Math.hypot(z.x-x,z.y-y)<z.r;
-  const tries=[['tps',pr=>pr.some(q=>Math.hypot(q.x-x,q.y-y)<TP_R+4)],['holes',h=>Math.hypot(h.x-x,h.y-y)<30],['mov',inR],['gates',inR],['walls',inR],['inv',inC],['lag',inC],['flow',f=>y>=f.y&&y<=f.y+f.h]];
-  for(const [k,hit] of tries)for(let i=ED[k].length-1;i>=0;i--)if(hit(ED[k][i]))return{k,i,item:ED[k].splice(i,1)[0]};
-  return null;
-}
-// отмена: поставленное убирается, стёртое возвращается на место
+function edPushUndo(){edUndoS.push(edCells.join(''));if(edUndoS.length>60)edUndoS.shift();}
 function edUndo(){
-  const h=edHist.pop();
-  if(!h)return edSay('Отменять нечего.');
-  if(h.item)ED[h.k].splice(Math.min(h.i,ED[h.k].length),0,h.item);
-  else if(ED[h.k].length)ED[h.k].pop();
-  edChanged();
+  if(!edUndoS.length)return edSay('Отменять нечего.');
+  edRedoS.push(edCells.join(''));edCells=edUndoS.pop().split('');edChanged();
+}
+function edRedo(){
+  if(!edRedoS.length)return edSay('Возвращать нечего.');
+  edUndoS.push(edCells.join(''));edCells=edRedoS.pop().split('');edChanged();
 }
 function edTest(){
+  ED.map=cellsRows(edCells);
   const c=normLevel(ED);
   if(!c)return;
   edPersist();
@@ -4046,6 +4296,7 @@ function myLevelsHTML(){
   }).join('');
   return '<h2>МОИ УРОВНИ</h2><p>Черновики хранятся в этом браузере и сохраняются сами. Удаление черновика не снимает публикацию — её удаляют в «Сообществе».</p>'+
     mb('ednew','Новый уровень','primary')+
+    (NET_ON&&NET.user?'<div class="ai-drafts lcards"></div>':'')+
     '<div class="lcards">'+(rows||'<p>Пока ни одного — создай первый уровень.</p>')+'</div>'+mb('community','Назад');
 }
 
@@ -4421,6 +4672,115 @@ async function changePassword(){
     p1.value='';p2.value='';
     say('Пароль изменён. Входи с новым паролем.');
   }catch(e){say('Не получилось: '+(e.status===0?'нет связи с сервером.':errMsg(e)),true);}
+}
+
+// ================= ИИ ЧЕРЕЗ MCP =================
+// Игрок подключает ИИ-помощника к функции mcp своей базы (online/mcp.ts): без ключа ИИ только
+// читает, с ключом — складывает черновики уровней в «Мои уровни» → «От ИИ». Ключ виден один раз
+let mcpNewKey='';
+function mcpURL(){return ONLINE.supabaseUrl.replace(/\/+$/,'')+'/functions/v1/mcp';}
+function mcpHTML(){
+  if(!NET_ON)return '<h2>ИИ ЧЕРЕЗ MCP</h2><p>Подключать ИИ-помощника можно на сайте игры: '+escHTML(SITE_URL)+'</p>'+mb('main','Назад','primary');
+  const url=mcpURL();
+  const copy=(id,val,which)=>'<div class="copyrow"><input id="'+id+'" readonly value="'+escHTML(val)+'" aria-label="Адрес сервера">'+mb('mcpcopy:'+which,'Копировать','sm')+'</div>';
+  return '<h2>ИИ ЧЕРЕЗ MCP</h2>'+
+    '<p>Подключи ИИ-помощника — Claude, ChatGPT или другой с поддержкой MCP. Он сможет смотреть уровни сообщества, рекорды и профили, проверять карты и складывать тебе черновики уровней в «Мои уровни» → «От ИИ». Публикуешь их ты сам, пройдя в конструкторе.</p>'+
+    '<p class="lbl2">АДРЕС БЕЗ КЛЮЧА — ТОЛЬКО ЧТЕНИЕ</p>'+copy('mcp-pub',url,'pub')+
+    (NET.user
+      ?'<p class="lbl2">АДРЕС С КЛЮЧОМ — ЧЕРНОВИКИ В ТВОЙ АККАУНТ</p>'+
+        (mcpNewKey?'<p class="good">Ключ создан. Скопируй адрес сейчас — второй раз его не показать.</p>'+copy('mcp-key',url+'?key='+mcpNewKey,'key')+
+          '<p class="foot">Кто знает этот адрес, может складывать черновики в твой аккаунт. Не публикуй его; ненужный ключ отзови.</p>':'')+
+        mb('mcpnew','Создать ключ для ИИ','primary')+'<div class="mcp-keys lcards"><p class="foot">Загружаю ключи…</p></div>'
+      :'<p>Чтобы ИИ складывал черновики в твой аккаунт, войди и создай ключ.</p>')+
+    '<p class="lbl2">КАК ПОДКЛЮЧИТЬ</p><ul class="help">'+
+    '<li><b>Claude</b> (claude.ai и приложение): «Настройки» → «Коннекторы» → «Добавить свой коннектор» → вставь адрес.</li>'+
+    '<li><b>Claude Code</b>: <code>claude mcp add --transport http data-out "адрес"</code></li>'+
+    '<li><b>Другие помощники</b>: любой клиент MCP с подключением по HTTP (Streamable HTTP) — укажи адрес сервера.</li>'+
+    '<li>Потом попроси, например: «Прочитай формат уровней DATA.OUT и сделай мне симметричную арену с роутерами и двумя турелями».</li></ul>'+
+    mb('acct','Назад');
+}
+async function fillMcp(){
+  const box=panelEl.querySelector('.mcp-keys');
+  if(!box||!NET.user)return;
+  let rows;
+  try{const tok=await netToken();rows=await netFetch('/rest/v1/mcp_keys?select=id,label,created_at,last_used_at&order=created_at.desc',{headers:netHeaders(tok)});}
+  catch(_){if(panelEl.contains(box))box.textContent='Не удалось загрузить ключи.';return;}
+  if(!panelEl.contains(box))return;
+  box.textContent='';
+  (Array.isArray(rows)?rows:[]).forEach(k=>{
+    const card=document.createElement('div');card.className='lcard';
+    const b=document.createElement('b');b.textContent='Ключ «'+(edStr(k.label,40)||'без названия')+'»';
+    const sm=document.createElement('small');sm.textContent='создан '+fmtDate(Date.parse(k.created_at)||0)+' · '+(k.last_used_at?'ИИ подключался '+fmtDate(Date.parse(k.last_used_at)||0):'ещё не использовался');
+    const row=document.createElement('div');row.className='lacts';
+    const del=document.createElement('button');del.type='button';del.className='mbtn sm';del.dataset.act='mcpdel:'+Math.floor(Number(k.id)||0);del.textContent='Отозвать';
+    row.appendChild(del);card.append(b,sm,row);box.appendChild(card);
+  });
+  if(!box.childNodes.length){const p=document.createElement('p');p.className='foot';p.textContent='Ключей пока нет.';box.appendChild(p);}
+}
+async function mcpCreate(){
+  try{
+    const tok=await netToken();
+    const k=await netFetch('/rest/v1/rpc/mcp_key_create',{method:'POST',headers:netHeaders(tok),body:JSON.stringify({label:'ИИ '+fmtDate(Date.now())})});
+    if(typeof k!=='string'||!/^dok_[0-9a-f]{48}$/.test(k))throw new Error('сервер не выдал ключ');
+    mcpNewKey=k;
+  }catch(e){msg('Не получилось создать ключ: '+(e.status===0?'нет связи с сервером':errMsg(e)),6000);}
+  showMenu('mcp','mcpcopy:key');
+}
+async function mcpRevoke(id){
+  try{const tok=await netToken();await netFetch('/rest/v1/mcp_keys?id=eq.'+id,{method:'DELETE',headers:netHeaders(tok)});msg('Ключ отозван — с ним ИИ больше не подключится.');}
+  catch(e){msg('Не получилось: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+  showMenu('mcp');
+}
+function mcpCopy(which){
+  const inp=$id(which==='key'?'mcp-key':'mcp-pub');
+  if(!inp)return;
+  inp.focus();inp.select();
+  const done=()=>msg('Адрес скопирован.'),old=()=>{try{document.execCommand('copy');done();}catch(_){msg('Адрес выделен — скопируй его вручную.');}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(inp.value).then(done,old);else old();
+}
+// «Мои уровни» → «От ИИ»: черновики, которые ИИ сложил через MCP
+async function fillAiDrafts(){
+  const box=panelEl.querySelector('.ai-drafts');
+  if(!box||!NET_ON||!NET.user)return;
+  let rows;
+  try{const tok=await netToken();rows=await netFetch('/rest/v1/level_drafts?select=id,name,updated_at&order=updated_at.desc',{headers:netHeaders(tok)});}
+  catch(_){return;}
+  if(!panelEl.contains(box))return;
+  box.textContent='';
+  rows=Array.isArray(rows)?rows:[];
+  if(!rows.length)return;
+  const lb=document.createElement('p');lb.className='lbl2';lb.textContent='ОТ ИИ — ОТКРОЙ В КОНСТРУКТОРЕ, ПРОЙДИ И ОПУБЛИКУЙ';box.appendChild(lb);
+  rows.forEach(d=>{
+    const id=Math.floor(Number(d.id)||0);
+    const card=document.createElement('div');card.className='lcard';
+    const b=document.createElement('b');b.textContent=edStr(d.name,30)||'Без названия';
+    const sm=document.createElement('small');sm.textContent='от ИИ · '+fmtDate(Date.parse(d.updated_at)||0);
+    const row=document.createElement('div');row.className='lacts';
+    const btn=(act,label,cls)=>{const x=document.createElement('button');x.type='button';x.className='mbtn sm'+(cls?' '+cls:'');x.dataset.act=act;x.textContent=label;row.appendChild(x);};
+    btn('aiopen:'+id,'Открыть','primary');btn('aidel:'+id,'Удалить');
+    card.append(b,sm,row);box.appendChild(card);
+  });
+}
+// черновик от ИИ переезжает в свои черновики (в этом браузере) и пропадает из базы
+async function aiOpen(id){
+  if(draftsLoad().length>=DRAFT_MAX){msg('Черновиков уже '+DRAFT_MAX+' — удали ненужные, чтобы открыть этот.',6000);return;}
+  try{
+    const tok=await netToken();
+    const rows=await netFetch('/rest/v1/level_drafts?select=id,name,data&id=eq.'+id,{headers:netHeaders(tok)});
+    const d=Array.isArray(rows)&&rows[0];
+    if(!d||!d.data||typeof d.data!=='object'){msg('Черновик не найден.');return;}
+    const lv=edFromData(d.data);
+    lv.name=edStr(d.data.name||d.name,30);
+    edBrush='#';edSym='none';edTab='map';
+    edOpen(lv,null,'');
+    edPersist();
+    if(edDraft)netFetch('/rest/v1/level_drafts?id=eq.'+id,{method:'DELETE',headers:netHeaders(tok)}).catch(()=>{});
+  }catch(e){msg('Не получилось открыть: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+}
+async function aiDelete(id){
+  try{const tok=await netToken();await netFetch('/rest/v1/level_drafts?id=eq.'+id,{method:'DELETE',headers:netHeaders(tok)});}
+  catch(e){msg('Не получилось удалить: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
+  showMenu('mylevels');
 }
 
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
