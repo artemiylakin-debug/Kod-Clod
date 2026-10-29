@@ -1348,7 +1348,7 @@ const SKIN_SHAPES=[
 const TRAILS=[
   {name:'ОБЫЧНЫЙ'},{name:'ПИКСЕЛИ',price:200},{name:'ИСКРЫ',price:350},{name:'ОГОНЬ',price:500},
   {name:'ДВОИЧНЫЙ',price:700},{name:'РАДУГА',price:1000},{name:'КОМЕТА',act:1},{name:'ЗОЛОТАЯ ПЫЛЬ',sup:true},
-  {name:'СОЗВЕЗДИЕ',act:9},{name:'СЕРДЕЧКИ',sup:true},{name:'ПУЗЫРИ',price:900}
+  {name:'СОЗВЕЗДИЕ',act:9},{name:'СЕРДЕЧКИ',sup:true},{name:'ПУЗЫРИ',price:900},{name:'ХВОСТ ЧЁРТА',price:666}
 ];
 const HATS=[
   {name:'БЕЗ НИЧЕГО'},{name:'АНТЕННА',price:150},{name:'КЕПКА',price:300},{name:'НАУШНИКИ',price:400},
@@ -1390,6 +1390,8 @@ function guessTier(){
 const canVibrate=typeof navigator.vibrate==='function';
 
 const SAVE_KEY='dataout-v5';
+// нарядов в облике — не больше (читается уже при загрузке сохранения)
+const OUTFIT_MAX=8;
 // раньше в игре было 100, потом 200 уровней: кто её прошёл, тот сохранён с уровнем 100 или 200 и побегом.
 // В нынешней игре побег бывает только с открытым последним уровнем — таким игрокам открываем следующий
 function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
@@ -1397,7 +1399,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,mus:2,mpWins:0,mpRaces:0,nick:'',bio:''};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1423,6 +1425,7 @@ try{
     save.wins=clampInt(s.wins,0,1e6,0);
     save.unlocked=pastFinal(save.unlocked,save.wins);
     save.nick=typeof s.nick==='string'?s.nick.slice(0,20):'';
+    save.outfits=parseOutfits(s.outfits);
     save.bio=typeof s.bio==='string'?s.bio.slice(0,200):'';
   }
 }catch(_){}
@@ -1472,9 +1475,59 @@ function owned(cat,i){
 function wornLook(){
   return{c:owned('c',save.color)?save.color:0,s:owned('s',save.shape)?save.shape:0,t:owned('t',save.trail)?save.trail:0,h:owned('h',save.hat)?save.hat:0};
 }
+// наряды: облик целиком (цвет, форма, след, аксессуар) под своим названием. Хранятся в сохранении,
+// на сайте — ещё и в данных аккаунта (user_metadata), в артефакте — в личном документе базы.
+// Наряд хранит только номера предметов: надеть можно лишь то, что уже есть, остальное — примерка
+const OUTFIT_IDEAS=[{n:'ЧЁРТ',c:4,s:4,t:11,h:5},{n:'КИБОРГ',c:9,s:6,t:4,h:14},{n:'КОСМОНАВТ',c:11,s:1,t:8,h:23},{n:'ГЛИТЧ',c:1,s:4,t:1,h:15},{n:'КОРОЛЬ',c:2,s:5,t:7,h:13}];
+function outfitName(v){return typeof v==='string'?v.replace(/[\u0000-\u001f\u007f<>&"'`\\]/g,'').replace(/\s+/g,' ').trim().slice(0,16):'';}
+function parseOutfits(v){
+  const out=[];
+  for(const o of Array.isArray(v)?v:[]){
+    const n=o&&outfitName(o.n);
+    if(!n||out.some(x=>x.n===n))continue;
+    out.push({n,c:clampInt(o.c,0,SKIN_COLORS.length-1,0),s:clampInt(o.s,0,SKIN_SHAPES.length-1,0),t:clampInt(o.t,0,TRAILS.length-1,0),h:clampInt(o.h,0,HATS.length-1,0)});
+    if(out.length>=OUTFIT_MAX)break;
+  }
+  return out;
+}
+// наряды из аккаунта добавляются к своим; при совпадении названий остаётся свой
+function mergeOutfits(v){save.outfits=parseOutfits(save.outfits.concat(parseOutfits(v)));}
+function outfitMissing(o){return [['c',o.c],['s',o.s],['t',o.t],['h',o.h]].filter(([k,i])=>!owned(k,i)).map(([k,i])=>catOf(k).list[i].name);}
+function outfitOn(o){const L=wornLook();return L.c===o.c&&L.s===o.s&&L.t===o.t&&L.h===o.h;}
+function wearOutfit(o){
+  if(!o)return;
+  const miss=outfitMissing(o);
+  tryOn=null;
+  if(!miss.length){save.color=o.c;save.shape=o.s;save.trail=o.t;save.hat=o.h;tryLook=null;persist();msg('Наряд «'+o.n+'» надет.');}
+  else{tryLook={c:o.c,s:o.s,t:o.t,h:o.h};msg('Примеряешь «'+o.n+'». Не хватает: '+miss.join(', ')+'.',6000);}
+}
+function saveOutfit(){
+  const inp=$id('of-name');
+  const L=wornLook(),n=outfitName(inp&&inp.value)||'НАРЯД '+(save.outfits.length+1);
+  const i=save.outfits.findIndex(x=>x.n===n);
+  if(i<0&&save.outfits.length>=OUTFIT_MAX){msg('Нарядов уже '+OUTFIT_MAX+' — удали ненужный (✕), чтобы сохранить новый.',6000);return;}
+  const o={n,c:L.c,s:L.s,t:L.t,h:L.h};
+  if(i>=0)save.outfits[i]=o;else save.outfits.push(o);
+  persist();outfitsCloud();
+  msg('Наряд «'+n+'» сохранён.');
+}
+function delOutfit(i){if(save.outfits[i]){save.outfits.splice(i,1);persist();outfitsCloud();}}
+// на сайте наряды лежат в данных аккаунта — видны на любом устройстве
+async function outfitsCloud(){
+  if(!NET_ON||!NET.user)return;
+  try{const tok=await netToken();if(tok)await netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body:JSON.stringify({data:{outfits:save.outfits}})});}
+  catch(_){msg('Наряд сохранён на этом устройстве — в аккаунт попадёт, когда будет связь.');}
+}
+function outfitsHTML(){
+  const mine=save.outfits.map((o,i)=>chip('outfit:'+i,escHTML(o.n),outfitOn(o))+'<button type="button" class="chip" data-act="ofdel:'+i+'" aria-label="Удалить наряд '+escHTML(o.n)+'">'+(armed==='ofdel:'+i?'точно?':'✕')+'</button>').join('');
+  return '<p class="lbl2">НАРЯДЫ — СОБЕРИ ОБЛИК ЦЕЛИКОМ</p>'+
+    (mine?'<div class="chips">'+mine+'</div>':'<p>Нарядов пока нет. Надень цвет, форму, след и аксессуар — и сохрани их вместе.</p>')+
+    '<div class="copyrow"><input id="of-name" maxlength="16" placeholder="Название наряда" aria-label="Название наряда">'+mb('ofsave','Сохранить надетое','sm')+'</div>'+
+    '<p class="lbl2">ИДЕИ — НАЖМИ, ЧТОБЫ ПРИМЕРИТЬ</p><div class="chips">'+OUTFIT_IDEAS.map((o,i)=>chip('ofidea:'+i,o.n,outfitOn(o))).join('')+'</div>';
+}
 // примерка в магазине: показывается только в превью, в игре — надетое
-let shopTab='c',tryOn=null;
-function previewLook(){const L=wornLook();if(tryOn)L[tryOn.cat]=tryOn.i;return L;}
+let shopTab='c',tryOn=null,tryLook=null;
+function previewLook(){const L=wornLook();if(tryLook)Object.assign(L,tryLook);if(tryOn)L[tryOn.cat]=tryOn.i;return L;}
 // у радуги цвет меняется со временем; остальные цвета — как есть
 function hslHex(h,s,l){
   const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l);
@@ -2990,6 +3043,7 @@ function drawHat(c,h,rr,sk,t,f){
 // шлейф по стилю следа; pts — точки {x,y,life,hot}, max — их полная жизнь
 function drawTrail(c,pts,L,sk,max,t){
   const st=L.t;
+  if(st===11){drawTail(c,pts,sk,t);return;}
   for(let i=0;i<pts.length;i++){
     const q=pts[i],a=Math.min(1,q.life/max);
     c.globalAlpha=a*(q.hot?0.6:(st===0?0.35:0.5));
@@ -3026,6 +3080,46 @@ function drawTrail(c,pts,L,sk,max,t){
     else{c.fillStyle=q.hot===1?sk.main:sk.trail;c.beginPath();c.arc(q.x,q.y,3+6*a,0,TAU);c.fill();}
   }
   c.globalAlpha=1;c.lineCap='butt';
+}
+// хвост чёрта: гибкий хвост тянется за телом по пути движения, виляет и кончается стрелкой-пикой.
+// Стоишь на месте — хвост свисает и покачивается
+function drawTail(c,pts,sk,t){
+  const n=pts.length;
+  if(!n)return;
+  // точки через каждые 6 px назад по пути движения, всего 12 звеньев; не хватило пути — хвост свисает вниз
+  const SEG=6,NSEG=12,P=[{x:pts[n-1].x,y:pts[n-1].y}];
+  let px=P[0].x,py=P[0].y,need=SEG;
+  for(let i=n-2;i>=0&&P.length<=NSEG;i--){
+    let qx=pts[i].x,qy=pts[i].y,d=Math.hypot(qx-px,qy-py);
+    while(d>=need&&P.length<=NSEG){const k=need/d;px+=(qx-px)*k;py+=(qy-py)*k;P.push({x:px,y:py});d-=need;need=SEG;}
+    need-=d;px=qx;py=qy;
+  }
+  while(P.length<=NSEG){const l=P[P.length-1],j=P.length;P.push({x:l.x-0.8+Math.sin(t*0.08+j*0.5)*0.9,y:l.y+SEG*0.95});}
+  // шаги по пути: изгиб сильнее к кончику
+  for(let j=1;j<P.length;j++){
+    const a=P[j-1],b=P[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,w=Math.sin(t*0.18+j*0.7)*j*0.3;
+    b.x+=-dy/d*w;b.y+=dx/d*w;
+  }
+  const m=P.length-1;
+  if(m<1)return;
+  c.lineCap='round';c.lineJoin='round';
+  for(const pass of [0,1]){
+    for(let j=1;j<=m;j++){
+      c.strokeStyle=pass?sk.main:sk.dark;
+      c.lineWidth=(6-4*j/m)+(pass?0:2.5);
+      c.beginPath();c.moveTo(P[j-1].x,P[j-1].y);c.lineTo(P[j].x,P[j].y);c.stroke();
+    }
+  }
+  // пика на кончике
+  const e=P[m],f=P[m-1],dx=e.x-f.x,dy=e.y-f.y,d=Math.hypot(dx,dy)||1,ux=dx/d,uy=dy/d,vx=-uy,vy=ux;
+  c.beginPath();
+  c.moveTo(e.x+ux*10,e.y+uy*10);
+  c.lineTo(e.x+vx*5.5-ux*1,e.y+vy*5.5-uy*1);
+  c.lineTo(e.x+ux*1.5,e.y+uy*1.5);
+  c.lineTo(e.x-vx*5.5-ux*1,e.y-vy*5.5-uy*1);
+  c.closePath();
+  c.fillStyle=sk.main;c.fill();c.strokeStyle=sk.dark;c.lineWidth=1.5;c.stroke();
+  c.lineCap='butt';c.lineJoin='miter';
 }
 function bossSprite(b){
   if(!b.spr){
@@ -3844,6 +3938,7 @@ function panelHTML(s){
       '<canvas id="pv" width="360" height="168" aria-label="Как выглядит твой файл"></canvas>'+
       '<div class="chips">'+CATS.map(x=>chip('tab:'+x.id,x.name,x.id===shopTab)).join('')+'</div>'+
       '<div class="chips items">'+cat.list.map((x,i)=>itemChip(cat,i,cur)).join('')+'</div>'+info+
+      outfitsHTML()+
       '<p class="foot">Нажми на предмет, чтобы примерить. Купленное надевается сразу. На клавиатуре: ← → предмет, ↑ ↓ раздел.</p>'+
       mb('main','Готово','primary');
   }
@@ -3937,7 +4032,7 @@ function panelHTML(s){
   return '';
 }
 function showMenu(s,focusAct){
-  if(s!=='skins')tryOn=null;
+  if(s!=='skins'){tryOn=null;tryLook=null;}
   if(s!=='profile')pvLook=null;
   // новый ключ MCP показывается один раз — уходим с экрана, и он больше не виден
   if(s!=='mcp')mcpNewKey='';
@@ -3968,6 +4063,7 @@ function showMenu(s,focusAct){
   if(s==='mcp')fillMcp();
   if(s==='mylevels')fillAiDrafts();
   if(s==='race')mpBind();
+  if(s==='skins'){const inp=$id('of-name');if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveOutfit();showMenu('skins','ofsave');}});}
   if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
 }
 function hideMenu(){
@@ -3997,6 +4093,7 @@ function itemChip(cat,i,cur){
 function pickItem(cat,i,focusAct){
   const c=catOf(cat);
   if(!c.list[i])return;
+  tryLook=null;
   if(owned(cat,i)){save[c.key]=i;tryOn=null;persist();}
   else tryOn={cat,i};
   showMenu('skins',focusAct||'item:'+cat+':'+i);
@@ -4024,6 +4121,10 @@ function act(a){
   else if(k==='tab'){shopTab=catOf(a.split(':')[1]).id;tryOn=null;showMenu('skins',a);}
   else if(k==='item')pickItem(a.split(':')[1],Number(a.split(':')[2]));
   else if(k==='buy')buyItem();
+  else if(k==='outfit'){wearOutfit(save.outfits[n]);showMenu('skins',a);}
+  else if(k==='ofidea'){wearOutfit(OUTFIT_IDEAS[n]);showMenu('skins',a);}
+  else if(k==='ofsave'){saveOutfit();showMenu('skins','ofsave');}
+  else if(k==='ofdel'){if(!sure){armBtn(a,'точно?');return;}delOutfit(n);showMenu('skins','ofsave');}
   else if(k==='sum'){donSum=n;showMenu('donate',a);}
   else if(k==='pay'){donPay=a.split(':')[1]==='PC'?'PC':'AC';showMenu('donate',a);}
   else if(k==='yoopay')payYoomoney();
@@ -6179,6 +6280,7 @@ function mergeCloud(d){
   save.shape=clampInt(d.shape,0,SKIN_SHAPES.length-1,save.shape);
   save.trail=clampInt(d.trail,0,TRAILS.length-1,save.trail);
   save.hat=clampInt(d.hat,0,HATS.length-1,save.hat);
+  if(d.outfits)mergeOutfits(d.outfits);
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
 }
 // одна запись за раз и только если прогресс поменялся
@@ -6186,7 +6288,7 @@ async function syncCloud(){
   if(acct.kind==='net')return netSync();
   if(!acct.db||acct.state==='readonly')return;
   if(acct.busy){acct.again=true;return;}
-  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0},lookBody());
+  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0,outfits:save.outfits},lookBody());
   const key=JSON.stringify(body),sk=save.best+'|'+save.unlocked+'|'+(save.wins||0);
   const needSave=key!==acct.cloudKey,needScore=save.best>0&&sk!==acct.scoreKey;
   if(!needSave&&!needScore){if(acct.state!=='synced')setAcctState('synced');return;}
@@ -6497,6 +6599,9 @@ async function netLoadUser(){
   if(!tok){if(NET.sess)setAcctState('error');else{setAcctState('netout');maybeGate();}return;}
   try{
     NET.user=await netFetch('/auth/v1/user',{headers:netHeaders(tok)});
+    // наряды из аккаунта; если на этом устройстве были новые — досылаем их в аккаунт
+    {const had=JSON.stringify(save.outfits);mergeOutfits((NET.user.user_metadata||{}).outfits);try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
+     if(JSON.stringify(parseOutfits((NET.user.user_metadata||{}).outfits))!==JSON.stringify(save.outfits)&&had!=='[]')outfitsCloud();}
     acct.id=NET.user.id;
     const rows=await netFetch('/rest/v1/progress?user_id=eq.'+encodeURIComponent(NET.user.id)+'&select=*',{headers:netHeaders(tok)});
     if(Array.isArray(rows)&&rows[0]){
@@ -6526,7 +6631,7 @@ async function netLogout(){
   // прогресс, имя в рекордах и облик принадлежат аккаунту и уже лежат в нём; настройки устройства остаются.
   // Если сохранить не удалось (нет связи), прогресс не стираем — он досохранится при следующем входе
   save.nick='';save.bio='';
-  if(kept)Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0});
+  if(kept)Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0,outfits:[]});
   persist();
   setAcctState('netout');
   showMenu('gate');
