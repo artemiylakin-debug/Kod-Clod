@@ -148,6 +148,12 @@
   .mbtn.sm{padding:6px 10px;font-size:12px;border-width:1px}
   .mbtn.liked{border-color:var(--heart);color:var(--heart)}
   .copyrow{display:flex;gap:6px;align-items:center}
+  .panel .mp-code{font:bold 30px var(--font);letter-spacing:6px;text-align:center;color:#7c3aed;margin:4px 0}
+  .panel .mp-count{font:bold 64px var(--font);text-align:center;color:#7c3aed;margin:8px 0}
+  .panel .mp-big{font-weight:bold;font-size:17px;text-align:center}
+  .mp-lv{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .mp-lv span{flex:1;min-width:120px;text-align:center}
+  #mp-code{text-transform:uppercase;letter-spacing:3px}
   .copyrow input{flex:1;min-width:0;font:12px var(--font);padding:7px 8px;border:2px solid var(--line);border-radius:8px;color:var(--ink);background:var(--keys-bg)}
   .help code{font-family:var(--font);background:var(--keys-bg);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
   @media (max-height:420px){.panel .intro{display:none}}
@@ -879,7 +885,9 @@ const DIFF_COMM={
   hard:{...DIFF.hard,cool:90,speed:1,bullet:1,fire:1,boss:1,bossHp:0,bossMin:3,thin:0,gate:100,goal:1,cap:0,ramp:5,hp:10,hazard:1,timer:0,dark:0,trip:1,heal:1,breed:1,trojan:1,startCut:0}
 };
 const DIFFS=['easy','med','hard'];
-function D(){const t=CUSTOM?DIFF_COMM:DIFF;return t[save.diff]||t.easy;}
+// идёт гонка (см. ГОНКА ниже): RACE_DIFF — её сложность, MP — состояние комнаты и соперника
+let RACE_DIFF='',MP=null;
+function D(){const t=CUSTOM?DIFF_COMM:DIFF;return t[RACE_DIFF||save.diff]||t.easy;}
 function maxLives(){return D().lives;}
 function goalOf(c){return Math.max(6,Math.round(c.goal*D().goal));}
 function timerOf(c){return c.timer?c.timer+D().timer:0;}
@@ -962,7 +970,7 @@ function pastFinal(u,w){return u===100&&w>0&&LEVELS.length>100?101:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,nick:'',bio:''};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,mus:2,mpWins:0,mpRaces:0,nick:'',bio:''};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -982,6 +990,9 @@ try{
     if(s.autoRes===0.75||s.autoRes===0.6)save.autoRes=s.autoRes;
     save.fps=s.fps===true;
     save.vib=s.vib!==false;
+    save.mus=clampInt(s.mus,0,3,2);
+    save.mpRaces=clampInt(s.mpRaces,0,1e6,0);
+    save.mpWins=Math.min(save.mpRaces,clampInt(s.mpWins,0,1e6,0));
     save.wins=clampInt(s.wins,0,1e6,0);
     save.unlocked=pastFinal(save.unlocked,save.wins);
     save.nick=typeof s.nick==='string'?s.nick.slice(0,20):'';
@@ -1059,7 +1070,7 @@ function colOf(i,t){
 }
 // биты текущего уровня: копятся в игре и записываются в сохранение на паузе, в меню и в конце уровня
 let runBits=0,lvBits=0;
-function bankBits(){if(CUSTOM){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
+function bankBits(){if(CUSTOM||RACE_DIFF){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
 
 let Q=QUALITY.high,resScale=1,perfT=0,perfFrames=0;
 function computeQuality(){
@@ -1365,12 +1376,14 @@ function hitPlayer(){
   player.vy=(Math.random()-0.5)*14;
   if(lives<=0){
     lives=0;
+    if(RACE_DIFF){mpDied();return;}
     if(!CUSTOM)save.best=Math.max(save.best,score);
     bankBits();persist();
     phase='dead';showMenu('dead');
   }
 }
 function levelClear(){
+  if(RACE_DIFF){mpFinished();return;}
   if(CUSTOM){customClear();return;}
   save.best=Math.max(save.best,score);
   runBits+=clearBits(lvl);lvBits+=clearBits(lvl);bankBits();
@@ -2993,6 +3006,7 @@ function render(opaque){
   }
 
   drawPlayer();
+  if(RACE_DIFF&&MP)mpDrawGhost();
 
   for(const p of parts){
     ctx.fillStyle=p.color;ctx.globalAlpha=Math.min(1,p.life/40);
@@ -3024,7 +3038,7 @@ function render(opaque){
     ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(0,96,W,114);
     ctx.textAlign='center';
     ctx.fillStyle='#a2a';ctx.font='bold 14px Courier New, monospace';
-    ctx.fillText(CUSTOM?'УРОВЕНЬ ИГРОКА'+(CUSTOM.by?' · '+CUSTOM.by:''):'УРОВЕНЬ '+(lvl+1)+' ИЗ '+LEVELS.length,W/2,120);
+    ctx.fillText(CUSTOM?'УРОВЕНЬ ИГРОКА'+(CUSTOM.by?' · '+CUSTOM.by:''):(RACE_DIFF?'ГОНКА · УРОВЕНЬ '+(lvl+1):'УРОВЕНЬ '+(lvl+1)+' ИЗ '+LEVELS.length),W/2,120);
     ctx.fillStyle='#057';ctx.font='bold 30px Courier New, monospace';
     ctx.fillText(cfg.name,W/2,153);
     ctx.fillStyle='#689';ctx.font='14px Courier New, monospace';
@@ -3041,6 +3055,7 @@ function render(opaque){
     ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(4,H-20,ctx.measureText(s).width+8,16);
     ctx.fillStyle='#057';ctx.fillText(s,8,H-8);
   }
+  if(RACE_DIFF&&MP)mpDrawHud();
   updateHud();
 }
 
@@ -3133,6 +3148,7 @@ function panelHTML(s){
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
+      mb('race','Гонка · мультиплеер')+
       mb('community','Сообщество · уровни игроков')+
       (NET.admin?mb('admin','Админ-панель'):'')+
       (CAN_DONATE?mb('donate','♥ Поддержать игру','donate'):'')+
@@ -3253,6 +3269,7 @@ function panelHTML(s){
   if(s==='mylevels')return myLevelsHTML();
   if(s==='community')return comHTML();
   if(s==='profile')return profHTML();
+  if(s==='race')return mpHTML();
   if(s==='mcp')return mcpHTML();
   if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
   if(s==='cclear'){
@@ -3308,10 +3325,17 @@ function panelHTML(s){
       '<li><b>Океан.</b> Чёрные дыры тянут к себе всех, тёмное ядро ранит. Рывок вытаскивает.</li>'+
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
+      '<li><b>Гонка.</b> Вдвоём проходите один и тот же уровень, каждый со своими врагами; соперника видно полупрозрачным двойником. Побеждает тот, кто раньше дойдёт до портала. Погибнешь — начнёшь уровень сначала, а часы гонки идут дальше. Соперник находится сам («Случайный соперник») или по коду комнаты от друга. Гонки — на сайте игры, с аккаунтом.</li>'+
+      '<li><b>Музыка.</b> У каждого акта своя мелодия, у боссов — своя. Громкость и выключение — в настройках.</li>'+
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
+  }
+  if(s==='pause'&&RACE_DIFF){
+    return '<h2>ГОНКА ИДЁТ</h2><p>Уровень '+(lvl+1)+' · '+escHTML(c.name)+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p><p>Соперник не ждёт: часы гонки идут и на паузе.</p>'+
+      '<div class="mcol">'+mb('resume','Продолжить','primary')+mb('settings','Настройки')+mb('mpquit','Сдаться')+'</div>'+
+      '<p class="foot">P или Esc — продолжить</p>';
   }
   if(s==='pause'){
     return '<h2>ПАУЗА</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p>'+
@@ -3354,6 +3378,7 @@ function panelHTML(s){
       chip('q:auto','Авто',save.q==='auto')+chip('q:high','Высокая',save.q==='high')+chip('q:med','Средняя',save.q==='med')+chip('q:low','Низкая',save.q==='low')+'</div>'+
       '<p>'+(save.q==='auto'?'Сейчас: <b>'+cur.name.toLowerCase()+(save.autoRes<1?', разрешение '+Math.round(save.autoRes*100)+'%':'')+'</b>. Если игра не успевает, «Авто» само снизит графику и запомнит это для устройства.':cur.hint)+'</p>'+
       '<p class="lbl2">СЧЁТЧИК КАДРОВ</p><div class="chips">'+chip('fps:1','Показывать',save.fps)+chip('fps:0','Скрыть',!save.fps)+'</div>'+
+      '<p class="lbl2">МУЗЫКА НА УРОВНЯХ</p><div class="chips">'+chip('mus:0','Выкл',save.mus===0)+chip('mus:1','Тихо',save.mus===1)+chip('mus:2','Средне',save.mus===2)+chip('mus:3','Громко',save.mus===3)+'</div>'+
       (canVibrate?'<p class="lbl2">ВИБРАЦИЯ</p><div class="chips">'+chip('vib:1','Вкл',save.vib)+chip('vib:0','Выкл',!save.vib)+'</div>':'')+
       mb(settingsBack,'Назад','primary');
   }
@@ -3390,6 +3415,7 @@ function showMenu(s,focusAct){
   if(s==='admin')fillAdmin();
   if(s==='mcp')fillMcp();
   if(s==='mylevels')fillAiDrafts();
+  if(s==='race')mpBind();
   if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
 }
 function hideMenu(){
@@ -3465,6 +3491,7 @@ function act(a){
   else if(k==='diff'){const v=a.split(':')[1];if(DIFFS.indexOf(v)>=0){save.diff=v;persist();}lives=Math.min(lives,maxLives());showMenu('settings',a);}
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
+  else if(k==='mus'){if(n>=0&&n<=3){save.mus=n;persist();musUnlock();musVolume();showMenu('settings',a);}}
   else if(k==='login')netLogin(a.split(':')[1]);
   else if(k==='signin'||k==='signup'){if(menuScreen==='gate'||menuScreen==='acct')loginBack=menuScreen;showMenu(k);}
   else if(k==='logout')netLogout();
@@ -3497,6 +3524,8 @@ function act(a){
     showMenu('mylevels');
   }
   else if(k==='mylevels')showMenu('mylevels');
+  else if(k==='race'){if(needLogin())showMenu('gate');else showMenu('race');}
+  else if(k.slice(0,2)==='mp')mpAct(k,arg,n);
   else if(k==='mcpnew'){if(NET.user)mcpCreate();}
   else if(k==='mcpdel'){if(n>0){if(sure)mcpRevoke(n);else armBtn(a,'Точно отозвать?');}}
   else if(k==='mcpcopy')mcpCopy(arg);
@@ -3600,7 +3629,7 @@ function onPress(code){
   }
   if(phase==='pause'&&code==='Escape'&&menuScreen!=='pause'){showMenu('pause');return;}
   if(phase==='pause'&&(code==='KeyP'||code==='Escape')){resume();return;}
-  if(phase==='dead'&&code==='KeyR'){retryLevel(true);return;}
+  if(phase==='dead'&&code==='KeyR'&&!RACE_DIFF){retryLevel(true);return;}
   if(phase==='menu'&&menuScreen==='skins'){
     const c=catOf(shopTab),vis=[];
     c.list.forEach((it,i)=>{if(!it.sup||DONATE_ON||owned(c.id,i))vis.push(i);});
@@ -3617,6 +3646,7 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='gate'||menuScreen==='terms'))return;
   if(phase==='menu'&&code==='Escape'&&menuScreen==='termstext'){showMenu(termsBack);return;}
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
+  if(phase==='menu'&&code==='Escape'&&menuScreen==='race'){mpLeave();showMenu('main');return;}
   if(phase==='menu'&&code==='Escape'){
     const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct'}[menuScreen];
     if(back){showMenu(back);return;}
@@ -3774,6 +3804,7 @@ function frame(now){
   }
   // пауза и меню не должны попадать в замер
   if(phase!=='game'){perfT=0;perfFrames=0;}
+  musUpdate();
   requestAnimationFrame(frame);
 }
 
@@ -4789,6 +4820,548 @@ async function aiDelete(id){
   catch(e){msg('Не получилось удалить: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
   showMenu('mylevels');
 }
+
+// ================= ГОНКА: МУЛЬТИПЛЕЕР =================
+// Двое проходят один и тот же уровень, у каждого свои враги; соперник виден полупрозрачным двойником.
+// Побеждает тот, кто раньше дойдёт до портала. Гибель отправляет в начало уровня, а часы гонки идут дальше.
+// Связь — каналы Supabase Realtime (broadcast и presence) по протоколу Phoenix, без своего сервера.
+// Гонка не открывает уровней и не даёт ни рекорда, ни бит, поэтому в каналах ходят только положение
+// и счёт: подделать там нечего. Соперника ищут в общем канале-лобби или зовут по коду комнаты
+const MP_ALPH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',MP_COUNT=3000,MP_SEND=200,MP_LOST=8000;
+const RT={ws:null,ref:0,beat:0,chans:{},retry:0};
+function rtURL(){return ONLINE.supabaseUrl.replace(/\/+$/,'').replace(/^http/,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(ONLINE.supabaseKey)+'&vsn=1.0.0';}
+function rtRaw(topic,event,payload,jr){
+  if(!RT.ws||RT.ws.readyState!==1)return;
+  RT.ws.send(JSON.stringify({topic,event,payload,ref:String(++RT.ref),join_ref:jr||null}));
+}
+function rtConnect(){
+  if(RT.ws&&RT.ws.readyState<2)return;
+  let ws;
+  try{ws=new WebSocket(rtURL());}catch(_){return;}
+  RT.ws=ws;
+  ws.onopen=()=>{for(const t in RT.chans)rtJoinSend(RT.chans[t]);};
+  // старый сокет (его закрывают с задержкой) новых каналов уже не касается
+  ws.onmessage=e=>{if(RT.ws!==ws)return;let m;try{m=JSON.parse(e.data);}catch(_){return;}const ch=m&&RT.chans[m.topic];if(ch)rtOnMsg(ch,m);};
+  // связь оборвалась — переподключаемся и заново входим во все каналы, пока они нужны
+  ws.onclose=()=>{
+    if(RT.ws!==ws)return;
+    RT.ws=null;
+    for(const t in RT.chans)RT.chans[t].joined=false;
+    clearTimeout(RT.retry);
+    if(Object.keys(RT.chans).length)RT.retry=setTimeout(rtConnect,1500);
+  };
+  clearInterval(RT.beat);
+  RT.beat=setInterval(()=>rtRaw('phoenix','heartbeat',{}),25000);
+}
+function rtJoinSend(ch){
+  if(!RT.ws||RT.ws.readyState!==1)return;
+  ch.jr=String(++RT.ref);
+  RT.ws.send(JSON.stringify({topic:ch.topic,event:'phx_join',ref:ch.jr,join_ref:ch.jr,
+    payload:{config:{broadcast:{self:false},presence:{key:ch.key},private:false},access_token:ONLINE.supabaseKey}}));
+}
+function rtChannel(name,key,on){
+  const ch={topic:'realtime:'+name,key,on,joined:false,jr:'',meta:null,pres:{}};
+  RT.chans[ch.topic]=ch;
+  rtConnect();
+  rtJoinSend(ch);
+  return ch;
+}
+function rtOnMsg(ch,m){
+  const p=m.payload&&typeof m.payload==='object'?m.payload:{};
+  if(m.event==='phx_reply'&&m.ref===ch.jr){
+    if(p.status==='ok'){ch.joined=true;if(ch.meta)rtTrack(ch,ch.meta);ch.on('joined',{});}
+    return;
+  }
+  if(m.event==='presence_state'){ch.pres={};rtPres(ch,p,null);ch.on('presence',{});return;}
+  if(m.event==='presence_diff'){rtPres(ch,p.joins||{},p.leaves||{});ch.on('presence',{});return;}
+  if(m.event==='broadcast'&&typeof p.event==='string'){ch.on('b:'+p.event,p.payload&&typeof p.payload==='object'?p.payload:{});return;}
+  if(m.event==='phx_error'){
+    ch.joined=false;
+    setTimeout(()=>{if(RT.chans[ch.topic]===ch&&!ch.joined)rtJoinSend(ch);},1500);
+  }
+}
+// у ключа может быть несколько записей (переподключение): уходит только та, что совпадает с текущей
+function rtPres(ch,joins,leaves){
+  if(leaves)for(const k in leaves){
+    const cur=ch.pres[k],gone=(leaves[k]&&leaves[k].metas||[]).map(x=>x.phx_ref);
+    if(cur&&gone.indexOf(cur.phx_ref)>=0)delete ch.pres[k];
+  }
+  for(const k in joins){const ms=joins[k]&&joins[k].metas||[];if(ms.length)ch.pres[k]=ms[ms.length-1];}
+}
+function rtTrack(ch,meta){ch.meta=meta;if(ch.joined)rtRaw(ch.topic,'presence',{type:'presence',event:'track',payload:meta},ch.jr);}
+function rtSay(ch,event,payload){if(ch&&ch.joined)rtRaw(ch.topic,'broadcast',{type:'broadcast',event,payload},ch.jr);}
+function rtLeave(ch){
+  if(!ch||RT.chans[ch.topic]!==ch)return;
+  delete RT.chans[ch.topic];
+  rtRaw(ch.topic,'phx_leave',{},ch.jr);
+  if(Object.keys(RT.chans).length)return;
+  clearInterval(RT.beat);clearTimeout(RT.retry);
+  const ws=RT.ws;RT.ws=null;
+  if(ws)setTimeout(()=>{try{ws.close();}catch(_){}},300);
+}
+
+// кто я для соперника: имя, сколько уровней открыто и облик
+function mpMe(){
+  const L=wornLook();
+  return{n:(save.nick||'Игрок').slice(0,20),u:save.unlocked,l:[L.c,L.s,L.t,L.h],t:Date.now()};
+}
+function mpCode(){
+  const a=new Uint32Array(5);crypto.getRandomValues(a);
+  let s='';for(const v of a)s+=MP_ALPH[v%MP_ALPH.length];
+  return s;
+}
+function mpLook(v){
+  const a=Array.isArray(v)?v:[];
+  return{c:clampInt(a[0],0,SKIN_COLORS.length-1,0),s:clampInt(a[1],0,SKIN_SHAPES.length-1,0),t:clampInt(a[2],0,TRAILS.length-1,0),h:clampInt(a[3],0,HATS.length-1,0)};
+}
+function mpNum(v,a,b){const x=Number(v);return x>=a&&x<=b?x:(x>b?b:a);}
+function mpSec(ms){return (Math.max(0,ms)/1000).toFixed(1).replace('.',',');}
+function mpNew(mode){
+  return{st:'idle',mode,id:NET.user.id,host:false,code:'',lobby:null,room:null,opp:null,expect:'',lv:0,diff:save.diff,seed:1,
+    startAt:0,myT:-1,deaths:0,note:'',rtt:0,pingI:0,pingAt:0,tm:0,sendT:0,wait:0,respawnAt:0,result:'',waiting:0,
+    iv:setInterval(mpTick,50)};
+}
+function mpRedraw(){if(MP&&phase==='menu'&&menuScreen==='race')showMenu('race');}
+// выйти отовсюду: из лобби, из комнаты (сопернику — «пока») и из идущей гонки
+function mpLeave(){
+  if(!MP)return;
+  if(MP.room){rtSay(MP.room,'bye',{f:MP.id});rtLeave(MP.room);}
+  if(MP.lobby)rtLeave(MP.lobby);
+  clearInterval(MP.iv);clearTimeout(MP.tm);
+  const racing=RACE_DIFF&&phase!=='menu';
+  MP=null;RACE_DIFF='';
+  if(racing){runBits=0;lvBits=0;goMenu();}
+}
+// случайный соперник: все ждущие в лобби по порядку входа разбиваются на пары; первый в паре
+// придумывает комнату и зовёт второго. Не дошёл за 10 секунд — оба снова в поиске
+function mpFind(){
+  mpLeave();
+  MP=mpNew('random');MP.st='search';
+  MP.lobby=rtChannel('dataout-lobby',MP.id,mpLobbyEv);
+  rtTrack(MP.lobby,mpMe());
+  showMenu('race');
+}
+function mpLobbyEv(ev,p){
+  if(!MP||MP.st!=='search')return;
+  if(ev==='presence'){
+    const pr=MP.lobby.pres;
+    const list=Object.keys(pr).map(k=>({k,t:Number(pr[k].t)||0})).sort((a,b)=>a.t-b.t||(a.k<b.k?-1:1));
+    MP.waiting=list.length;
+    const i=list.findIndex(x=>x.k===MP.id);
+    if(i>=0&&i%2===0&&list[i+1]){
+      const code=mpCode(),to=list[i+1].k;
+      rtSay(MP.lobby,'match',{to,code});
+      mpEnterRoom(code,true,to);
+      return;
+    }
+    mpRedraw();
+  }else if(ev==='b:match'&&p.to===MP.id&&typeof p.code==='string'&&/^[A-Z2-9]{5}$/.test(p.code))mpEnterRoom(p.code,false,'');
+}
+function mpCreate(){mpLeave();MP=mpNew('friend');mpEnterRoom(mpCode(),true,'');}
+function mpJoinCode(){
+  const inp=$id('mp-code'),code=inp?inp.value.toUpperCase().replace(/[^A-Z0-9]/g,''):'';
+  if(!/^[A-Z2-9]{5}$/.test(code)){msg('Код комнаты — 5 букв и цифр, его видно у друга на экране гонки.');return;}
+  mpLeave();MP=mpNew('friend');mpEnterRoom(code,false,'');
+}
+function mpEnterRoom(code,host,expect){
+  if(MP.lobby){
+    const lb=MP.lobby;MP.lobby=null;
+    // позвавший ещё пару секунд остаётся в лобби невидимым и повторяет приглашение: если выйти сразу,
+    // сервер может закрыть канал раньше, чем разошлёт его
+    if(host&&expect){
+      rtRaw(lb.topic,'presence',{type:'presence',event:'untrack'},lb.jr);
+      let n=0;
+      const again=()=>{if(!MP||MP.st!=='room'||MP.code!==code||MP.opp||n++>=3){rtLeave(lb);return;}rtSay(lb,'match',{to:expect,code});setTimeout(again,1000);};
+      setTimeout(again,1000);
+    }else rtLeave(lb);
+  }
+  Object.assign(MP,{st:'room',code,host,expect:expect||'',opp:null,note:''});
+  MP.room=rtChannel('dataout-race-'+code,MP.id,mpRoomEv);
+  rtTrack(MP.room,Object.assign(mpMe(),{h:host?1:0}));
+  clearTimeout(MP.tm);
+  if(MP.mode==='random')MP.tm=setTimeout(()=>{if(MP&&MP.st==='room'&&!MP.opp)mpFind();},10000);
+  else if(!host)MP.tm=setTimeout(()=>{if(MP&&MP.st==='room'&&!MP.opp){MP.note='В комнате никого — проверь код у друга.';mpRedraw();}},6000);
+  mpRedraw();
+}
+function mpMaxLv(){return Math.max(1,Math.min(save.unlocked,MP.opp?MP.opp.unl:save.unlocked));}
+function mpSetLv(v){MP.lv=Math.max(0,Math.min(mpMaxLv()-1,v));mpCfg();}
+function mpCfg(){if(MP.host)rtSay(MP.room,'cfg',{f:MP.id,lv:MP.lv,diff:MP.diff});}
+function mpPing(){MP.pingI++;MP.pingAt=performance.now();rtSay(MP.room,'ping',{f:MP.id,i:MP.pingI});}
+function mpPresence(){
+  const pr=MP.room.pres,mine=pr[MP.id];
+  const others=Object.keys(pr).filter(k=>k!==MP.id).map(k=>({k,m:pr[k]})).sort((a,b)=>(Number(a.m.t)||0)-(Number(b.m.t)||0));
+  // в комнате гоняются двое; кто вошёл третьим — уходит сам
+  if(mine&&MP.mode==='friend'&&others.length>=2&&(Number(others[1].m.t)||0)<(Number(mine.t)||0)){
+    mpLeave();MP=mpNew('friend');MP.note='В этой комнате уже гоняются двое.';showMenu('race');
+    return;
+  }
+  const o=MP.expect?others.find(x=>x.k===MP.expect):others[0];
+  const racing=MP.st==='count'||MP.st==='race';
+  if(o&&(!MP.opp||MP.opp.id!==o.k)&&!racing){
+    MP.opp={id:o.k,name:edStr(o.m.n,20)||'Соперник',look:mpLook(o.m.l),unl:clampInt(o.m.u,1,LEVELS.length,1),
+      x:W/2,y:H/2,vx:0,vy:0,at:0,gx:W/2,gy:H/2,face:0,got:0,goal:0,lives:0,pause:false,seen:performance.now(),deaths:0,t:-1};
+    clearTimeout(MP.tm);MP.note='';
+    // тот же соперник вернулся (мигнула связь) — выбранный уровень не сбрасываем
+    const fresh=MP.lastOpp!==o.k;MP.lastOpp=o.k;
+    if(MP.host){
+      mpPing();
+      if(MP.mode==='random'){if(fresh)MP.lv=Math.floor(Math.random()*mpMaxLv());MP.tm=setTimeout(mpGo,1500);}
+      else MP.lv=fresh?mpMaxLv()-1:Math.min(MP.lv,mpMaxLv()-1);
+      mpCfg();
+    }
+  }
+  // во время гонки пропажа из списка — чаще всего переподключение: ждём MP_LOST, потом засчитываем
+  if(!o&&MP.opp&&!racing){MP.note=MP.opp.name+' — больше не в комнате.';MP.opp=null;clearTimeout(MP.tm);}
+  mpRedraw();
+}
+function mpRoomEv(ev,p){
+  if(!MP||!MP.room)return;
+  if(ev==='presence'){mpPresence();return;}
+  const o=MP.opp;
+  if(!o||p.f!==o.id)return;
+  if(ev==='b:ping'){if(!MP.host)rtSay(MP.room,'pong',{f:MP.id,i:p.i});}
+  else if(ev==='b:pong'){if(MP.host&&p.i===MP.pingI){const r=Math.min(1000,performance.now()-MP.pingAt);MP.rtt=MP.rtt?MP.rtt*0.6+r*0.4:r;}}
+  else if(ev==='b:cfg'){
+    if(MP.host||MP.st==='count'||MP.st==='race')return;
+    MP.lv=clampInt(p.lv,0,LEVELS.length-1,0);
+    if(DIFFS.indexOf(p.diff)>=0)MP.diff=p.diff;
+    mpRedraw();
+  }
+  else if(ev==='b:go'){
+    if(MP.host||!(MP.st==='room'||MP.st==='end'))return;
+    mpCountdown(clampInt(p.lv,0,LEVELS.length-1,0),DIFFS.indexOf(p.diff)>=0?p.diff:'easy',clampInt(p.seed,1,2147483646,1),0);
+  }
+  else if(ev==='b:st'){
+    o.x=mpNum(p.x,0,W);o.y=mpNum(p.y,0,H);o.vx=mpNum(p.vx,-20,20);o.vy=mpNum(p.vy,-20,20);
+    o.got=clampInt(p.g,0,999,0);o.goal=clampInt(p.G,0,999,0);o.lives=clampInt(p.l,0,9,0);o.pause=p.p===1;
+    o.at=o.seen=performance.now();
+  }
+  else if(ev==='b:die'){
+    o.deaths++;o.seen=performance.now();
+    if(MP.st==='race'&&phase==='game')popup(o.gx,o.gy-20,o.name+': копия','#7c3aed');
+  }
+  else if(ev==='b:fin'){
+    o.seen=performance.now();
+    const t=mpNum(p.t,0,36e5);
+    if(MP.st==='race'){o.t=t;if(MP.myT>=0)mpDecide();else mpEnd('lose');}
+    // финиш соперника пришёл уже после моего итога: если он был раньше — итог исправляется
+    else if(MP.st==='end'&&MP.result==='win'&&MP.myT>=0&&t<MP.myT){o.t=t;if(MP.sum)MP.sum.t=t;save.mpWins=Math.max(0,(save.mpWins||0)-1);MP.result='lose';persist();mpRedraw();}
+  }
+  else if(ev==='b:bye'){
+    if(MP.st==='race'||MP.st==='count')mpEnd('left');
+    else{MP.note=o.name+' — больше не в комнате.';MP.opp=null;mpRedraw();}
+  }
+}
+function mpGo(){
+  if(!MP||!MP.host||!MP.opp||!(MP.st==='room'||MP.st==='end'))return;
+  MP.lv=Math.max(0,Math.min(mpMaxLv()-1,MP.lv));
+  const seed=1+Math.floor(Math.random()*2147483645);
+  rtSay(MP.room,'go',{f:MP.id,lv:MP.lv,diff:MP.diff,seed});
+  // гость узнаёт о старте на полпути туда-обратно позже — хозяин ровно на столько же ждёт дольше
+  mpCountdown(MP.lv,MP.diff,seed,MP.rtt/2);
+}
+function mpCountdown(lv,diff,seed,extra){
+  clearTimeout(MP.tm);
+  Object.assign(MP,{st:'count',lv,diff,seed,startAt:performance.now()+MP_COUNT+extra,myT:-1,deaths:0,note:'',result:'',wait:0,respawnAt:0});
+  Object.assign(MP.opp,{t:-1,got:0,goal:0,deaths:0,at:0,seen:performance.now(),pause:false});
+  RACE_DIFF=diff;
+  if(phase!=='menu')goMenu();
+  showMenu('race');
+}
+// одинаковое начало уровня у обоих: на время startLevel случайность берётся из общего зерна
+function mpSeeded(fn){
+  const r=Math.random;let x=MP.seed;
+  Math.random=()=>(x=x*16807%2147483647)/2147483647;
+  try{fn();}finally{Math.random=r;}
+}
+function mpRunLevel(){score=0;lives=maxLives();emp=1;mpSeeded(()=>startLevel(MP.lv));}
+function mpTick(){
+  if(!MP)return;
+  const now=performance.now();
+  if(MP.st==='count'){
+    const left=MP.startAt-now,el=panelEl.querySelector('.mp-count');
+    if(el)el.textContent=left>0?String(Math.ceil(left/1000)):'СТАРТ!';
+    if(left<=0){MP.st='race';MP.sendT=0;mpRunLevel();msg('ГОНКА! Побеждает тот, кто раньше дойдёт до портала.',4000);}
+    return;
+  }
+  if((MP.st==='room'||MP.st==='end')&&MP.host&&MP.opp&&now-MP.pingAt>2000)mpPing();
+  if(MP.st!=='race')return;
+  if(MP.respawnAt&&now>=MP.respawnAt){MP.respawnAt=0;if(phase==='dead'){mpRunLevel();intro=60;}}
+  if(now-MP.sendT>=MP_SEND){MP.sendT=now;mpSendState();}
+  if(MP.wait&&now>=MP.wait)mpDecide();
+  if(MP.opp&&now-MP.opp.seen>MP_LOST)mpEnd('lost');
+}
+function mpSendState(){
+  if(!player)return;
+  const c=cfgNow();
+  rtSay(MP.room,'st',{f:MP.id,x:Math.round(player.x),y:Math.round(player.y),vx:Math.round(player.vx*100)/100,vy:Math.round(player.vy*100)/100,
+    g:Math.min(got,goalOf(c)),G:goalOf(c),l:lives,p:phase==='game'?0:1});
+}
+// погиб в гонке: миг замирания — и резервная копия с начала того же уровня
+function mpDied(){
+  MP.deaths++;
+  rtSay(MP.room,'die',{f:MP.id});
+  phase='dead';MP.respawnAt=performance.now()+700;
+  msg('ФАЙЛ УДАЛЁН — копия с начала уровня. Часы гонки идут!',3500);
+}
+function mpFinished(){
+  MP.myT=performance.now()-MP.startAt;
+  rtSay(MP.room,'fin',{f:MP.id,t:Math.round(MP.myT)});
+  phase='dead';
+  // итог — со следующего тика (мы внутри шага игры); если финиш соперника ещё в пути — чуть ждём его
+  const o=MP.opp;
+  MP.wait=performance.now()+(o&&o.t>=0?1:800);
+  msg('ФИНИШ! '+mpSec(MP.myT)+' с',3000);
+}
+function mpDecide(){
+  MP.wait=0;
+  const o=MP.opp;
+  mpEnd(o&&o.t>=0&&o.t<MP.myT?'lose':'win');
+}
+function mpEnd(res){
+  if(!MP||MP.st==='end')return;
+  MP.st='end';MP.result=res;MP.respawnAt=0;MP.wait=0;
+  // итог запоминается сразу: соперник может уйти из комнаты, а его время и имя должны остаться на экране
+  const o=MP.opp;
+  MP.sum=o?{name:o.name,t:o.t,got:o.got,goal:o.goal,deaths:o.deaths}:null;
+  save.mpRaces=(save.mpRaces||0)+1;
+  if(res==='win'||res==='left'||res==='lost')save.mpWins=(save.mpWins||0)+1;
+  persist();
+  runBits=0;lvBits=0;RACE_DIFF='';
+  if(phase!=='menu')goMenu();
+  showMenu('race');
+}
+// сдаться: соперник получает «пока» и победу, а сдавшийся выходит и из комнаты
+function mpQuit(){
+  if(!MP)return;
+  save.mpRaces=(save.mpRaces||0)+1;persist();
+  mpLeave();
+  showMenu('race');
+  msg('Гонка сдана.');
+}
+// двойник соперника: его облик, полупрозрачный, с именем; между пакетами (5 в секунду) — по скорости
+let mpGhostCv=null;
+function mpDrawGhost(){
+  const o=MP.opp;
+  if(!o||!o.at)return;
+  const k=Math.min(12,(performance.now()-o.at)/STEP);
+  const tx=Math.max(0,Math.min(W,o.x+o.vx*k)),ty=Math.max(0,Math.min(H,o.y+o.vy*k));
+  if(Math.hypot(tx-o.gx,ty-o.gy)>120){o.gx=tx;o.gy=ty;}
+  else{o.gx+=(tx-o.gx)*0.35;o.gy+=(ty-o.gy)*0.35;}
+  if(Math.hypot(o.vx,o.vy)>0.5)o.face=Math.atan2(o.vy,o.vx);
+  const s=Math.max(1,Math.min(2,cvs.width/W)),z=Math.round(72*s);
+  if(!mpGhostCv){mpGhostCv=document.createElement('canvas');}
+  if(mpGhostCv.width!==z){mpGhostCv.width=z;mpGhostCv.height=z;}
+  const g=mpGhostCv.getContext('2d');
+  g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,z,z);g.setTransform(s,0,0,s,0,0);
+  drawPlayerBody(g,{x:36,y:36,vx:o.vx,vy:o.vy,r:14,face:o.face},time,false,o.look);
+  ctx.globalAlpha=o.pause?0.25:0.5;
+  ctx.drawImage(mpGhostCv,o.gx-36,o.gy-36,72,72);
+  ctx.globalAlpha=1;
+  ctx.font='bold 11px Courier New, monospace';ctx.textAlign='center';ctx.fillStyle='#7c3aed';
+  ctx.fillText(o.name+(o.pause?' · пауза':''),o.gx,o.gy-28);
+}
+// табличка гонки слева сверху: время и счёт обоих
+function mpDrawHud(){
+  const o=MP.opp,c=cfgNow(),t=MP.st==='race'?performance.now()-MP.startAt:0;
+  const l1='ГОНКА · '+mpSec(MP.myT>=0?MP.myT:t)+' с',l2='ты '+Math.min(got,goalOf(c))+'/'+goalOf(c)+(o?' · '+o.name.slice(0,10)+' '+o.got+'/'+(o.goal||goalOf(c)):'');
+  ctx.font='bold 11px Courier New, monospace';ctx.textAlign='left';
+  const w=Math.max(ctx.measureText(l1).width,ctx.measureText(l2).width)+12;
+  ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(6,6,w,32);
+  ctx.fillStyle='#7c3aed';ctx.fillText(l1,12,18);
+  ctx.fillStyle='#057';ctx.fillText(l2,12,32);
+}
+function mpResultHTML(){
+  const o=MP.sum,r=MP.result,lose=r==='lose';
+  const title={win:'ПОБЕДА!',lose:'ПОРАЖЕНИЕ',left:'ПОБЕДА',lost:'ПОБЕДА'}[r]||'ИТОГ';
+  const why={win:'Ты у портала раньше!',lose:o?'У портала раньше — '+escHTML(o.name)+'.':'',left:'Соперника больше нет в гонке.',lost:'Связь с соперником пропала.'}[r]||'';
+  const mine=MP.myT>=0?mpSec(MP.myT)+' с':'без финиша',theirs=o?(o.t>=0?mpSec(o.t)+' с':'без финиша'+(o.goal?' ('+o.got+'/'+o.goal+')':'')):'—';
+  return '<h2 class="'+(lose?'bad':'good')+'">'+title+'</h2>'+(why?'<p>'+why+'</p>':'')+
+    '<p>Ты: <b>'+mine+'</b>'+(MP.deaths?' · гибелей: '+MP.deaths:'')+'<br>'+(o?escHTML(o.name):'Соперник')+': <b>'+theirs+'</b>'+(o&&o.deaths?' · гибелей: '+o.deaths:'')+'</p>';
+}
+function mpHTML(){
+  const head='<h2>ГОНКА</h2>';
+  if(!NET_ON)return head+'<p>Гонки с другими игроками — на сайте игры: '+escHTML(SITE_URL)+'</p>'+mb('main','Назад','primary');
+  if(!NET.user&&!MP)return head+'<p>Чтобы гоняться, нужен аккаунт: войди или проверь связь с сервером.</p>'+mb('acct','Аккаунт','primary')+mb('main','Назад');
+  const M=MP,lvName=i=>'<b>'+(i+1)+' · '+escHTML(LEVELS[i].name)+'</b>';
+  if(!M||M.st==='idle')return head+(M&&M.note?'<p class="bad">'+escHTML(M.note)+'</p>':'')+
+    '<p>Вы с соперником проходите один и тот же уровень, у каждого свои враги, а соперника видно полупрозрачным двойником. Побеждает тот, кто раньше дойдёт до портала. Погибнешь — начнёшь уровень сначала, а часы гонки идут дальше.</p>'+
+    '<div class="mcol">'+mb('mpfind','Случайный соперник','primary')+mb('mpnew','Комната для друга')+'</div>'+
+    '<p class="lbl2">ЕСТЬ КОД ОТ ДРУГА?</p><div class="copyrow"><input id="mp-code" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="КОД" aria-label="Код комнаты">'+mb('mpjoin','Войти','sm')+'</div>'+
+    '<p class="foot">Гонка не открывает уровней и не даёт бит и рекорда. Побед в гонках: '+(save.mpWins||0)+' из '+(save.mpRaces||0)+'.</p>'+
+    mb('main','Назад');
+  if(M.st==='search')return head+'<p class="mp-big">Ищем соперника…</p><p>Сейчас ищут: '+Math.max(1,M.waiting)+'. Как только найдётся ещё кто-нибудь, гонка начнётся сама. Можно позвать друга — пусть тоже нажмёт «Случайный соперник».</p>'+mb('mpleave','Отмена','primary');
+  if(M.st==='count')return head+'<p>Соперник: <b>'+escHTML(M.opp.name)+'</b></p><p>Уровень '+lvName(M.lv)+' · «'+DIFF[M.diff].name+'»<br>'+objective(LEVELS[M.lv])+'</p><p class="mp-count">'+Math.max(1,Math.ceil((M.startAt-performance.now())/1000))+'</p>';
+  let h=M.st==='end'?mpResultHTML():head;
+  if(M.mode==='friend')h+='<p class="lbl2">КОД КОМНАТЫ</p><p class="mp-code">'+M.code+'</p>'+(M.opp?'':'<p>Скажи этот код другу: «Гонка» → поле «Есть код от друга?» → «Войти».</p>');
+  h+='<p>Ты'+(M.host?' (комната твоя)':'')+' и '+(M.opp?'<b>'+escHTML(M.opp.name)+'</b>':'… ждём соперника')+'</p>';
+  if(M.note)h+='<p class="bad">'+escHTML(M.note)+'</p>';
+  if(M.opp){
+    if(M.host&&M.mode==='random'&&M.st==='room')h+='<p class="good">Соперник найден! Старт через секунду…</p>';
+    else if(M.host)h+='<p class="lbl2">УРОВЕНЬ</p><div class="mp-lv">'+mb('mplv:-1','−','sm')+'<span>'+lvName(M.lv)+'</span>'+mb('mplv:1','+','sm')+mb('mplvr','Случайный','sm')+'</div>'+
+      '<p class="foot">Можно выбрать до '+mpMaxLv()+' — столько открыто у вас обоих.</p>'+
+      '<p class="lbl2">СЛОЖНОСТЬ</p><div class="chips">'+DIFFS.map(k=>chip('mpdiff:'+k,DIFF[k].name,M.diff===k)).join('')+'</div>'+
+      mb('mpgo',M.st==='end'?'Ещё раз':'Старт!','primary');
+    else h+='<p>Уровень '+lvName(M.lv)+' · «'+DIFF[M.diff].name+'». Ждём, когда начнёт '+escHTML(M.opp.name)+'.</p>';
+  }
+  return h+mb('mpleave','Выйти из гонки');
+}
+function mpBind(){
+  const inp=$id('mp-code');
+  if(!inp)return;
+  inp.addEventListener('input',()=>{const v=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5);if(v!==inp.value)inp.value=v;});
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();mpJoinCode();}});
+}
+// кнопки экрана гонки (act передаёт сюда всё, что начинается на mp)
+function mpAct(k,arg,n){
+  // выйти и сдаться можно всегда — даже если связь с аккаунтом пропала посреди гонки
+  if(k==='mpleave'){mpLeave();showMenu('race');return;}
+  if(k==='mpquit'){mpQuit();return;}
+  if(!NET_ON||!NET.user)return;
+  if(k==='mpfind')mpFind();
+  else if(k==='mpnew')mpCreate();
+  else if(k==='mpjoin')mpJoinCode();
+  else if(!MP||!MP.host)return;
+  else if(k==='mpgo')mpGo();
+  else if(k==='mplv'){mpSetLv(MP.lv+(n<0?-1:1));showMenu('race',n<0?'mplv:-1':'mplv:1');}
+  else if(k==='mplvr'){mpSetLv(Math.floor(Math.random()*mpMaxLv()));showMenu('race','mplvr');}
+  else if(k==='mpdiff'){if(DIFFS.indexOf(arg)>=0){MP.diff=arg;mpCfg();showMenu('race','mpdiff:'+arg);}}
+}
+// вкладку закрыли посреди гонки — сопернику сразу «пока», не дожидаясь, пока пропадёт связь
+addEventListener('pagehide',()=>{if(MP&&MP.room)rtSay(MP.room,'bye',{f:MP.id});});
+
+// ================= МУЗЫКА =================
+// Фоновая музыка уровней синтезируется в браузере (Web Audio), без звуковых файлов. У каждого акта
+// своя тема: лад, темп, аккорды, бас, арпеджио и ударные; в бою с боссом — та же тональность, но
+// быстрее и жёстче. Играет только на уровне: на паузе и в меню затихает. Браузер разрешает звук лишь
+// после нажатия, поэтому звук включается с первым нажатием на экран или клавишу
+const MUS_VOL=[0,0.12,0.24,0.4];
+// аккорды — ноты от тоники в полутонах
+const MUS_CH={i:[0,3,7],III:[3,7,10],iv:[5,8,12],IV:[5,9,12],V:[7,11,14],VI:[8,12,15],VII:[10,14,17],I:[0,4,7],ii:[2,5,9],iii:[4,7,11],vi:[9,12,16]};
+// root — тоника (MIDI), ch — аккорды по тактам, w — тембр арпеджио; узоры по 16 долей:
+// k — бочка, s — малый, h — хэт, b — бас (x — тоника аккорда, o — на октаву выше),
+// a — арпеджио (цифра — нота аккорда, 3 — тоника октавой выше)
+const MUS_THEMES=[
+  {bpm:112,root:48,ch:['i','VI','III','VII'],w:'square',k:'x.......x.......',s:'....x.......x...',h:'..x...x...x...x.',b:'x.x...x.x.x...x.',a:'0.12.30.12.3.21.'},
+  {bpm:100,root:53,ch:['I','V','vi','IV'],w:'triangle',k:'x.....x...x.....',s:'....x.......x...',h:'x.x.x.x.x.x.x.x.',b:'x...x.x.x...x.x.',a:'0.1.2.3.2.1.0.1.'},
+  {bpm:120,root:45,ch:['i','iv','VII','III'],w:'square',k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...xx',b:'x..x..x.x..x..x.',a:'0123012301230123'},
+  {bpm:96,root:50,ch:['i','VI','VII','i'],w:'sine',k:'x.........x.....',s:'........x.......',h:'....x.......x...',b:'x.......x.......',a:'0...2...3...1...'},
+  {bpm:118,root:40,ch:['i','VI','iv','V'],w:'sawtooth',k:'x..x....x..x....',s:'....x.......x..x',h:'.xx..xx..xx..xx.',b:'xx..x.x.xx..x.x.',a:'0.0.2.1.0.0.3.2.'},
+  {bpm:124,root:43,ch:['i','III','VII','IV'],w:'square',k:'x...x...x...x...',s:'....x.......x...',h:'x.xxx.xxx.xxx.xx',b:'x.xx.x.xx.xx.x.x',a:'0123012301230123'},
+  {bpm:116,root:46,ch:['I','vi','ii','V'],w:'square',k:'x..x..x...x.x...',s:'....x.......x...',h:'xxxxxxxxxxxxxxxx',b:'x..xx.x..x.xx.x.',a:'0..2..1..3..2.1.'},
+  {bpm:92,root:51,ch:['I','iii','IV','V'],w:'triangle',k:'x.......x.......',s:'........x.......',h:'..x...x...x...x.',b:'x.....x.x.......',a:'0.2.1.3.2.1.0.2.'},
+  {bpm:104,root:48,ch:['I','V','vi','IV'],w:'triangle',k:'x.....x.x.......',s:'....x.......x...',h:'x...x...x...x...',b:'x...x...x...x...',a:'0213021302130213'},
+  {bpm:110,root:42,ch:['i','VI','III','VII'],w:'sawtooth',k:'x...x...x...x...',s:'....x..x....x...',h:'.x.x.x.x.x.x.x.x',b:'x.x.x.x.x.x.x.x.',a:'3210321032103210'},
+  {bpm:128,root:49,ch:['i','VI','VII','V'],w:'sawtooth',k:'x..x..x.x..x..x.',s:'....x.......x...',h:'xxxxxxxxxxxxxxxx',b:'xoxoxoxoxoxoxoxo',a:'0123321001233210'}
+];
+// бой с боссом: темп выше, бочка на каждую долю, минорные аккорды
+const MUS_BOSS={ch:['i','VI','VII','V'],k:'x.x.x.x.x.x.x.x.',s:'....x.......x.x.',h:'xxxxxxxxxxxxxxxx',b:'xoxoxoxoxoxoxoxo',a:'0123012301230123'};
+const MUS={ctx:null,out:null,dly:null,noise:null,timer:0,stopT:0,next:0,step:0,want:'',cur:'',T:null};
+function musInit(){
+  if(MUS.ctx)return true;
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return false;
+  try{Object.assign(MUS,musChain(new AC()));return true;}
+  catch(_){return false;}
+}
+// громкость → компрессор → выход; эхо для арпеджио; секунда белого шума для ударных
+function musChain(c){
+  const comp=c.createDynamicsCompressor();comp.connect(c.destination);
+  const out=c.createGain();out.gain.value=0;out.connect(comp);
+  const dly=c.createDelay(1),fb=c.createGain(),wet=c.createGain();
+  dly.delayTime.value=0.3;fb.gain.value=0.28;wet.gain.value=0.35;
+  dly.connect(fb);fb.connect(dly);dly.connect(wet);wet.connect(out);
+  const noise=c.createBuffer(1,c.sampleRate,c.sampleRate),d=noise.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  return{ctx:c,out,dly,noise};
+}
+function musUnlock(){
+  if(!save.mus||!musInit())return;
+  if(MUS.ctx.state==='suspended')MUS.ctx.resume().catch(()=>{});
+}
+// base — нота, от которой идёт арпеджио (около до первой октавы); подклад на октаву ниже, бас — на две
+function musTheme(key){
+  const a=Math.max(0,Math.min(MUS_THEMES.length-1,parseInt(key,10)||0)),th=MUS_THEMES[a];
+  const T=key.slice(-1)==='B'?Object.assign({},th,MUS_BOSS,{bpm:Math.round(th.bpm*1.12)}):Object.assign({},th);
+  T.base=T.root+12*Math.ceil((60-T.root)/12);
+  return T;
+}
+// каждый кадр: что должно звучать — тема акта, тема босса или тишина
+function musUpdate(){
+  if(!MUS.ctx)return;
+  const want=save.mus>0&&phase==='game'?String(bgAct|0)+(boss?'B':''):'';
+  if(want===MUS.want)return;
+  MUS.want=want;
+  const g=MUS.out.gain,t=MUS.ctx.currentTime;
+  g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);
+  if(want){
+    g.linearRampToValueAtTime(MUS_VOL[save.mus]||0,t+0.6);
+    clearTimeout(MUS.stopT);
+    if(!MUS.timer){MUS.next=t+0.08;MUS.step=0;MUS.cur=want;MUS.T=musTheme(want);MUS.timer=setInterval(musSched,50);}
+  }else{
+    g.linearRampToValueAtTime(0,t+0.4);
+    clearTimeout(MUS.stopT);
+    MUS.stopT=setTimeout(()=>{if(!MUS.want){clearInterval(MUS.timer);MUS.timer=0;}},600);
+  }
+}
+function musVolume(){if(MUS.ctx&&MUS.want){const g=MUS.out.gain,t=MUS.ctx.currentTime;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(MUS_VOL[save.mus]||0,t+0.2);}}
+function musSched(){
+  const c=MUS.ctx;
+  if(!c)return;
+  const now=c.currentTime;
+  // вкладка спала — пропущенное не играем залпом
+  if(MUS.next<now-0.3)MUS.next=now+0.05;
+  while(MUS.next<now+0.25){
+    // тема меняется с начала такта
+    if(MUS.step%16===0&&MUS.want&&MUS.want!==MUS.cur){MUS.cur=MUS.want;MUS.T=musTheme(MUS.cur);}
+    const dt=60/MUS.T.bpm/4;
+    musStep(MUS.T,MUS.step,MUS.next,dt);
+    MUS.next+=dt;MUS.step++;
+  }
+}
+function musHz(m){return 440*Math.pow(2,(m-69)/12);}
+function musStep(T,i,t,dt){
+  const s=i%16,ch=MUS_CH[T.ch[Math.floor(i/16)%T.ch.length]];
+  if(T.k[s]==='x')musKick(t);
+  if(T.s[s]==='x')musSnare(t);
+  if(T.h[s]==='x')musHat(t,s%4===0?0.09:0.05);
+  const b=T.b[s];
+  if(b==='x'||b==='o')musTone(t,musHz(T.base-24+ch[0]+(b==='o'?12:0)),dt*1.7,T.w==='triangle'||T.w==='sine'?'triangle':'square',0.16,420,false);
+  const a=T.a[s];
+  if(a>='0'&&a<='3'){const n=a==='3'?ch[0]+12:ch[+a];musTone(t,musHz(T.base+n),dt*1.4,T.w,T.w==='sawtooth'?0.045:0.06,T.w==='sawtooth'?1800:2600,true);}
+  // подклад — тихий аккорд на весь такт
+  if(s===0)for(const n of ch)musTone(t,musHz(T.base-12+n),dt*16,'sawtooth',0.02,800,false,0.25);
+}
+function musTone(t,hz,dur,type,vol,cut,echo,att){
+  const c=MUS.ctx,o=c.createOscillator(),f=c.createBiquadFilter(),g=c.createGain();
+  o.type=type;o.frequency.value=hz;
+  f.type='lowpass';f.frequency.value=cut;
+  const a=att||0.006;
+  g.gain.setValueAtTime(0.0001,t);
+  // короткие ноты затухают сразу, длинные (подклад) держатся до конца такта
+  if(dur>1){g.gain.linearRampToValueAtTime(vol,t+a);g.gain.setValueAtTime(vol,t+dur-0.4);g.gain.linearRampToValueAtTime(0.0001,t+dur);}
+  else{g.gain.exponentialRampToValueAtTime(vol,t+a);g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(a+0.02,dur));}
+  o.connect(f);f.connect(g);g.connect(MUS.out);
+  if(echo)g.connect(MUS.dly);
+  o.start(t);o.stop(t+dur+0.05);
+}
+function musKick(t){
+  const c=MUS.ctx,o=c.createOscillator(),g=c.createGain();
+  o.frequency.setValueAtTime(140,t);o.frequency.exponentialRampToValueAtTime(42,t+0.12);
+  g.gain.setValueAtTime(0.7,t);g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+  o.connect(g);g.connect(MUS.out);o.start(t);o.stop(t+0.25);
+}
+function musNoise(t,dur,type,hz,vol){
+  const c=MUS.ctx,n=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+  n.buffer=MUS.noise;f.type=type;f.frequency.value=hz;
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  n.connect(f);f.connect(g);g.connect(MUS.out);
+  n.start(t,Math.random()*0.5,dur+0.02);
+}
+function musSnare(t){musNoise(t,0.13,'bandpass',1800,0.32);musTone(t,190,0.09,'triangle',0.12,2000,false);}
+function musHat(t,v){musNoise(t,0.035,'highpass',7000,v);}
+addEventListener('pointerdown',musUnlock,true);
+addEventListener('keydown',musUnlock,true);
 
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
 function snapshot(){
