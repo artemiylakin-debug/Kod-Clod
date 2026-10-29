@@ -1348,8 +1348,14 @@ const TRAILS=[
 const HATS=[
   {name:'БЕЗ НИЧЕГО'},{name:'АНТЕННА',price:150},{name:'КЕПКА',price:300},{name:'НАУШНИКИ',price:400},
   {name:'ОЧКИ',price:450},{name:'РОЖКИ',price:600},{name:'НИМБ',act:6},{name:'КОРОНА',sup:true},
-  {name:'КАСКА',act:7},{name:'ВИЗОР',act:10},{name:'КРЫЛЬЯ',sup:true},{name:'ОРЕОЛ ЗВЁЗД',sup:true},{name:'ЦИЛИНДР',price:1200}
+  {name:'КАСКА',act:7},{name:'ВИЗОР',act:10},{name:'КРЫЛЬЯ',sup:true},{name:'ОРЕОЛ ЗВЁЗД',sup:true},{name:'ЦИЛИНДР',price:1200},
+  // обновление 6.0: двенадцать новых — восемь за биты и четыре за новые акты
+  {name:'ПИКСЕЛЬНАЯ КОРОНА',price:700},{name:'СКАН-ПОЛОСА',price:500},{name:'ГЛИТЧ-ОРЕОЛ',price:800},{name:'НЕОНОВАЯ АУРА',price:1000},
+  {name:'ГОЛОКУБ',price:900},{name:'ОРБИТА БИТОВ',price:600},{name:'УШКИ-ДАТЧИКИ',price:350},{name:'МОНОКЛЬ',price:400},
+  {name:'СПИННЕР ЗАГРУЗКИ',act:13},{name:'ОГНЕННЫЙ ГРЕБЕНЬ',act:16},{name:'СПУТНИК',act:18},{name:'ПЕСОЧНЫЕ ЧАСЫ',act:23}
 ];
+// аксессуары на уровне глаз: над ними сердечки не нужно поднимать
+const EYE_HATS=[4,14,20];
 const CATS=[
   {id:'c',name:'ЦВЕТ',list:SKIN_COLORS,key:'color'},
   {id:'s',name:'ФОРМА',list:SKIN_SHAPES,key:'shape'},
@@ -2887,6 +2893,93 @@ function drawHat(c,h,rr,sk,t,f){
     // цилиндр с красной лентой
     c.fillStyle='#1f2937';c.fillRect(-12,-rr+1,24,3);c.fillRect(-7,-rr-13,14,15);
     c.fillStyle='#dc2626';c.fillRect(-7,-rr-2,14,3);
+  }else if(h===13){
+    // пиксельная корона: золотые блоки и мигающий камень
+    c.fillStyle='#facc15';
+    for(let x=-10;x<10;x+=4)c.fillRect(x,-rr-1,4,4);
+    c.fillRect(-10,-rr-5,4,4);c.fillRect(6,-rr-5,4,4);c.fillRect(-2,-rr-9,4,8);
+    c.fillStyle='#a16207';c.fillRect(-10,-rr+2,20,1);
+    c.fillStyle=Math.floor(t/20)%2?'#22d3ee':'#d946ef';c.fillRect(-1,-rr-7,2,2);
+  }else if(h===14){
+    // скан-полоса: тёмная лента на глазах, по ней бегает красный огонёк
+    c.lineCap='round';
+    c.strokeStyle='rgba(17,24,39,0.85)';c.lineWidth=5;c.beginPath();c.arc(0,0,6.5,f-1.1,f+1.1);c.stroke();
+    const a=f+Math.sin(t*0.12)*0.95;
+    c.strokeStyle='#ef4444';c.lineWidth=3.5;c.beginPath();c.arc(0,0,6.5,a-0.18,a+0.18);c.stroke();
+    c.lineCap='butt';
+  }else if(h===15){
+    // глитч-ореол: двоящийся нимб, который время от времени дёргается
+    const k=Math.floor(t/6),dx=(k*37)%5-2,dy=(k*13)%3-1;
+    c.lineWidth=2;
+    c.strokeStyle='rgba(0,210,255,0.85)';c.beginPath();c.ellipse(dx,-rr-7,10,3.5,0,0,TAU);c.stroke();
+    c.strokeStyle='rgba(255,0,200,0.85)';c.beginPath();c.ellipse(-dx,-rr-7+dy,10,3.5,0,0,TAU);c.stroke();
+    if(k%4===0){c.fillStyle='rgba(255,255,255,0.9)';c.fillRect(-12+dx*3,-rr-8,8,2);}
+  }else if(h===16){
+    // неоновая аура: кольцо вокруг тела, переливается и дышит
+    c.globalAlpha=0.55+0.3*Math.sin(t*0.1);
+    c.strokeStyle='hsl('+Math.round(t*3%360)+',100%,55%)';c.lineWidth=2.5;
+    c.beginPath();c.arc(0,0,rr+11,0,TAU);c.stroke();
+    c.setLineDash([3,5]);c.lineDashOffset=-t*0.5;c.lineWidth=1.5;
+    c.strokeStyle='hsl('+Math.round((t*3+180)%360)+',100%,60%)';c.beginPath();c.arc(0,0,rr+15,0,TAU);c.stroke();
+    c.setLineDash([]);c.lineDashOffset=0;c.globalAlpha=1;
+  }else if(h===17){
+    // голокуб: каркасный куб над головой медленно вращается
+    const a=t*0.04,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(0.5),sb=Math.sin(0.5),z=6,cy=-rr-12;
+    const P=[];
+    for(const v of [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]){
+      const x=v[0]*ca+v[2]*sa,zz=-v[0]*sa+v[2]*ca,y=v[1]*cb-zz*sb;
+      P.push([x*z,cy+y*z]);
+    }
+    c.strokeStyle='rgba(34,211,238,0.85)';c.lineWidth=1.2;c.beginPath();
+    for(const [i,j] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]){c.moveTo(P[i][0],P[i][1]);c.lineTo(P[j][0],P[j][1]);}
+    c.stroke();
+  }else if(h===18){
+    // орбита битов: нули и единицы кружат вокруг
+    c.font='bold 8px Courier New, monospace';c.textAlign='center';c.textBaseline='middle';c.fillStyle=sk.main;
+    for(let i=0;i<6;i++){const a=t*0.05+i*TAU/6;c.fillText(i%2?'1':'0',Math.cos(a)*(rr+10),Math.sin(a)*(rr+10)*0.45-rr*0.2);}
+    c.textBaseline='alphabetic';
+  }else if(h===19){
+    // ушки-датчики: два уха с мигающими огоньками на кончиках
+    c.fillStyle=sk.dark;
+    for(const d of [-1,1]){c.beginPath();c.moveTo(d*3,-rr+2);c.lineTo(d*7,-rr-9);c.lineTo(d*11,-rr+3);c.closePath();c.fill();}
+    c.fillStyle=Math.floor(t/15)%2?'#22c55e':'#86efac';
+    c.beginPath();c.arc(-7,-rr-9,1.8,0,TAU);c.arc(7,-rr-9,1.8,0,TAU);c.fill();
+  }else if(h===20){
+    // монокль на правом глазу, с цепочкой
+    const ex=Math.cos(f)*4,ey=Math.sin(f)*4,mx=ex+4+ey*0.5,my=ey+ex*0.5;
+    c.strokeStyle='#d4a017';c.lineWidth=1.6;c.beginPath();c.arc(mx,my,4.6,0,TAU);c.stroke();
+    c.strokeStyle='rgba(212,160,23,0.7)';c.lineWidth=1;c.beginPath();c.moveTo(mx+3,my+3.5);c.quadraticCurveTo(mx+6,my+10,mx+2,rr-2);c.stroke();
+    c.fillStyle='rgba(255,255,255,0.35)';c.beginPath();c.arc(mx-1.2,my-1.2,1.6,0,TAU);c.fill();
+  }else if(h===21){
+    // спиннер загрузки: восемь точек, яркость бежит по кругу
+    const k=Math.floor(t/4)%8;
+    for(let i=0;i<8;i++){const a=i/8*TAU;c.globalAlpha=0.2+0.8*(((i-k+8)%8)/7);c.fillStyle=sk.ring;c.beginPath();c.arc(Math.cos(a)*6,-rr-10+Math.sin(a)*6,1.6,0,TAU);c.fill();}
+    c.globalAlpha=1;
+  }else if(h===22){
+    // огненный гребень: пять язычков пламени разной высоты
+    for(let i=0;i<5;i++){
+      const x=-8+i*4,hh=6+Math.sin(t*0.3+i*1.7)*2.5+(i===2?3:0);
+      c.fillStyle=i%2?'#fb923c':'#ef4444';
+      c.beginPath();c.moveTo(x-2.5,-rr+2);c.quadraticCurveTo(x-1,-rr-hh*0.6,x,-rr-hh);c.quadraticCurveTo(x+1,-rr-hh*0.6,x+2.5,-rr+2);c.closePath();c.fill();
+    }
+    c.fillStyle='#fde047';c.beginPath();c.arc(0,-rr-2,1.5,0,TAU);c.fill();
+  }else if(h===23){
+    // спутник: кружит вокруг головы, панели поблёскивают
+    const a=t*0.045,x=Math.cos(a)*(rr+12),y=-rr*0.4+Math.sin(a)*(rr+6)*0.5;
+    c.save();c.translate(x,y);c.rotate(a*0.5);
+    c.fillStyle='#94a3b8';c.fillRect(-2,-2,4,4);
+    c.fillStyle=Math.floor(t/12)%2?'#3b82f6':'#60a5fa';c.fillRect(-8,-1.5,5,3);c.fillRect(3,-1.5,5,3);
+    c.restore();
+  }else if(h===24){
+    // песочные часы: песок пересыпается, каждые четыре секунды часы переворачиваются
+    const k=(t%240)/240,flip=Math.floor(t/240)%2;
+    c.save();c.translate(0,-rr-10);if(flip)c.rotate(Math.PI);
+    c.strokeStyle='#92400e';c.lineWidth=1.2;
+    c.beginPath();c.moveTo(-5,-7);c.lineTo(5,-7);c.lineTo(-4,6);c.lineTo(4,6);c.closePath();c.stroke();
+    c.fillStyle='#fbbf24';
+    c.beginPath();c.moveTo(-4*(1-k),-6+6*k);c.lineTo(4*(1-k),-6+6*k);c.lineTo(0,0);c.closePath();c.fill();
+    c.fillRect(-3*k,6-4*k,6*k,4*k);
+    c.restore();
   }
 }
 // шлейф по стилю следа; pts — точки {x,y,life,hot}, max — их полная жизнь
@@ -3101,7 +3194,7 @@ function drawPlayer(){
   drawPlayerBody(ctx,p,time,false,L);
 
   // сердечки над игроком; с аксессуаром — чуть выше, чтобы не налезали
-  const hy=L.h&&L.h!==4?36:30;
+  const hy=L.h&&EYE_HATS.indexOf(L.h)<0?36:30;
   const ml=maxLives();
   for(let i=0;i<ml;i++)drawHeart(p.x-(ml-1)*7+i*14,p.y-hy,6,i<lives);
 
