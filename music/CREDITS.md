@@ -53,3 +53,63 @@
 | `a10-lv2.mp3` | 11 · СИНГУЛЯРНОСТЬ | Insistent: background loop — Insistent.ogg | yd | https://opengameart.org/content/insistent-background-loop |
 | `a10-lv3.mp3` | 11 · СИНГУЛЯРНОСТЬ | JRPG Pack 5 Action — Action2 - Army Approaching.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-5-action |
 | `a10-boss.mp3` | 11 · СИНГУЛЯРНОСТЬ | Boss Battle #9 [Metal] — boss_battle_9_metal_loop.wav | nene | https://opengameart.org/content/boss-battle-9-metal |
+| `a11-lv1.mp3` | 12 · ВОСПОМИНАНИЯ | JRPG Pack 4 Calm — Calm2 - Childhood Friends.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-4-calm |
+| `a11-lv2.mp3` | 12 · ВОСПОМИНАНИЯ | JRPG Pack 4 Calm — Calm5 - Summer Memories.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-4-calm |
+| `a11-lv3.mp3` | 12 · ВОСПОМИНАНИЯ | JRPG Pack 4 Calm — Calm6 - Innocence.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-4-calm |
+| `a11-boss.mp3` | 12 · ВОСПОМИНАНИЯ | Boss Battle #3 [8-bit re-upload] — Boss Battle #3 V1.wav | nene | https://opengameart.org/content/boss-battle-3-8-bit-re-upload |
+| `a12-lv1.mp3` | 13 · ЗАВОД | Factory ambiance — Factory.ogg | yd | https://opengameart.org/content/factory-ambiance |
+| `a12-lv2.mp3` | 13 · ЗАВОД | 8-bit Mechanical Complex — 8-bit_mechanical_complex.mp3 | HydroGene | https://opengameart.org/content/8-bit-mechanical-complex |
+| `a12-lv3.mp3` | 13 · ЗАВОД | JRPG Pack 1 Exploration — Military Base.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-1-exploration |
+| `a12-boss.mp3` | 13 · ЗАВОД | Battle Theme B for RPG — battleThemeB.mp3 | cynicmusic | https://opengameart.org/content/battle-theme-b-for-rpg |
+| `a13-lv1.mp3` | 14 · ДЖУНГЛИ КОДА | JRPG Pack 1 Exploration — Tropical Island.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-1-exploration |
+| `a13-lv2.mp3` | 14 · ДЖУНГЛИ КОДА | 6 genuinely C64 soundtracks released as public domain, May 2017 — freddie_swamp.ogg | skrjablin | https://opengameart.org/content/6-genuinely-c64-soundtracks-released-as-public-domain-may-2017 |
+| `a13-lv3.mp3` | 14 · ДЖУНГЛИ КОДА | T & T Free Cyberpunk Pack — Tribal Chaos.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack |
+| `a13-boss.mp3` | 14 · ДЖУНГЛИ КОДА | T & T Free Cyberpunk Pack — Wicked beast.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack |
+| `a14-lv1.mp3` | 15 · ЛЕДНИК | Icy Heights — theme-loop.ogg | Écrivain | https://opengameart.org/content/icy-heights |
+| `a14-lv2.mp3` | 15 · ЛЕДНИК | Snowfall — Snowfall (Looped ver.)_0.ogg | Kistol | https://opengameart.org/content/snowfall |
+| `a14-lv3.mp3` | 15 · ЛЕДНИК | Cold Silence — cold_silence.ogg | Eponasoft | https://opengameart.org/content/cold-silence |
+| `a14-boss.mp3` | 15 · ЛЕДНИК | Boss Battle #4 [8-bit re-upload] — Boss Battle #4 V1.wav | nene | https://opengameart.org/content/boss-battle-4-8-bit-re-upload |
+| `a15-lv1.mp3` | 16 · ВУЛКАН | JRPG Pack 3 Evil — Evil3 - Apocalypse.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-3-evil |
+| `a15-lv2.mp3` | 16 · ВУЛКАН | T & T Free Cyberpunk Pack — Caves.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack |
+| `a15-lv3.mp3` | 16 · ВУЛКАН | JRPG Pack 1 Exploration — Tha'el Mines.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-1-exploration |
+| `a15-boss.mp3` | 16 · ВУЛКАН | RPG Battle Theme II — Fighting is not an option.ogg | CleytonKauffman | https://opengameart.org/content/rpg-battle-theme-ii |
+| `a16-lv1.mp3` | 17 · ПУСТЫНЯ ДАННЫХ | Desert theme — caravan.ogg_0.ogg | yd | https://opengameart.org/content/desert-theme |
+| `a16-lv2.mp3` | 17 · ПУСТЫНЯ ДАННЫХ | Spaghetti Western — spagetti western.ogg | Spring Spring | https://opengameart.org/content/spaghetti-western |
+| `a16-lv3.mp3` | 17 · ПУСТЫНЯ ДАННЫХ | Horror Atmosphere — Juhani Junkala - Post Apocalyptic Wastelands [Loop Ready].ogg | SubspaceAudio | https://opengameart.org/content/horror-atmosphere |
+| `a16-boss.mp3` | 17 · ПУСТЫНЯ ДАННЫХ | Random Battle — Random Battle.mp3 | controllerhead | https://opengameart.org/content/random-battle |
+| `a17-lv1.mp3` | 18 · ЛУНА | moon chime — tipa16-01.mp3 | obscure music | https://opengameart.org/content/moon-chime |
+| `a17-lv2.mp3` | 18 · ЛУНА | Lonelyhood — Lonelyhood.ogg | yd | https://opengameart.org/content/lonelyhood |
+| `a17-lv3.mp3` | 18 · ЛУНА | Searching — Searching.ogg | yd | https://opengameart.org/content/searching |
+| `a17-boss.mp3` | 18 · ЛУНА | NES Shooter Music (5 tracks, 3 jingles) — Mercury.ogg | SketchyLogic | https://opengameart.org/content/nes-shooter-music-5-tracks-3-jingles |
+| `a18-lv1.mp3` | 19 · МАРС | NES Shooter Music (5 tracks, 3 jingles) — Mars.ogg | SketchyLogic | https://opengameart.org/content/nes-shooter-music-5-tracks-3-jingles |
+| `a18-lv2.mp3` | 19 · МАРС | NES Shooter Music (5 tracks, 3 jingles) — Venus.ogg | SketchyLogic | https://opengameart.org/content/nes-shooter-music-5-tracks-3-jingles |
+| `a18-lv3.mp3` | 19 · МАРС | T & T Free Cyberpunk Pack — Simulation Unknown.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack |
+| `a18-boss.mp3` | 19 · МАРС | Boss Battle #5 [8-bit] — Boss Battle # 5 V1.wav | nene | https://opengameart.org/content/boss-battle-5-8-bit |
+| `a19-lv1.mp3` | 20 · КОЛЬЦО ДАЙСОНА | T & T Free Cyberpunk Pack 2 — electric_stream_180bpm.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack-2 |
+| `a19-lv2.mp3` | 20 · КОЛЬЦО ДАЙСОНА | Pulsar [Famitracker 2A03] — Pulsar.mp3 | celestialghost8 | https://opengameart.org/content/pulsar-famitracker-2a03 |
+| `a19-lv3.mp3` | 20 · КОЛЬЦО ДАЙСОНА | Hyper Ultra-Racing — AugustUltraAmbience.mp3 | cynicmusic | https://opengameart.org/content/hyper-ultra-racing |
+| `a19-boss.mp3` | 20 · КОЛЬЦО ДАЙСОНА | Fight for Better Future [Rock/Metal] — fight_for_better_future.wav | nene | https://opengameart.org/content/fight-for-better-future-rockmetal |
+| `a20-lv1.mp3` | 21 · ТЁМНАЯ МАТЕРИЯ | Dungeon Ambience — dungeon002.ogg | yd | https://opengameart.org/content/dungeon-ambience |
+| `a20-lv2.mp3` | 21 · ТЁМНАЯ МАТЕРИЯ | Dark Intro — Dark Intro.ogg | Nikke | https://opengameart.org/content/dark-intro |
+| `a20-lv3.mp3` | 21 · ТЁМНАЯ МАТЕРИЯ | Dark Theme — theme.ogg | JaggedStone | https://opengameart.org/content/dark-theme |
+| `a20-boss.mp3` | 21 · ТЁМНАЯ МАТЕРИЯ | JRPG Pack 3 Evil — Evil1 - Ancient Evil Awakens.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-3-evil |
+| `a21-lv1.mp3` | 22 · ПАРАЛЛЕЛЬ | Cyberpunk Moonlight Sonata — Cyberpunk Moonlight Sonata v2.mp3 | Joth | https://opengameart.org/content/cyberpunk-moonlight-sonata |
+| `a21-lv2.mp3` | 22 · ПАРАЛЛЕЛЬ | T & T Free Cyberpunk Pack 2 — welcome_mix_110bpm.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack-2 |
+| `a21-lv3.mp3` | 22 · ПАРАЛЛЕЛЬ | T & T Free Cyberpunk Pack 2 — night_club_chill_100bpm.ogg | tricksntraps | https://opengameart.org/content/t-t-free-cyberpunk-pack-2 |
+| `a21-boss.mp3` | 22 · ПАРАЛЛЕЛЬ | Boss Battle #2 ["8 bit"] — boss_battle_#2.mp3 | nene | https://opengameart.org/content/boss-battle-2-8-bit |
+| `a22-lv1.mp3` | 23 · ВРЕМЯ | Calm Piano 1 (Vaporware) — 003_Vaporware_1.mp3 | cynicmusic | https://opengameart.org/content/calm-piano-1-vaporware |
+| `a22-lv2.mp3` | 23 · ВРЕМЯ | Black Diamond — Black Diamond.mp3 | Joth | https://opengameart.org/content/black-diamond |
+| `a22-lv3.mp3` | 23 · ВРЕМЯ | Covert Operations — covert_operations.mp3 | artisticdude | https://opengameart.org/content/covert-operations |
+| `a22-boss.mp3` | 23 · ВРЕМЯ | JRPG Pack 5 Action — Action3 - Preparing For Battle.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-5-action |
+| `a23-lv1.mp3` | 24 · СОН | Dream 2 Ambience — Dream 2 (Ambience).ogg | TokyoGeisha | https://opengameart.org/content/dream-2-ambience |
+| `a23-lv2.mp3` | 24 · СОН | Enchanted Tiki 86 — enchanted tiki 86.mp3 | cynicmusic | https://opengameart.org/content/enchanted-tiki-86 |
+| `a23-lv3.mp3` | 24 · СОН | Aquaria — TylerSong3_Normal.mp3 | cynicmusic | https://opengameart.org/content/aquaria |
+| `a23-boss.mp3` | 24 · СОН | JRPG Pack 3 Evil — Evil4 - Witch's Lair.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-3-evil |
+| `a24-lv1.mp3` | 25 · ЯДРО МИРА | JRPG Pack 3 Evil — Evil2 - Catacombs.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-3-evil |
+| `a24-lv2.mp3` | 25 · ЯДРО МИРА | JRPG Pack 1 Exploration — Sneaking Around.ogg | SubspaceAudio | https://opengameart.org/content/jrpg-pack-1-exploration |
+| `a24-lv3.mp3` | 25 · ЯДРО МИРА | Eye of the Storm — Eye of the Storm.mp3 | Joth | https://opengameart.org/content/eye-of-the-storm |
+| `a24-boss.mp3` | 25 · ЯДРО МИРА | 12 Music Loops — 006_heavy_metal_chiptunes_bgm_stage_f_faster.ogg | SubspaceAudio | https://opengameart.org/content/12-music-loops |
+| `a25-lv1.mp3` | 26 · ИСТОЧНИК | Fantasy Choir-3 orchestral pieces — Fantasy Choir 1.mp3 | cesisco | https://opengameart.org/content/fantasy-choir-3-orchestral-pieces |
+| `a25-lv2.mp3` | 26 · ИСТОЧНИК | Epic Endgame Cinematic — ChoirChordsBassMaster.mp3 | cynicmusic | https://opengameart.org/content/epic-endgame-cinematic |
+| `a25-lv3.mp3` | 26 · ИСТОЧНИК | It Takes A Hero — it_takes_a_hero.mp3 | Zane Little Music | https://opengameart.org/content/it-takes-a-hero |
+| `a25-boss.mp3` | 26 · ИСТОЧНИК | Determined Pursuit (epic orchestra loop) — determined_pursuit_loop.wav | Emma_MA | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop |

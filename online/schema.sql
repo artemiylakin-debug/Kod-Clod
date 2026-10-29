@@ -26,9 +26,9 @@ alter table public.progress add column if not exists bio        text not null de
 alter table public.progress add column if not exists created_at timestamptz not null default now();
 alter table public.progress add column if not exists hidden     boolean not null default false;
 
--- границы значений: 200 уровней, до 50 предметов в каждом разделе облика
+-- границы значений: 500 уровней, до 50 предметов в каждом разделе облика
 alter table public.progress drop constraint if exists progress_unlocked_check;
-alter table public.progress add constraint progress_unlocked_check check (unlocked between 1 and 200);
+alter table public.progress add constraint progress_unlocked_check check (unlocked between 1 and 500);
 alter table public.progress drop constraint if exists progress_color_check;
 alter table public.progress add constraint progress_color_check check (color between 0 and 49);
 alter table public.progress drop constraint if exists progress_shape_check;
