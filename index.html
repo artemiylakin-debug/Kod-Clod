@@ -426,6 +426,9 @@ const $id=id=>document.getElementById(id);
 const clampInt=(v,a,b,d)=>Number.isInteger(v)&&v>=a&&v<=b?v:d;
 // подножка: радиус, сколько кадров враг лежит (5 с) и перезарядка (12 с — с 7 с врагов можно было держать на полу почти всё время)
 const TRIP_R=140,TRIP_STUN=300,TRIP_CD=720;
+// невесомость: доля разгона и торможение (было 0.42 и 0.975 — разворот занимал полторы секунды,
+// а против потока игрок почти стоял); зона лага — во сколько раз сильнее торможение (было 0.93)
+const ICE_ACC=0.6,ICE_FR=0.962,LAG_FR=0.95;
 
 // ================= ВВОД =================
 // e.code не зависит от раскладки и Caps Lock: Q (й) и R (к) работают и на русской раскладке
@@ -1978,8 +1981,10 @@ function step(){
   const sk=colOf(wornLook().c,time),cfg=cfgNow();
 
   // движение: вектор нормализован, иначе по диагонали скорость была в 1.41 раза выше
-  // в невесомости разгон слабее, а торможение дольше — скорость та же, но всё «скользит»
-  const acc=(player.dashT>0?0.15:0.35)*(cfg.ice?0.42:1);
+  // в невесомости разгон слабее, а торможение дольше — скорость та же, но всё «скользит»;
+  // в зоне лага невесомость не действует: там и так медленно
+  const lagNow=(lags.length||zLag)&&inLag(player.x,player.y),ice=cfg.ice&&!lagNow;
+  const acc=(player.dashT>0?0.15:0.35)*(ice?ICE_ACC:1);
   const mult=boost>0?2:1;
   let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
   let iy=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+joy.y;
@@ -1987,7 +1992,7 @@ function step(){
   // в зоне инверсии управление наоборот
   if((invs.length||zInv)&&inInv(player.x,player.y)){ix=-ix;iy=-iy;}
   player.vx+=ix*acc*mult;player.vy+=iy*acc*mult;
-  const fr=(cfg.ice?0.975:0.94)*((lags.length||zLag)&&inLag(player.x,player.y)?0.93:1);
+  const fr=(ice?ICE_FR:0.94)*(lagNow?LAG_FR:1);
   player.vx*=fr;player.vy*=fr;
   if(Math.hypot(player.vx,player.vy)>0.5)player.face=Math.atan2(player.vy,player.vx);
 
@@ -2031,9 +2036,11 @@ function step(){
   }
   if(tripFx&&++tripFx.t>16)tripFx=null;
 
-  // потоки трафика сносят в сторону
-  for(const f of flows)if(player.y>f.y&&player.y<f.y+f.h)player.vx+=f.dir*0.12;
-  if(zFlow){const fd=FLOW_DIR[zoneAt(player.x,player.y)];if(fd){player.vx+=fd[0]*0.12;player.vy+=fd[1]*0.12;}}
+  // потоки трафика сносят в сторону; в невесомости — слабее, в той же мере, что и разгон,
+  // иначе против потока было не выплыть
+  const fk=0.12*(cfg.ice?ICE_ACC:1);
+  for(const f of flows)if(player.y>f.y&&player.y<f.y+f.h)player.vx+=f.dir*fk;
+  if(zFlow){const fd=FLOW_DIR[zoneAt(player.x,player.y)];if(fd){player.vx+=fd[0]*fk;player.vy+=fd[1]*fk;}}
   // чёрные дыры тянут к себе: чем ближе, тем сильнее; бегом можно уйти, рывком — легко
   for(const h of holes){
     const hx=h.x-player.x,hy=h.y-player.y,hd=Math.hypot(hx,hy)||1;
