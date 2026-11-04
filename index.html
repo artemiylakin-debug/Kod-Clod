@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f6fa">
+<!-- игра как приложение: с экрана «Домой» (iPhone) или после установки (Android) открывается
+     на весь экран, без адресной строки и вкладок браузера -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DATA.OUT">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <!-- политика безопасности сайта: скрипты, стили, музыка и данные — только свои и из базы игры;
      формы — только оплата ЮMoney; встраивать плагины и менять базовый адрес нельзя.
      'unsafe-inline' нужен, потому что вся игра — один встроенный скрипт -->
@@ -153,6 +162,11 @@
   .mbtn.sm{padding:6px 10px;font-size:12px;border-width:1px}
   .mbtn.liked{border-color:var(--heart);color:var(--heart)}
   .copyrow{display:flex;gap:6px;align-items:center}
+  .hs-tip{border:2px dashed var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.35}
+  .hs-btns{display:flex;gap:6px;justify-content:center;margin-top:6px}
+  .hs-steps{text-align:left;padding-left:22px;margin:8px 0}
+  .hs-steps li{margin:8px 0;line-height:1.4}
+  .ico{width:18px;height:18px;vertical-align:-3px;color:#007aff}
   .panel .mp-code{font:bold 30px var(--font);letter-spacing:6px;text-align:center;color:#7c3aed;margin:4px 0}
   .panel .mp-count{font:bold 64px var(--font);text-align:center;color:#7c3aed;margin:8px 0}
   .panel .mp-big{font-weight:bold;font-size:17px;text-align:center}
@@ -1407,7 +1421,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1427,6 +1441,7 @@ try{
     if(s.autoRes===0.75||s.autoRes===0.6)save.autoRes=s.autoRes;
     save.fps=s.fps===true;
     save.vib=s.vib!==false;
+    save.hsHide=s.hsHide===true;
     save.mus=clampInt(s.mus,0,3,2);
     save.mpRaces=clampInt(s.mpRaces,0,1e6,0);
     save.mpWins=Math.min(save.mpRaces,clampInt(s.mpWins,0,1e6,0));
@@ -3945,6 +3960,8 @@ function panelHTML(s){
       ACCT_ROW+
       '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</p>'+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
+      (hsTipOn()?'<div class="hs-tip"><b>📲 Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
+      (installEv?mb('install','📲 Установить игру — на весь экран'):'')+
       '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
       mb('race','Гонка · мультиплеер')+
@@ -4069,6 +4086,7 @@ function panelHTML(s){
   if(s==='community')return comHTML();
   if(s==='profile')return profHTML();
   if(s==='race')return mpHTML();
+  if(s==='homescr')return hsHTML();
   if(s==='mcp')return mcpHTML();
   if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
   if(s==='cclear'){
@@ -4128,6 +4146,7 @@ function panelHTML(s){
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
       '<li><b>Гонка.</b> Вдвоём проходите один и тот же уровень, каждый со своими врагами; соперника видно полупрозрачным двойником. Побеждает тот, кто раньше дойдёт до портала. Погибнешь — начнёшь уровень сначала, а часы гонки идут дальше. Соперник находится сам («Случайный соперник») или по коду комнаты от друга. Гонки — на сайте игры, с аккаунтом.</li>'+
+      '<li><b>Весь экран на телефоне.</b> На Android — кнопка «ВЕСЬ ЭКРАН» или «Установить игру» в меню. На iPhone Safari не убирает свою строку и вкладки, но игра, добавленная на экран «Домой» («Поделиться» → «На экран „Домой“»), открывается как приложение — на весь экран.</li>'+
       '<li><b>Музыка.</b> На сайте у каждого акта три записанных трека — уровни берут их по очереди, — и свой трек для боя с боссом. Если трек не загрузился (или игра открыта не с сайта), у каждого уровня играет своя синтезированная мелодия. Громкость и выключение — в настройках.</li>'+
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы.</li>'+
@@ -4180,6 +4199,7 @@ function panelHTML(s){
       chip('q:auto','Авто',save.q==='auto')+chip('q:high','Высокая',save.q==='high')+chip('q:med','Средняя',save.q==='med')+chip('q:low','Низкая',save.q==='low')+'</div>'+
       '<p>'+(save.q==='auto'?'Сейчас: <b>'+cur.name.toLowerCase()+(save.autoRes<1?', разрешение '+Math.round(save.autoRes*100)+'%':'')+'</b>. Если игра не успевает, «Авто» само снизит графику и запомнит это для устройства.':cur.hint)+'</p>'+
       '<p class="lbl2">СЧЁТЧИК КАДРОВ</p><div class="chips">'+chip('fps:1','Показывать',save.fps)+chip('fps:0','Скрыть',!save.fps)+'</div>'+
+      (HS_TIP?'<p class="lbl2">ВЕСЬ ЭКРАН</p>'+mb('homescr','Как играть на iPhone без строки Safari'):'')+
       '<p class="lbl2">МУЗЫКА НА УРОВНЯХ</p><div class="chips">'+chip('mus:0','Выкл',save.mus===0)+chip('mus:1','Тихо',save.mus===1)+chip('mus:2','Средне',save.mus===2)+chip('mus:3','Громко',save.mus===3)+'</div>'+
       (canVibrate?'<p class="lbl2">ВИБРАЦИЯ</p><div class="chips">'+chip('vib:1','Вкл',save.vib)+chip('vib:0','Выкл',!save.vib)+'</div>':'')+
       mb(settingsBack,'Назад','primary');
@@ -4299,6 +4319,9 @@ function act(a){
   else if(k==='diff'){const v=a.split(':')[1];if(DIFFS.indexOf(v)>=0){save.diff=v;persist();}lives=Math.min(lives,maxLives());showMenu('settings',a);}
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
+  else if(k==='homescr')hsOpen();
+  else if(k==='hshide'){save.hsHide=true;persist();showMenu('main');msg('Подсказка скрыта. Инструкция есть в «Настройках» и на кнопке «ВЕСЬ ЭКРАН».',6000);}
+  else if(k==='install')installGame();
   else if(k==='mus'){if(n>=0&&n<=3){save.mus=n;persist();musUnlock();musVolume();showMenu('settings',a);}}
   else if(k==='login')netLogin(a.split(':')[1]);
   else if(k==='signin'||k==='signup'){if(menuScreen==='gate'||menuScreen==='acct')loginBack=menuScreen;showMenu(k);}
@@ -4458,7 +4481,7 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
   if(phase==='menu'&&code==='Escape'&&menuScreen==='race'){mpLeave();showMenu('main');return;}
   if(phase==='menu'&&code==='Escape'){
-    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct'}[menuScreen];
+    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct',homescr:hsBack}[menuScreen];
     if(back){showMenu(back);return;}
   }
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
@@ -4522,11 +4545,47 @@ btn('bEmp',()=>{if(phase==='game')pressed.emp=true;});
 btn('bTrip',()=>{if(phase==='game')pressed.trip=8;});
 btn('bPause',()=>pause());
 
-// во весь экран — только там, где браузер это разрешает (кнопка иначе скрыта)
+// во весь экран: где браузер это разрешает — сам; на iPhone Safari не даёт сайту убрать свою строку
+// и вкладки, но игра, добавленная на экран «Домой», открывается как приложение — без них. Поэтому на
+// iPhone кнопка открывает подсказку, как это сделать. На Android игру можно и установить кнопкой в меню
 const bFs=$id('bFs'),rootEl=document.documentElement;
-if(document.fullscreenEnabled&&rootEl.requestFullscreen)bFs.hidden=false;
+const CAN_FS=!!(document.fullscreenEnabled&&rootEl.requestFullscreen);
+const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+const STANDALONE=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches;
+const HS_TIP=IS_IOS&&!CAN_FS&&!STANDALONE&&!IN_CLAUDE&&location.protocol==='https:';
+let installEv=null,hsBack='main';
+addEventListener('beforeinstallprompt',e=>{
+  if(IN_CLAUDE)return;
+  e.preventDefault();installEv=e;
+  if(phase==='menu'&&menuScreen==='main')showMenu('main');
+});
+addEventListener('appinstalled',()=>{installEv=null;if(phase==='menu'&&menuScreen==='main')showMenu('main');});
+function hsTipOn(){return HS_TIP&&!save.hsHide;}
+function hsOpen(){hsBack=phase==='pause'?'pause':(menuScreen==='settings'?'settings':'main');showMenu('homescr');}
+async function installGame(){
+  const ev=installEv;
+  if(!ev)return;
+  installEv=null;
+  try{await ev.prompt();const c=await ev.userChoice;if(c&&c.outcome==='accepted')msg('Игра установлена — запускай её с экрана телефона, она откроется на весь экран.',6000);}
+  catch(_){}
+  if(phase==='menu'&&menuScreen==='main')showMenu('main');
+}
+function hsHTML(){
+  const share='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H5v11h14V10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const add='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  return '<h2>НА ВЕСЬ ЭКРАН</h2>'+
+    '<p>Safari на iPhone не даёт сайтам убирать свою адресную строку и вкладки. Но игра, добавленная на экран «Домой», открывается как приложение — на весь экран, без них.</p>'+
+    '<ol class="hs-steps">'+
+    '<li>Нажми «Поделиться» '+share+' — внизу или вверху экрана. Если такой кнопки не видно, она в меню «•••» у адресной строки.</li>'+
+    '<li>В списке выбери «На экран „Домой“» '+add+' (пролистай вниз, если его не видно сразу). Если там есть переключатель открытия как веб-приложения — оставь его включённым.</li>'+
+    '<li>Нажми «Добавить» и запускай DATA.OUT значком с экрана «Домой».</li></ol>'+
+    '<p class="foot">В приложении один раз войди в тот же аккаунт: прогресс, биты и облик хранятся в нём и никуда не денутся. Играть лучше боком.</p>'+
+    mb(hsBack,'Назад','primary');
+}
+if(CAN_FS||HS_TIP)bFs.hidden=false;
 bFs.addEventListener('pointerdown',e=>e.stopPropagation());
 bFs.addEventListener('click',()=>{
+  if(!CAN_FS){if(phase==='game')pause();hsOpen();return;}
   if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}
   rootEl.requestFullscreen().then(()=>{
     try{screen.orientation.lock('landscape').catch(()=>{});}catch(_){}
