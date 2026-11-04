@@ -162,6 +162,17 @@
   .mbtn.sm{padding:6px 10px;font-size:12px;border-width:1px}
   .mbtn.liked{border-color:var(--heart);color:var(--heart)}
   .copyrow{display:flex;gap:6px;align-items:center}
+  .ev-hot{border-color:#7c3aed!important;color:#7c3aed!important;animation:evpulse 1.4s ease-in-out infinite}
+  @keyframes evpulse{50%{box-shadow:0 0 0 4px #7c3aed33}}
+  @media (prefers-reduced-motion:reduce){.ev-hot{animation:none}}
+  .ev-note{font-size:13px;text-align:center;margin:4px 0}
+  .ev-card{border:2px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;text-align:left}
+  .ev-card p{margin:6px 0}
+  .ev-list{margin:6px 0;padding-left:20px;font-size:14px}
+  .ev-top{margin:6px 0;padding-left:0;list-style:none}
+  .ev-top li{display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:6px}
+  .ev-top li span{flex:1}
+  .ev-top li.me{background:#7c3aed1a;font-weight:bold}
   .hs-tip{border:2px dashed var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.35}
   .hs-btns{display:flex;gap:6px;justify-content:center;margin-top:6px}
   .hs-steps{text-align:left;padding-left:22px;margin:8px 0}
@@ -1349,7 +1360,7 @@ let RACE_DIFF='',MP=null;
 // D() зовут сотни раз за кадр: множители пересчитываются, только когда сменились таблица, сложность или k
 let dT=null,dN='',dK=0,dO=null;
 function D(){
-  const t=CUSTOM?DIFF_COMM:DIFF,n=RACE_DIFF||save.diff,c=CUSTOM?null:LEVELS[lvl],k=c&&c.k||1;
+  const t=CUSTOM?DIFF_COMM:DIFF,n=RACE_DIFF||TOUR_DIFF||save.diff,c=CUSTOM?null:LEVELS[lvl],k=c&&c.k||1;
   if(t!==dT||n!==dN||k!==dK){dT=t;dN=n;dK=k;dO=diffAt(t[n]||t.easy,k);}
   return dO;
 }
@@ -1389,7 +1400,9 @@ const SKIN_COLORS=[
   {name:'БРОНЗА',main:'#b87333',dark:'#3d1f08',ring:'#9a5b24',trail:'#d9995e',act:23,price:2600},
   {name:'ИСТОК',shimmer:true,main:'#fef9c3',dark:'#3b2f00',ring:'#fde047',trail:'#ffffff',act:26,price:2900,sw:'linear-gradient(135deg,#ffffff,#fef08a,#fde047,#ffffff)'},
   // костюм исследователя Зоны: ремни, подсумки, потёртости и нашивка (drawSuit)
-  {name:'ЗОНА',suit:true,main:'#56683a',dark:'#1d2418',ring:'#6b7b44',trail:'#34d399',price:1200,sw:'linear-gradient(135deg,#56683a,#3d4a2c 55%,#2b2f2c)'}
+  {name:'ЗОНА',suit:true,main:'#56683a',dark:'#1d2418',ring:'#6b7b44',trail:'#34d399',price:1200,sw:'linear-gradient(135deg,#56683a,#3d4a2c 55%,#2b2f2c)'},
+  // эксклюзивы ивентов (ex): не продаются, их дают ивенты (см. ИВЕНТЫ)
+  {name:'ИНЕЙ',ex:'w26',main:'#e0f2fe',dark:'#1e3a5f',ring:'#7dd3fc',trail:'#bae6fd',sw:'linear-gradient(135deg,#ffffff,#bae6fd,#7dd3fc)'}
 ];
 const SKIN_SHAPES=[
   {name:'ГЕКСАГОН'},{name:'ЯДРО'},{name:'РОМБ'},
@@ -1400,7 +1413,7 @@ const TRAILS=[
   {name:'ОБЫЧНЫЙ'},{name:'ПИКСЕЛИ',price:200},{name:'ИСКРЫ',price:350},{name:'ОГОНЬ',price:500},
   {name:'ДВОИЧНЫЙ',price:700},{name:'РАДУГА',price:1000},{name:'КОМЕТА',act:1,price:400},{name:'ЗОЛОТАЯ ПЫЛЬ',sup:true,price:2000},
   {name:'СОЗВЕЗДИЕ',act:9,price:1200},{name:'СЕРДЕЧКИ',sup:true,price:2000},{name:'ПУЗЫРИ',price:900},{name:'ХВОСТ ЧЁРТА',price:666},
-  {name:'АНОМАЛИЯ',price:1300}
+  {name:'АНОМАЛИЯ',price:1300},{name:'СНЕГОПАД',ex:'w26'}
 ];
 const HATS=[
   {name:'БЕЗ НИЧЕГО'},{name:'АНТЕННА',price:150},{name:'КЕПКА',price:300},{name:'НАУШНИКИ',price:400},
@@ -1411,7 +1424,9 @@ const HATS=[
   {name:'ГОЛОКУБ',price:900},{name:'ОРБИТА БИТОВ',price:600},{name:'УШКИ-ДАТЧИКИ',price:350},{name:'МОНОКЛЬ',price:400},
   {name:'СПИННЕР ЗАГРУЗКИ',act:13,price:1600},{name:'ОГНЕННЫЙ ГРЕБЕНЬ',act:16,price:1900},{name:'СПУТНИК',act:18,price:2100},{name:'ПЕСОЧНЫЕ ЧАСЫ',act:23,price:2600},
   // капюшон, противогаз с тёмными линзами, перчатки и укороченный автомат
-  {name:'СНАРЯЖЕНИЕ ЗОНЫ',price:1500}
+  {name:'СНАРЯЖЕНИЕ ЗОНЫ',price:1500},
+  // эксклюзивы ивентов: зимняя шапка, корона админа, кубок турнира
+  {name:'ЗИМНЯЯ ШАПКА',ex:'w26'},{name:'КОРОНА АДМИНА',ex:'ab'},{name:'КУБОК ТУРНИРА',ex:'cup'}
 ];
 // аксессуары на уровне глаз: над ними сердечки не нужно поднимать
 const EYE_HATS=[4,14,20,25];
@@ -1453,7 +1468,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:''},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1474,6 +1489,7 @@ try{
     save.fps=s.fps===true;
     save.vib=s.vib!==false;
     save.hsHide=s.hsHide===true;
+    save.evd=parseEvd(s.evd);
     save.mus=clampInt(s.mus,0,3,2);
     save.mpRaces=clampInt(s.mpRaces,0,1e6,0);
     save.mpWins=Math.min(save.mpRaces,clampInt(s.mpWins,0,1e6,0));
@@ -1521,6 +1537,7 @@ function actDone(n){return n<ACTS.length?save.unlocked>ACTS[n-1].end+1:save.unlo
 function owned(cat,i){
   const it=catOf(cat).list[i];
   if(!it)return false;
+  if(it.ex)return exOwned(cat+i);
   // вещи за акт и за поддержку достаются бесплатно, но их можно и купить за биты
   if((it.act&&actDone(it.act))||(it.sup&&isSupporter()))return true;
   if(it.price)return save.own.indexOf(cat+i)>=0;
@@ -1541,7 +1558,9 @@ const OUTFIT_IDEAS=[
   {n:'СЫЩИК',c:20,s:2,t:0,h:20},{n:'ДЖЕНТЛЬМЕН',c:9,s:2,t:0,h:12},{n:'СТРОИТЕЛЬ',c:2,s:6,t:1,h:8},{n:'ПОДВОДНИК',c:15,s:10,t:10,h:9},
   {n:'ФЕНИКС',c:16,s:5,t:3,h:22},{n:'ХАКЕР',c:14,s:4,t:4,h:18},{n:'ЗВЕЗДОЧЁТ',c:6,s:5,t:8,h:23},{n:'КИБЕРКОТ',c:8,s:3,t:2,h:19},
   {n:'ГОЛОГРАММА',c:5,s:7,t:2,h:17},{n:'ПУТЕШЕСТВЕННИК',c:20,s:2,t:6,h:2},{n:'СВЕТИЛО',c:21,s:5,t:3,h:16},{n:'ЗАГРУЗКА',c:0,s:4,t:1,h:21},
-  {n:'ЧАСОВЩИК',c:22,s:6,t:2,h:24},{n:'ZONE GUARDIAN',c:24,s:0,t:12,h:25}
+  {n:'ЧАСОВЩИК',c:22,s:6,t:2,h:24},{n:'ZONE GUARDIAN',c:24,s:0,t:12,h:25},
+  // зимний эксклюзив: собрать за снежинки ивента «Первый снег»
+  {n:'СНЕГОВИК',c:25,s:1,t:13,h:26}
 ];
 function outfitName(v){return typeof v==='string'?v.replace(/[\u0000-\u001f\u007f<>&"'`\\]/g,'').replace(/\s+/g,' ').trim().slice(0,16):'';}
 function parseOutfits(v){
@@ -1598,7 +1617,7 @@ function outfitBuyHTML(o){
     h+=coins()>=sh.sum?mb('ofbuy',(sh.locked.length?'Купить, что продаётся, из «':'Купить наряд «')+n+'» за ◈ '+sh.sum,'buy')+'<p class="foot">В покупку войдёт: '+what+'.</p>'
       :'<p>Недостающее для «'+n+'» ('+what+') стоит ◈ '+sh.sum+' — не хватает '+(sh.sum-coins())+'. Биты дают за данные, уровни и боссов.</p>';
   }
-  for(const x of sh.locked)h+='<p>«'+x.it.name+'» '+(x.it.act?'откроется, когда '+(x.it.act<ACTS.length?'пройдёшь акт '+x.it.act+' · '+ACTS[x.it.act-1].name:'пройдёшь всю игру'):'— подарок за поддержку игры')+'.</p>';
+  for(const x of sh.locked)h+=x.it.ex?'<p>«'+x.it.name+'»: '+exHow(x.it,x.k+x.i)+'</p>':'<p>«'+x.it.name+'» '+(x.it.act?'откроется, когда '+(x.it.act<ACTS.length?'пройдёшь акт '+x.it.act+' · '+ACTS[x.it.act-1].name:'пройдёшь всю игру'):'— подарок за поддержку игры')+'.</p>';
   return h;
 }
 function saveOutfit(){
@@ -1650,7 +1669,7 @@ function colOf(i,t){
 }
 // биты текущего уровня: копятся в игре и записываются в сохранение на паузе, в меню и в конце уровня
 let runBits=0,lvBits=0;
-function bankBits(){if(CUSTOM||RACE_DIFF){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
+function bankBits(){if(CUSTOM||RACE_DIFF||TOUR){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
 
 let Q=QUALITY.high,resScale=1,perfT=0,perfFrames=0;
 function computeQuality(){
@@ -1834,10 +1853,10 @@ function keepIn(e){
   if(solids.length)pushOut(e,e.r);
 }
 // бонусы: подпись над появившимся предметом и цвет его значка
-const PICK={emp:{label:'EMP',color:'#39c'},hp:{label:'АПТЕЧКА',color:'#e02444'},boost:{label:'РАЗГОН',color:'#fa0'}};
+const PICK={emp:{label:'EMP',color:'#39c'},hp:{label:'АПТЕЧКА',color:'#e02444'},boost:{label:'РАЗГОН',color:'#fa0'},snow:{label:'СНЕЖИНКА',color:'#0ea5e9'}};
 // бонус появляется в стороне: под игроком он подбирался бы в тот же кадр;
 // одинаковых на поле не больше PICK_MAX — иначе нетронутые аптечки и заряды заваливали поле
-const PICK_MAX={emp:3,hp:2,boost:1};
+const PICK_MAX={emp:3,hp:2,boost:1,snow:1};
 function dropPickup(type){
   let n=0;for(const q of pickups)if(q.type===type)n++;
   if(n>=PICK_MAX[type])return;
@@ -1952,7 +1971,7 @@ function shoot(x,y,a,sp,r,life){
   bullets.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:r||5,life:life||220});
 }
 function hitPlayer(){
-  if(phase!=='game'||player.cool>0)return;
+  if(phase!=='game'||player.cool>0||evIs('god'))return;
   burst(player.x,player.y,'#e33',20);
   lives--;shake=10;
   buzz(lives<=0?200:70);
@@ -1961,6 +1980,7 @@ function hitPlayer(){
   player.vy=(Math.random()-0.5)*14;
   if(lives<=0){
     lives=0;
+    if(TOUR){tourDied();return;}
     if(RACE_DIFF){mpDied();return;}
     if(!CUSTOM)save.best=Math.max(save.best,score);
     bankBits();persist();
@@ -1968,10 +1988,11 @@ function hitPlayer(){
   }
 }
 function levelClear(){
+  if(TOUR){tourFinished();return;}
   if(RACE_DIFF){mpFinished();return;}
   if(CUSTOM){customClear();return;}
   save.best=Math.max(save.best,score);
-  runBits+=clearBits(lvl);lvBits+=clearBits(lvl);bankBits();
+  addBits(clearBits(lvl));bankBits();
   if(lvl>=LEVELS.length-1){
     save.unlocked=LEVELS.length;
     save.wins=(save.wins||0)+1;
@@ -1980,6 +2001,7 @@ function levelClear(){
     return;
   }
   save.unlocked=Math.max(save.unlocked,lvl+2);persist();
+  evClearNote=evCleared();
   phase='clear';showMenu('clear');
 }
 // роутер: вошёл в кольцо — вышел из парного; снова сработает, только когда выйдешь из колец
@@ -2026,6 +2048,7 @@ function compact(arr,keep){
 
 // ================= ЛОГИКА =================
 function step(){
+  evStep();
   time++;if(shake>0)shake--;if(boost>0)boost--;if(intro>0)intro--;
   if(movers.length)moveMovers();
   const sk=colOf(wornLook().c,time),cfg=cfgNow();
@@ -2162,7 +2185,7 @@ function step(){
           popup(boss.x,boss.y,'+5','#f80');
           boss=null;
           spawnPortal();
-          gained+=5;runBits+=BOSS_BITS;lvBits+=BOSS_BITS;
+          gained+=5;addBits(BOSS_BITS);
           popup(player.x,player.y-40,'+'+BOSS_BITS+' ◈','#b45309');
           const a=actOf(lvl);
           msg('«'+name+'» УНИЧТОЖЕН! '+(lvl===LEVELS.length-1?'ВЫХОД НА СВОБОДУ':(lvl===ACTS[a].end?'ПОРТАЛ: '+ACTS[a+1].name:'ПОРТАЛ'))+' ОТКРЫТ — ВХОДИ!');
@@ -2542,7 +2565,7 @@ function step(){
       burst(dt.x,dt.y,'#0a5',12);
       popup(dt.x,dt.y,'+1','#0a5');
       data.splice(i,1);spawnData();
-      score++;got++;runBits++;lvBits++;
+      score++;got++;addBits(1);evData();
       // бонусы по расписанию: каждые 5 данных — EMP, аптечка — каждые 6–10 (по сложности), каждые 12 — разгон
       if(!portal){
         if(got%5===0)dropPickup('emp');
@@ -2569,6 +2592,7 @@ function step(){
         burst(p.x,p.y,'#e33',14);popup(p.x,p.y,'+♥','#e02444');msg('АПТЕЧКА: +1 жизнь');buzz(40);
         return false;
       }
+      if(p.type==='snow'){evSnowGot(p);return false;}
       burst(p.x,p.y,'#fa0',14);
       if(p.type==='emp'){emp++;popup(p.x,p.y,'EMP +1','#39c');msg('EMP-ЗАРЯД (Q)');}
       else{boost=240;popup(p.x,p.y,'РАЗГОН!','#fa0');msg('РАЗГОН: скорость x2!');}
@@ -3145,6 +3169,29 @@ function drawHat(c,h,rr,sk,t,f){
     c.beginPath();c.moveTo(-4*(1-k),-6+6*k);c.lineTo(4*(1-k),-6+6*k);c.lineTo(0,0);c.closePath();c.fill();
     c.fillRect(-3*k,6-4*k,6*k,4*k);
     c.restore();
+  }else if(h===26){
+    // зимняя шапка: вязаная, в полоску, с помпоном
+    c.fillStyle='#dc2626';c.beginPath();c.arc(0,-rr+5,11,Math.PI,0);c.fill();
+    c.fillStyle='#fff';c.fillRect(-11,-rr+3,22,4);
+    c.fillStyle='#fecaca';for(const x of [-6,0,6])c.fillRect(x-1,-rr-4,2,6);
+    c.fillStyle='#fff';c.beginPath();c.arc(Math.sin(t*0.1)*1.5,-rr-8,4,0,TAU);c.fill();
+    c.strokeStyle='#e5e7eb';c.lineWidth=1;c.stroke();
+  }else if(h===27){
+    // корона админа: золото и изредка цифровой сбой — корона «мигает» неоном
+    const g=Math.floor(t/7)%23===0;
+    c.fillStyle=g?'#22d3ee':'#facc15';c.strokeStyle=g?'#0e7490':'#a16207';c.lineWidth=1.2;
+    c.beginPath();c.moveTo(-11,-rr+2);c.lineTo(-11,-rr-7);c.lineTo(-6,-rr-2);c.lineTo(0,-rr-11);c.lineTo(6,-rr-2);c.lineTo(11,-rr-7);c.lineTo(11,-rr+2);c.closePath();c.fill();c.stroke();
+    c.fillStyle=g?'#facc15':'#7c3aed';c.font='bold 7px Courier New, monospace';c.textAlign='center';c.fillText('A',0,-rr);
+    c.fillStyle='#f43f5e';c.beginPath();c.arc(0,-rr-11,1.6,0,TAU);c.fill();
+  }else if(h===28){
+    // кубок турнира парит над головой
+    c.save();c.translate(0,-rr-12+Math.sin(t*0.06)*1.5);
+    c.fillStyle='#f5b800';c.strokeStyle='#92400e';c.lineWidth=1;
+    c.beginPath();c.moveTo(-6,-6);c.lineTo(6,-6);c.quadraticCurveTo(6,3,0,4);c.quadraticCurveTo(-6,3,-6,-6);c.closePath();c.fill();c.stroke();
+    c.beginPath();c.arc(-6,-2,3,Math.PI*0.5,Math.PI*1.5);c.stroke();c.beginPath();c.arc(6,-2,3,-Math.PI*0.5,Math.PI*0.5);c.stroke();
+    c.fillRect(-1,4,2,3);c.fillRect(-4,7,8,2);
+    c.fillStyle='#fff';c.globalAlpha=0.7;c.fillRect(-4,-5,2,5);c.globalAlpha=1;
+    c.restore();
   }else if(h===25){
     // снаряжение Зоны: капюшон, противогаз с тёмными линзами и фильтром, руки в перчатках с автоматом
     c.lineCap='round';
@@ -3182,6 +3229,12 @@ function drawTrail(c,pts,L,sk,max,t){
   const st=L.t;
   if(st===11){drawTail(c,pts,sk,t);return;}
   if(st===12){drawAnomaly(c,pts,max,t);return;}
+  if(st===13){
+    // снегопад: снежинки кружатся и гаснут, рывок — голубые искры
+    c.strokeStyle='#7fb8e6';c.lineWidth=1.2;
+    for(let i=0;i<pts.length;i+=3){const q=pts[i],a=Math.min(1,q.life/max);c.globalAlpha=a*0.85;evDrawFlake(c,q.x+Math.sin(i+t*0.05)*4,q.y+(1-a)*8,2+4*a,t*0.03+i);}
+    c.globalAlpha=1;return;
+  }
   for(let i=0;i<pts.length;i++){
     const q=pts[i],a=Math.min(1,q.life/max);
     c.globalAlpha=a*(q.hot?0.6:(st===0?0.35:0.5));
@@ -3478,7 +3531,7 @@ function drawPlayerBody(c,p,t,full,L){
 }
 
 function drawPlayer(){
-  const L=wornLook(),sk=colOf(L.c,time);
+  const L=evLook(wornLook()),sk=colOf(L.c,time);
   const p=player;
   drawTrail(ctx,trail,L,sk,Q.trail,time);
   // линии скорости при рывке и разгоне
@@ -3635,6 +3688,7 @@ function render(opaque){
     ctx.fillStyle=col;
     if(p.type==='hp'){ctx.fillRect(p.x-6,y-2,12,4);ctx.fillRect(p.x-2,y-6,4,12);}
     else if(p.type==='emp'){ctx.font='bold 8px Courier New, monospace';ctx.fillText('EMP',p.x,y+1);}
+    else if(p.type==='snow'){ctx.lineWidth=1.6;evDrawFlake(ctx,p.x,y,7,p.t*0.03);ctx.lineWidth=2;}
     else{ctx.font='bold 13px Courier New, monospace';ctx.fillText('»',p.x,y+1);}
     ctx.globalAlpha=1;
   }
@@ -3875,6 +3929,7 @@ function render(opaque){
     ctx.fillStyle='#057';ctx.fillText(s,8,H-8);
   }
   if(RACE_DIFF&&MP)mpDrawHud();
+  evDraw();
   updateHud();
 }
 
@@ -3999,6 +4054,8 @@ function panelHTML(s){
       (installEv?mb('install','📲 Установить игру — на весь экран'):'')+
       '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
+      evMenuBanner()+
+      mb('events','⚡ Ивенты · админ-абуз и турнир')+
       mb('race','Гонка · мультиплеер')+
       mb('community','Сообщество · уровни игроков')+
       (NET.admin?mb('admin','Админ-панель'):'')+
@@ -4123,6 +4180,8 @@ function panelHTML(s){
   if(s==='profile')return profHTML();
   if(s==='race')return mpHTML();
   if(s==='homescr')return hsHTML();
+  if(s==='events')return evHTML();
+  if(s==='tourres')return tourResHTML();
   if(s==='mcp')return mcpHTML();
   if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
   if(s==='cclear'){
@@ -4137,6 +4196,7 @@ function panelHTML(s){
     const cat=catOf(shopTab),L=previewLook(),cur=L[shopTab],it=cat.list[cur];
     let info='';
     if(tryOutfit&&tryLook&&!tryOn)info=outfitBuyHTML(tryOutfit);
+    else if(!owned(shopTab,cur)&&it.ex)info='<p>'+exHow(it,shopTab+cur)+'</p>';
     else if(!owned(shopTab,cur)){
       info=coins()>=it.price?mb('buy','Купить «'+it.name+'» за ◈ '+it.price,'buy')
         :'<p>«'+it.name+'» стоит ◈ '+it.price+' — не хватает '+(it.price-coins())+'. Биты дают за данные, уровни и боссов.</p>';
@@ -4181,6 +4241,7 @@ function panelHTML(s){
       '<li><b>Океан.</b> Чёрные дыры тянут к себе всех, тёмное ядро ранит. Рывок вытаскивает.</li>'+
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
+      '<li><b>Ивенты.</b> Каждую субботу с 11:00 до 21:00 по Москве — <b>админ-абуз</b>: все биты ×2, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила у всех сразу (заморозка врагов, неуязвимость, турбо, магнит и другое). Пройди 3 уровня в админ-абуз — получишь «Корону админа». В те же часы — <b>турнир недели</b>: один уровень на всех, побеждает самое быстрое прохождение, тройке — «Кубок турнира». В ноябре — зимний ивент «Первый снег»: собирай снежинки за зимние эксклюзивы.</li>'+
       '<li><b>Гонка.</b> Вдвоём проходите один и тот же уровень, каждый со своими врагами; соперника видно полупрозрачным двойником. Побеждает тот, кто раньше дойдёт до портала. Погибнешь — начнёшь уровень сначала, а часы гонки идут дальше. Соперник находится сам («Случайный соперник») или по коду комнаты от друга. Гонки — на сайте игры, с аккаунтом.</li>'+
       '<li><b>Весь экран на телефоне.</b> На Android — кнопка «ВЕСЬ ЭКРАН» или «Установить игру» в меню. На iPhone Safari не убирает свою строку и вкладки, но игра, добавленная на экран «Домой» («Поделиться» → «На экран „Домой“»), открывается как приложение — на весь экран.</li>'+
       '<li><b>Музыка.</b> На сайте у каждого акта три записанных трека — уровни берут их по очереди, — и свой трек для боя с боссом. Если трек не загрузился (или игра открыта не с сайта), у каждого уровня играет своя синтезированная мелодия. Громкость и выключение — в настройках.</li>'+
@@ -4206,7 +4267,7 @@ function panelHTML(s){
     const head=lvl===ACTS[a].end&&story
       ?'<h2 class="good">АКТ '+(a+1)+' ПРОЙДЕН</h2><div class="story">'+story.map(t=>'<p>'+t+'</p>').join('')+'</div>'+actGift(a+1)
       :'<h2>УРОВЕНЬ '+(lvl+1)+' ПРОЙДЕН</h2>';
-    return head+'<p>'+c.name+' позади. Очки: <b>'+score+'</b> · биты: <b>+'+lvBits+'</b> (всего ◈ '+coins()+')</p>'+
+    return head+'<p>'+c.name+' позади. Очки: <b>'+score+'</b> · биты: <b>+'+lvBits+'</b> (всего ◈ '+coins()+')</p>'+evClearNote+
       '<p class="hp">'+heartsStr(Math.min(maxLives(),lives+D().heal))+'</p>'+
       (lives<maxLives()?'<p>'+(lives+D().heal>=maxLives()?'Жизни восстановлены.':'Восстановлена '+(D().heal>1?D().heal+' жизни':'одна жизнь')+'.')+'</p>':'')+
       '<p>Дальше: <b>'+(lvl+2)+' · '+n.name+'</b><br>'+objective(n)+(f?'<br>'+f:'')+'</p>'+
@@ -4283,6 +4344,8 @@ function hideMenu(){
   screenEl.classList.remove('menu-open');
 }
 function goMenu(){
+  if(TOUR){TOUR=null;TOUR_DIFF='';runBits=0;}
+  evClearNote='';
   bankBits();
   phase='menu';zmap='';zLag=zInv=zFlow=false;
   // с уровня игрока — обратно к своему уровню основной игры (он виден в полосе сверху)
@@ -4295,7 +4358,7 @@ function goMenu(){
 // подпись предмета: цена, акт, звезда поддержки или галочка у надетого
 function itemChip(cat,i,cur){
   const it=cat.list[i],own=owned(cat.id,i);
-  const tag=own?(save[cat.key]===i?'✓':''):(it.price?'◈ '+it.price:(it.act?'акт '+it.act:'★'));
+  const tag=own?(save[cat.key]===i?'✓':''):(it.ex?{w26:'❄',ab:'⚡',cup:'🏆'}[it.ex]:(it.price?'◈ '+it.price:(it.act?'акт '+it.act:'★')));
   const sw=cat.id==='c'?'<span class="sw" style="background:'+it.main+(it.rainbow?';background:conic-gradient(#f33,#fd2,#3d5,#2cf,#55f,#e3e,#f33)':(it.sw?';background:'+it.sw:''))+'"></span>':'';
   return '<button type="button" class="chip'+(own?'':' lock')+'" data-act="item:'+cat.id+':'+i+'" aria-pressed="'+(i===cur)+'">'+sw+it.name+(tag?'<small>'+tag+'</small>':'')+'</button>';
 }
@@ -4342,7 +4405,7 @@ function act(a){
   else if(k==='donurl'){try{window.open(DONATE_URL,'_blank','noopener');}catch(_){}}
   else if(k==='supcheck')supPoll(1);
   else if(k==='resume')resume();
-  else if(k==='restart')retryLevel(false);
+  else if(k==='restart'){if(TOUR)tourStart();else retryLevel(false);}
   else if(k==='retry')retryLevel(true);
   else if(k==='next')nextLevel();
   else if(k==='settings'){settingsBack=menuScreen==='pause'?'pause':'main';showMenu('settings');}
@@ -4393,6 +4456,9 @@ function act(a){
     showMenu('mylevels');
   }
   else if(k==='mylevels')showMenu('mylevels');
+  else if(k==='events'){if(needLogin()&&NET_ON)showMenu('gate');else showMenu('events');}
+  else if(k==='tourplay')tourStart();
+  else if(k==='tourdel'){if(NET.admin){if(sure)tourDel(a.slice(8));else armBtn(a,'точно?');}}
   else if(k==='race'){if(needLogin())showMenu('gate');else showMenu('race');}
   else if(k.slice(0,2)==='mp')mpAct(k,arg,n);
   else if(k==='mcpnew'){if(NET.user)mcpCreate();}
@@ -4499,7 +4565,7 @@ function onPress(code){
   }
   if(phase==='pause'&&code==='Escape'&&menuScreen!=='pause'){showMenu('pause');return;}
   if(phase==='pause'&&(code==='KeyP'||code==='Escape')){resume();return;}
-  if(phase==='dead'&&code==='KeyR'&&!RACE_DIFF){retryLevel(true);return;}
+  if(phase==='dead'&&code==='KeyR'&&!RACE_DIFF&&!TOUR){retryLevel(true);return;}
   if(phase==='menu'&&menuScreen==='skins'){
     const c=catOf(shopTab),vis=[];
     c.list.forEach((it,i)=>vis.push(i));
@@ -4518,7 +4584,7 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
   if(phase==='menu'&&code==='Escape'&&menuScreen==='race'){mpLeave();showMenu('main');return;}
   if(phase==='menu'&&code==='Escape'){
-    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct',homescr:hsBack}[menuScreen];
+    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct',homescr:hsBack,tourres:'events'}[menuScreen];
     if(back){showMenu(back);return;}
   }
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
@@ -6414,6 +6480,364 @@ function musHat(t,v){musNoise(t,0.035,'highpass',7000,v);}
 addEventListener('pointerdown',musUnlock,true);
 addEventListener('keydown',musUnlock,true);
 
+// ================= ИВЕНТЫ =================
+// АДМИН-АБУЗ — каждую субботу с 11:00 до 21:00 по Москве. Его ведёт АДМИН-БОТ: все биты ×2, а каждые
+// 4 минуты он на минуту «ломает правила» сразу у всех игроков — какой абуз, зависит только от времени,
+// поэтому у всех он один и тот же. За 3 пройденных в админ-абуз уровня — эксклюзивная «Корона админа».
+// ПЕРВЫЙ СНЕГ — зимний ивент ноября 2026: снег на полях и снежинки, за которые дают зимние эксклюзивы.
+// ТУРНИР НЕДЕЛИ — в те же субботние часы: один уровень на всех, лучшее время прохождения, тройке —
+// «Кубок турнира». Время берётся с сервера сайта (заголовок Date), а не с часов телефона: перевести
+// часы и «включить субботу» нельзя. В артефакте сервера нет — там время устройства
+const MSK=3*3600e3,DAY=864e5,WEEK=7*DAY;
+const AB_DAY=6,AB_FROM=11,AB_TO=21,AB_SLOT=240000,AB_LEN=60000,AB_GOAL=3;
+const WINTER={name:'ПЕРВЫЙ СНЕГ',from:Date.UTC(2026,10,1)-MSK,to:Date.UTC(2026,11,1)-MSK};
+// зимние эксклюзивы: сколько снежинок нужно
+const WINTER_REWARDS=[{code:'c25',need:25},{code:'t13',need:60},{code:'h26',need:120}];
+const ABUSES=[
+  {id:'bits',name:'БИТОПАД',text:'Все биты ×3 целую минуту!',color:'#d97706'},
+  {id:'freeze',name:'ЗАМОРОЗКА',text:'Админ заморозил врагов!',color:'#0284c7'},
+  {id:'god',name:'НЕУЯЗВИМОСТЬ',text:'Минуту тебя ничто не ранит!',color:'#ca8a04'},
+  {id:'emp',name:'ЩЕДРЫЙ АДМИН',text:'Держи три заряда EMP!',color:'#2563eb'},
+  {id:'turbo',name:'ТУРБО',text:'Скорость ×2 на минуту!',color:'#ea580c'},
+  {id:'magnet',name:'МАГНИТ',text:'Данные сами летят к тебе!',color:'#16a34a'},
+  {id:'rainbow',name:'РАДУГА',text:'Все стали радужными!',color:'#c026d3'},
+  {id:'snow',name:'МЕТЕЛЬ',text:'Снежинки сыплются вдвое чаще!',color:'#0ea5e9',winter:true}
+];
+let evOff=0,evAt=0,evAb=null,evShown='',evFlash=0;
+function evNow(){return Date.now()+evOff;}
+// поправка к часам устройства по серверу сайта; GitHub Pages отдаёт точное время в заголовке Date
+async function evSyncTime(){
+  if(IN_CLAUDE||!/^https?:$/.test(location.protocol))return;
+  try{
+    const t0=Date.now(),r=await fetch('manifest.webmanifest?t='+t0,{method:'HEAD',cache:'no-store'}),t1=Date.now();
+    const d=Date.parse(r.headers.get('date')||'');
+    if(d)evOff=d+500+(t1-t0)/2-t1;
+  }catch(_){}
+}
+// московское время: день недели и часы
+function mskDay(t){return Math.floor((t+MSK)/DAY);}
+function mskInfo(t){const d=new Date(t+MSK);return{wd:d.getUTCDay(),h:d.getUTCHours()};}
+// начало субботнего окна на этой неделе (может быть в прошлом или будущем) и ближайшее следующее
+function abWindow(t){
+  const day=mskDay(t),wd=new Date(t+MSK).getUTCDay(),sat=day+(AB_DAY-wd);
+  const from=sat*DAY-MSK+AB_FROM*3600e3,to=sat*DAY-MSK+AB_TO*3600e3;
+  return t<to?{from,to}:{from:from+WEEK,to:to+WEEK};
+}
+function abOn(t){const w=abWindow(t);return t>=w.from&&t<w.to;}
+function winterOn(t){return t>=WINTER.from&&t<WINTER.to;}
+// неделя турнира — ISO-неделя субботы по Москве, вида 2026-W45 (в базе её так же считает to_char … 'IYYY-"W"IW')
+function weekKey(t){
+  const w=abWindow(t),d=new Date(w.from+MSK),day=(d.getUTCDay()+6)%7;
+  const th=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day+3),y=new Date(th).getUTCFullYear(),j4=Date.UTC(y,0,4);
+  const wk=1+Math.round(((th-j4)/DAY-3+(new Date(j4).getUTCDay()+6)%7)/7);
+  return y+'-W'+String(wk).padStart(2,'0');
+}
+function evHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+// какой абуз сейчас: первые 60 с каждого 4-минутного отрезка админ-абуза. Соседние не повторяются
+function abuseAt(t){
+  if(!abOn(t))return null;
+  const w=abWindow(t),slot=Math.floor((t-w.from)/AB_SLOT);
+  if(t-w.from-slot*AB_SLOT>=AB_LEN)return null;
+  const list=ABUSES.filter(a=>!a.winter||winterOn(t));
+  const pick=s=>evHash(w.from+':'+s)%list.length;
+  let i=pick(slot);
+  if(slot>0&&i===pick(slot-1))i=(i+1)%list.length;
+  return {a:list[i],end:w.from+slot*AB_SLOT+AB_LEN};
+}
+// абуз действует на уровнях (и в гонке — у обоих одинаково), но не в турнире: там всё по-честному
+function evAbuse(){
+  if(TOUR)return null;
+  const now=performance.now();
+  if(now-evAt>500){evAt=now;evAb=abuseAt(evNow());}
+  return evAb;
+}
+function evIs(id){const x=evAbuse();return !!x&&x.a.id===id;}
+function evBitsMul(){if(TOUR||!abOn(evNow()))return 1;return evIs('bits')?3:2;}
+function addBits(n){n*=evBitsMul();runBits+=n;lvBits+=n;}
+// каждый шаг игры: начало абуза — объявление, дальше — его действие
+function evStep(){
+  const x=evAbuse(),id=x?x.a.id+x.end:'';
+  if(id!==evShown){
+    evShown=id;
+    if(x){
+      evFlash=150;
+      msg('⚡ АДМИН-БОТ: '+x.a.name+'! '+x.a.text,5000);buzz(60);
+      if(x.a.id==='emp'){emp=Math.min(9,emp+3);popup(player.x,player.y-24,'EMP +3','#2563eb');}
+    }
+  }
+  if(evFlash>0)evFlash--;
+  if(!x)return;
+  const id2=x.a.id;
+  if(id2==='freeze')for(const e of enemies)if(TRIPPABLE[e.type]&&!(e.trip>30)){e.trip=60;e.tripRot=e.tripRot||0;e.vx=0;e.vy=0;}
+  if(id2==='turbo')boost=Math.max(boost,3);
+  if(id2==='magnet')for(const d of data){const dx=player.x-d.x,dy=player.y-d.y,q=Math.hypot(dx,dy);if(q>2&&q<280){d.x+=dx/q*2.4;d.y+=dy/q*2.4;}}
+}
+// облик на время «Радуги»
+function evLook(L){return evIs('rainbow')?Object.assign({},L,{c:12}):L;}
+
+// ---------- зима: снег и снежинки ----------
+function snowNow(){return winterOn(evNow())&&!TOUR&&!RACE_DIFF;}
+// каждые 4 данных — снежинка на поле (в «Метель» — каждые 2)
+function evData(){if(snowNow()&&got%(evIs('snow')?2:4)===0)dropPickup('snow');}
+function evSnowGot(p){
+  const add=1;
+  save.evd.snow=Math.min(1e6,save.evd.snow+add);
+  burst(p.x,p.y,'#7fc4f0',12);popup(p.x,p.y,'❄ +'+add,'#0284c7');buzz(20);
+  for(const r of WINTER_REWARDS)if(save.evd.snow>=r.need)evGrant(r.code);
+  persist();evCloudSoon();
+}
+function exItem(code){const c=catOf(code[0]),it=c.list[Number(code.slice(1))];return it&&it.ex?it:null;}
+function evGrant(code){
+  if(save.evd.ex.indexOf(code)>=0||!exItem(code))return false;
+  save.evd.ex.push(code);persist();evCloudSoon();
+  msg('🎁 ЭКСКЛЮЗИВ: «'+exItem(code).name+'» — твой! Надень его в «Облике».',8000);buzz(150);
+  return true;
+}
+function exOwned(code){return save.evd.ex.indexOf(code)>=0;}
+// как получить эксклюзив (для магазина и нарядов)
+function exHow(it,code){
+  if(it.ex==='w26'){const r=WINTER_REWARDS.find(x=>x.code===code)||{need:0};
+    return winterOn(evNow())?'❄ Эксклюзив ивента «'+WINTER.name+'»: собери '+r.need+' снежинок на уровнях (у тебя '+save.evd.snow+'). Только до 30 ноября!':'❄ Эксклюзив ивента «'+WINTER.name+'» (ноябрь 2026) — ивент закончился.';}
+  if(it.ex==='ab')return '⚡ Эксклюзив админ-абуза: пройди '+AB_GOAL+' уровня в субботу с '+AB_FROM+':00 до '+AB_TO+':00 по Москве.';
+  if(it.ex==='cup')return '🏆 Награда тройке лучших «Турнира недели» — по субботам в «Ивентах».';
+  return 'Эксклюзив ивента.';
+}
+// снег над полем: лёгкие снежинки, сколько — по качеству графики
+function evDrawSnow(){
+  const n=Math.round(36*Q.fx),t=evNow()/1000;
+  ctx.strokeStyle='#8cc4ea';ctx.lineWidth=1.2;ctx.globalAlpha=0.75;
+  for(let i=0;i<n;i++){
+    const sp=18+(i*37%23),x=(i*97.3+Math.sin(t*0.7+i)*14+W*4)%W,y=((i*53.7+t*sp)%(H+20))-10,r=1.6+(i%3);
+    ctx.beginPath();
+    for(let k=0;k<3;k++){const a=k*Math.PI/3+t*0.5+i;ctx.moveTo(x-Math.cos(a)*r,y-Math.sin(a)*r);ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);}
+    ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+}
+function evDrawFlake(c,x,y,r,rot){
+  c.save();c.translate(x,y);c.rotate(rot);c.beginPath();
+  for(let k=0;k<6;k++){const a=k*Math.PI/3,ux=Math.cos(a),uy=Math.sin(a);c.moveTo(0,0);c.lineTo(ux*r,uy*r);
+    c.moveTo(ux*r*0.55-uy*r*0.25,uy*r*0.55+ux*r*0.25);c.lineTo(ux*r*0.75,uy*r*0.75);c.lineTo(ux*r*0.55+uy*r*0.25,uy*r*0.55-ux*r*0.25);}
+  c.stroke();c.restore();
+}
+// поверх поля: снег, вспышка-объявление абуза и табличка с оставшимся временем
+function evDraw(){
+  if(snowNow()&&Q.fx>0.3)evDrawSnow();
+  const x=evAbuse();
+  if(!x)return;
+  const left=Math.max(0,Math.ceil((x.end-evNow())/1000)),s='⚡ '+x.a.name+' · 0:'+String(left).padStart(2,'0');
+  ctx.font='bold 12px Courier New, monospace';ctx.textAlign='center';
+  const w=ctx.measureText(s).width+18;
+  ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fillRect(W/2-w/2,34,w,20);
+  ctx.strokeStyle=x.a.color;ctx.lineWidth=2;ctx.strokeRect(W/2-w/2,34,w,20);
+  ctx.fillStyle=x.a.color;ctx.fillText(s,W/2,48);
+  if(x.a.id==='god'){ctx.strokeStyle='#facc15';ctx.lineWidth=3;ctx.globalAlpha=0.6+0.3*Math.sin(time*0.2);ctx.beginPath();ctx.arc(player.x,player.y,player.r+8,0,TAU);ctx.stroke();ctx.globalAlpha=1;}
+  if(evFlash>0){
+    const k=Math.min(1,evFlash/30);
+    ctx.globalAlpha=k;ctx.fillStyle='rgba(255,255,255,0.88)';ctx.fillRect(0,H/2-52,W,96);
+    evDrawBot(ctx,W/2-210,H/2-4,26);
+    ctx.textAlign='center';ctx.fillStyle='#7c3aed';ctx.font='bold 16px Courier New, monospace';ctx.fillText('АДМИН-БОТ ЛОМАЕТ ПРАВИЛА:',W/2+20,H/2-22);
+    ctx.fillStyle=x.a.color;ctx.font='bold 30px Courier New, monospace';ctx.fillText(x.a.name+'!',W/2+20,H/2+12);
+    ctx.fillStyle='#245';ctx.font='14px Courier New, monospace';ctx.fillText(x.a.text,W/2+20,H/2+34);
+    ctx.globalAlpha=1;
+  }
+}
+// АДМИН-БОТ: квадратная голова-монитор, антенна и корона
+function evDrawBot(c,x,y,s){
+  c.save();c.translate(x,y);
+  c.fillStyle='#1e293b';c.fillRect(-s,-s*0.8,s*2,s*1.6);
+  c.fillStyle='#22d3ee';c.fillRect(-s*0.55,-s*0.25,s*0.35,s*0.35);c.fillRect(s*0.2,-s*0.25,s*0.35,s*0.35);
+  c.fillStyle='#f43f5e';c.fillRect(-s*0.4,s*0.35,s*0.8,s*0.12);
+  c.fillStyle='#facc15';c.beginPath();c.moveTo(-s*0.7,-s*0.8);c.lineTo(-s*0.7,-s*1.3);c.lineTo(-s*0.35,-s*1.05);c.lineTo(0,-s*1.45);c.lineTo(s*0.35,-s*1.05);c.lineTo(s*0.7,-s*1.3);c.lineTo(s*0.7,-s*0.8);c.closePath();c.fill();
+  c.restore();
+}
+
+// ---------- админ-абуз: корона за уровни ----------
+function evCleared(){
+  if(CUSTOM||RACE_DIFF||TOUR||!abOn(evNow()))return '';
+  const wk=weekKey(evNow());
+  if(save.evd.ab.w!==wk)save.evd.ab={w:wk,n:0};
+  save.evd.ab.n++;persist();evCloudSoon();
+  if(save.evd.ab.n>=AB_GOAL&&evGrant('h27'))return '<p class="good">⚡ «Корона админа» — твоя!</p>';
+  return '<p class="good">⚡ Админ-абуз: биты ×2'+(exOwned('h27')?'':' · уровней к «Короне админа»: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL)+'</p>';
+}
+let evClearNote='';
+
+// ---------- турнир недели ----------
+// уровень недели — из уровней 5–80, лёгкая сложность, одинаковое начало у всех (зерно недели)
+let TOUR=null,TOUR_DIFF='',tourRes=null,tourRows=null,tourMine=null,tourCount=0,tourErr='',tourOff=false,tourBw='';
+function tourLv(wk){return 4+evHash(wk)%76;}
+function tourOpen(){return abOn(evNow());}
+function tourStart(){
+  if(!NET_ON||!NET.user){msg('Турнир — на сайте игры, с аккаунтом.');return;}
+  if(!tourOpen()){msg('Турнир идёт по субботам с '+AB_FROM+':00 до '+AB_TO+':00 по Москве.');return;}
+  const wk=weekKey(evNow()),lv=tourLv(wk);
+  TOUR={w:wk,lv,seed:1+evHash(wk+'s')%2147483645,t0:0};TOUR_DIFF='easy';tourRes=null;
+  score=0;lives=maxLives();emp=1;
+  const r=Math.random;let x=TOUR.seed;Math.random=()=>(x=x*16807%2147483647)/2147483647;
+  try{startLevel(lv);}finally{Math.random=r;}
+  TOUR.t0=performance.now();
+  msg('🏆 ТУРНИР НЕДЕЛИ: пройди уровень как можно быстрее! Погибнешь — попробуешь снова.',5000);
+}
+function tourEnd(res){
+  tourRes=res;TOUR=null;TOUR_DIFF='';runBits=0;lvBits=0;
+  // мы внутри шага игры — меню показываем со следующего тика
+  phase='dead';
+  setTimeout(()=>{goMenu();showMenu('tourres');if(res.ok)tourSubmit(res);},res.ok?700:900);
+}
+function tourDied(){tourEnd({ok:false,w:TOUR.w,lv:TOUR.lv});}
+function tourFinished(){
+  const ms=Math.round(performance.now()-TOUR.t0),w=TOUR.w;
+  const best=save.evd.tb.w===w?Math.min(save.evd.tb.ms,ms):ms;
+  save.evd.tb={w,ms:best};persist();
+  tourEnd({ok:true,w,lv:TOUR.lv,ms,best,rec:best===ms});
+}
+function tourSec(ms){return (ms/1000).toFixed(2).replace('.',',')+' с';}
+async function tourSubmit(res){
+  try{
+    const tok=await netToken();
+    await netFetch('/rest/v1/tourney?on_conflict=week,user_id',{method:'POST',headers:Object.assign(netHeaders(tok),{Prefer:'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify({week:res.w,name:(save.nick||'Игрок').slice(0,20),ms:res.best})});
+    res.sent=true;
+  }catch(e){res.sent=false;res.err=e.status===404?'турнирная таблица ещё не готова':(e.status===0?'нет связи':errMsg(e));}
+  tourRows=null;
+  if(menuScreen==='tourres'&&phase==='menu')showMenu('tourres');
+}
+// таблица недели: первые 10, моё место и сколько участников
+async function tourLoad(wk){
+  if(!NET_ON)return;
+  try{
+    const tok=NET.user?await netToken():null;
+    const res=await fetch(ONLINE.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/tourney?select=user_id,name,ms&week=eq.'+wk+'&order=ms.asc,at.asc&limit=10',{headers:Object.assign(netHeaders(tok),{Prefer:'count=exact'})});
+    if(res.status===404){tourOff=true;tourRows=[];return;}
+    if(!res.ok)throw new Error('http '+res.status);
+    tourRows=await res.json();tourOff=false;
+    const cr=res.headers.get('content-range')||'';tourCount=Number(cr.split('/')[1])||tourRows.length;
+    tourMine=null;
+    if(NET.user){
+      const me=tourRows.findIndex(r=>r.user_id===NET.user.id);
+      if(me>=0)tourMine={place:me+1,ms:tourRows[me].ms};
+      else{
+        const mine=await netFetch('/rest/v1/tourney?select=ms&week=eq.'+wk+'&user_id=eq.'+encodeURIComponent(NET.user.id),{headers:netHeaders(tok)});
+        if(Array.isArray(mine)&&mine[0]){
+          const r2=await fetch(ONLINE.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/tourney?select=user_id&week=eq.'+wk+'&ms=lt.'+mine[0].ms,{headers:Object.assign(netHeaders(tok),{Prefer:'count=exact',Range:'0-0'})});
+          tourMine={place:(Number((r2.headers.get('content-range')||'').split('/')[1])||0)+1,ms:mine[0].ms};
+        }
+      }
+    }
+    tourErr='';
+  }catch(e){tourErr='Не удалось загрузить таблицу турнира.';tourRows=tourRows||[];}
+  if(phase==='menu'&&(menuScreen==='events'))showMenu('events');
+}
+// после турнира: тройке — «Кубок турнира», каждому участнику — 100 бит (один раз за неделю)
+async function tourPrize(){
+  if(!NET_ON||!NET.user)return;
+  // последний закончившийся турнир — суббота перед текущим или ближайшим окном
+  const last=weekKey(abWindow(evNow()).from-WEEK);
+  if(save.evd.pw===last)return;
+  try{
+    const tok=await netToken();
+    const top=await netFetch('/rest/v1/tourney?select=user_id&week=eq.'+last+'&order=ms.asc,at.asc&limit=3',{headers:netHeaders(tok)});
+    const mine=await netFetch('/rest/v1/tourney?select=ms&week=eq.'+last+'&user_id=eq.'+encodeURIComponent(NET.user.id),{headers:netHeaders(tok)});
+    save.evd.pw=last;
+    if(Array.isArray(mine)&&mine[0]){save.earned=Math.min(1e8,save.earned+100);msg('🏆 За участие в турнире — 100 бит!',6000);}
+    if(Array.isArray(top)&&top.some(r=>r.user_id===NET.user.id))evGrant('h28');
+    persist();evCloudSoon();
+  }catch(_){}
+}
+// админ убирает подозрительный результат
+async function tourDel(uid){
+  try{const tok=await netToken();await netFetch('/rest/v1/tourney?week=eq.'+weekKey(evNow())+'&user_id=eq.'+encodeURIComponent(uid),{method:'DELETE',headers:netHeaders(tok)});msg('Результат убран.');}
+  catch(e){msg('Не получилось: '+errMsg(e));}
+  tourRows=null;showMenu('events');
+}
+
+// ---------- сохранение ивентов: в браузере и в аккаунте ----------
+function parseEvd(v){
+  const o=v&&typeof v==='object'?v:{},wk=x=>typeof x==='string'&&/^\d{4}-W\d{2}$/.test(x)?x:'';
+  const ex=[];for(const c of Array.isArray(o.ex)?o.ex:[])if(typeof c==='string'&&/^[csth]\d{1,2}$/.test(c)&&exItem(c)&&ex.indexOf(c)<0)ex.push(c);
+  const ab=o.ab&&typeof o.ab==='object'?o.ab:{},tb=o.tb&&typeof o.tb==='object'?o.tb:{};
+  return{ex,snow:clampInt(o.snow,0,1e6,0),ab:{w:wk(ab.w),n:clampInt(ab.n,0,99,0)},tb:{w:wk(tb.w),ms:clampInt(tb.ms,0,36e5,0)},pw:wk(o.pw)};
+}
+// из аккаунта: эксклюзивы объединяются, снежинок — больше из двух
+function mergeEvd(v){
+  const a=save.evd,b=parseEvd(v);
+  for(const c of b.ex)if(a.ex.indexOf(c)<0)a.ex.push(c);
+  a.snow=Math.max(a.snow,b.snow);
+  if(b.ab.w&&(b.ab.w>a.ab.w||(b.ab.w===a.ab.w&&b.ab.n>a.ab.n)))a.ab=b.ab;
+  if(b.tb.w&&(b.tb.w>a.tb.w||(b.tb.w===a.tb.w&&b.tb.ms&&(!a.tb.ms||b.tb.ms<a.tb.ms))))a.tb=b.tb;
+  if(b.pw>a.pw)a.pw=b.pw;
+}
+let evCloudT=0;
+function evCloudSoon(){clearTimeout(evCloudT);evCloudT=setTimeout(evCloud,1500);}
+async function evCloud(){
+  if(acct.kind==='claude'){persist();return;}
+  if(!NET_ON||!NET.user)return;
+  try{const tok=await netToken();if(tok)await netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body:JSON.stringify({data:{evd:save.evd}})});}catch(_){}
+}
+
+// ---------- экран «Ивенты» ----------
+function evLeft(ms){
+  const m=Math.max(0,Math.round(ms/60000)),d=Math.floor(m/1440),h=Math.floor(m%1440/60),mm=m%60;
+  return d?d+' д '+h+' ч':(h?h+' ч '+mm+' мин':mm+' мин');
+}
+function evMenuBanner(){
+  const t=evNow(),w=abWindow(t);
+  let h='';
+  if(abOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">⚡ АДМИН-АБУЗ ИДЁТ! Биты ×2 · ещё '+evLeft(w.to-t)+'</button>';
+  if(winterOn(t))h+='<p class="ev-note">❄ Ивент «'+WINTER.name+'»: снежинок <b>'+save.evd.snow+'</b> · до конца '+evLeft(WINTER.to-t)+'</p>';
+  return h;
+}
+function evHTML(){
+  const t=evNow(),w=abWindow(t),on=abOn(t),wk=weekKey(t),x=abuseAt(t),bw=on?wk:weekKey(w.from-WEEK);
+  let h='<h2>ИВЕНТЫ</h2>';
+  // админ-абуз
+  h+='<div class="ev-card"><p class="lbl2">⚡ АДМИН-АБУЗ · КАЖДУЮ СУББОТУ '+AB_FROM+':00–'+AB_TO+':00 (МСК)</p>'+
+    (on?'<p class="good"><b>Идёт сейчас!</b> До конца — '+evLeft(w.to-t)+'.'+(x?' Сейчас: <b>'+x.a.name+'</b> — '+x.a.text:' Следующий абуз — через '+evLeft(AB_SLOT-((t-w.from)%AB_SLOT))+'.')+'</p>'
+      :'<p>Следующий — через <b>'+evLeft(w.from-t)+'</b>.</p>')+
+    '<p>Весь день все биты <b>×2</b>, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила — сразу у всех игроков: '+ABUSES.filter(a=>!a.winter||winterOn(t)).map(a=>'<b>'+a.name+'</b>').join(', ')+'.</p>'+
+    '<p>🎁 Эксклюзив: <b>«Корона админа»</b> — пройди '+AB_GOAL+' уровня во время админ-абуза. '+(exOwned('h27')?'<span class="good">Уже твоя!</span>':(save.evd.ab.w===wk?'Пройдено: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL+'.':''))+'</p></div>';
+  // зима
+  if(winterOn(t)||save.evd.snow){
+    h+='<div class="ev-card"><p class="lbl2">❄ '+WINTER.name+(winterOn(t)?' · ДО 30 НОЯБРЯ':' · ЗАКОНЧИЛСЯ')+'</p>'+
+      (winterOn(t)?'<p>На всех полях идёт снег, а на уровнях появляются <b>снежинки</b> — собирай их! До конца ивента — '+evLeft(WINTER.to-t)+'.</p>':'')+
+      '<p>Собрано снежинок: <b>'+save.evd.snow+'</b></p><ul class="ev-list">'+
+      WINTER_REWARDS.map(r=>{const it=exItem(r.code),own=exOwned(r.code);return '<li>'+(own?'✅':'❄')+' <b>'+it.name+'</b> ('+catOf(r.code[0]).name.toLowerCase()+') — '+(own?'получено':r.need+' снежинок')+'</li>';}).join('')+
+      '</ul><p class="foot">Эксклюзивы зимы потом не достать: после 30 ноября они останутся только у тех, кто успел. Собери всё — получится наряд «СНЕГОВИК».</p></div>';
+  }
+  // турнир
+  const lv=tourLv(wk);
+  h+='<div class="ev-card"><p class="lbl2">🏆 ТУРНИР НЕДЕЛИ · СУББОТА '+AB_FROM+':00–'+AB_TO+':00 (МСК)</p>';
+  if(!NET_ON)h+='<p>Турнир — на сайте игры: '+escHTML(SITE_URL)+'</p>';
+  else if(tourOff)h+='<p>Турнир скоро откроется — таблица результатов готовится.</p>';
+  else{
+    h+='<p>'+(on?'Уровень недели: <b>'+(lv+1)+' · '+escHTML(LEVELS[lv].name)+'</b>':'Уровень турнира — секрет до субботы')+', сложность «Лёгкая», у всех одинаковое начало. Побеждает самое быстрое прохождение; попыток — сколько хочешь.</p>'+
+      '<p>🎁 Тройке лучших — эксклюзив <b>«Кубок турнира»</b>, каждому, кто прошёл, — <b>100 бит</b>.</p>'+
+      (save.evd.tb.w===bw&&save.evd.tb.ms?'<p>Твоё лучшее время: <b>'+tourSec(save.evd.tb.ms)+'</b>'+(tourMine?' · место '+tourMine.place+' из '+tourCount:'')+'</p>':'')+
+      (on?mb('tourplay','🏆 Играть турнир','primary'):'<p>Откроется через '+evLeft(w.from-t)+'.</p>');
+    h+='<p class="lbl2">'+(on?'ТАБЛИЦА СЕЙЧАС':'ИТОГИ ПРОШЛОГО ТУРНИРА')+'</p>';
+    if(tourRows===null||tourBw!==bw){h+='<p class="foot">Загружаю таблицу…</p>';tourBw=bw;tourRows=null;tourLoad(bw);}
+    else if(tourRows.length){
+      h+='<ol class="ev-top">'+tourRows.map((r,i)=>'<li'+(NET.user&&r.user_id===NET.user.id?' class="me"':'')+'><span>'+(i<3?['🥇','🥈','🥉'][i]:(i+1)+'.')+' '+escHTML(edStr(r.name,20)||'Игрок')+'</span><b>'+tourSec(r.ms)+'</b>'+(NET.admin?'<button type="button" class="chip" data-act="tourdel:'+escHTML(r.user_id)+'" aria-label="Убрать результат">✕</button>':'')+'</li>').join('')+'</ol>'+
+        '<p class="foot">Участников: '+tourCount+'.</p>';
+    }else h+='<p class="foot">'+(tourErr||'В этой неделе ещё никто не прошёл — будь первым!')+'</p>';
+  }
+  h+='</div>';
+  return h+mb('main','Назад');
+}
+function tourResHTML(){
+  const r=tourRes;
+  if(!r)return '<h2>ТУРНИР</h2>'+mb('events','К ивентам','primary');
+  if(!r.ok)return '<h2 class="bad">ПОПЫТКА НЕ ЗАСЧИТАНА</h2><p>Файл удалён — но попыток сколько хочешь. Время считается заново.</p>'+
+    '<div class="mcol">'+mb('tourplay','Ещё попытка','primary')+mb('events','К ивентам')+'</div>';
+  return '<h2 class="good">ФИНИШ!</h2><p>Время: <b>'+tourSec(r.ms)+'</b>'+(r.rec?' — <b>твой лучший результат!</b>':' · лучшее: '+tourSec(r.best))+'</p>'+
+    (r.sent===undefined?'<p class="foot">Отправляю результат…</p>':(r.sent?'<p class="good">Результат в таблице турнира.</p>':'<p class="bad">Не отправилось: '+escHTML(r.err||'')+'. Время сохранено на этом устройстве.</p>'))+
+    '<div class="mcol">'+mb('tourplay','Ещё попытка','primary')+mb('events','Таблица турнира')+'</div>';
+}
+// время сервера — при запуске и раз в 10 минут; заодно призы прошлого турнира
+evSyncTime();
+setInterval(evSyncTime,600000);
+
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
 function snapshot(){
   return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx,cust:CUSTOM,custBack:customBack}};
@@ -6543,6 +6967,7 @@ function mergeCloud(d){
   save.trail=clampInt(d.trail,0,TRAILS.length-1,save.trail);
   save.hat=clampInt(d.hat,0,HATS.length-1,save.hat);
   if(d.outfits)mergeOutfits(d.outfits);
+  if(d.evd)mergeEvd(d.evd);
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
 }
 // одна запись за раз и только если прогресс поменялся
@@ -6550,7 +6975,7 @@ async function syncCloud(){
   if(acct.kind==='net')return netSync();
   if(!acct.db||acct.state==='readonly')return;
   if(acct.busy){acct.again=true;return;}
-  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0,outfits:save.outfits},lookBody());
+  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0,outfits:save.outfits,evd:save.evd},lookBody());
   const key=JSON.stringify(body),sk=save.best+'|'+save.unlocked+'|'+(save.wins||0);
   const needSave=key!==acct.cloudKey,needScore=save.best>0&&sk!==acct.scoreKey;
   if(!needSave&&!needScore){if(acct.state!=='synced')setAcctState('synced');return;}
@@ -6865,6 +7290,7 @@ async function netLoadUser(){
     {const had=JSON.stringify(save.outfits);mergeOutfits((NET.user.user_metadata||{}).outfits);try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
      if(JSON.stringify(parseOutfits((NET.user.user_metadata||{}).outfits))!==JSON.stringify(save.outfits)&&had!=='[]')outfitsCloud();}
     acct.id=NET.user.id;
+    {const had=JSON.stringify(save.evd);mergeEvd((NET.user.user_metadata||{}).evd);if(JSON.stringify(save.evd)!==JSON.stringify(parseEvd((NET.user.user_metadata||{}).evd))&&had!==JSON.stringify(parseEvd({})))evCloudSoon();}
     const rows=await netFetch('/rest/v1/progress?user_id=eq.'+encodeURIComponent(NET.user.id)+'&select=*',{headers:netHeaders(tok)});
     if(Array.isArray(rows)&&rows[0]){
       mergeCloud(rows[0]);
@@ -6877,6 +7303,7 @@ async function netLoadUser(){
     try{NET.admin=(await netFetch('/rest/v1/rpc/is_admin',{method:'POST',headers:netHeaders(tok),body:'{}'}))===true;}catch(_){NET.admin=false;}
     await netSync();
     await netSupLoad();
+    tourPrize();
     if(NET.thanks&&termsOk()){if(phase==='menu')showMenu('donate');supPoll(1);return;}
   }catch(e){
     if(e.status===401||e.status===403){saveSess(null);NET.user=null;setAcctState('netout');maybeGate();return;}
