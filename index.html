@@ -4038,6 +4038,7 @@ function panelHTML(s){
   if(s==='gate'){
     return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       '<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
+      (HS_TIP?'<div class="hs-tip"><b>📲 На iPhone сначала поставь игру на экран «Домой»</b> — она будет открываться на весь экран, без полосок Safari. Войти лучше уже в ней: у значка свой вход, отдельный от Safari.<div class="hs-btns">'+mb('hsguide','Как поставить — с картинками','sm')+'</div></div>':'')+
       '<p class="err" hidden></p>'+loginBtns()+
       '<p class="foot">Аккаунт на сайте — это только логин и пароль: почта и телефон не нужны.</p>';
   }
@@ -4320,6 +4321,7 @@ function act(a){
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
   else if(k==='homescr')hsOpen();
+  else if(k==='hsguide'){try{window.open(HS_GUIDE,'_blank','noopener');}catch(_){location.href=HS_GUIDE;}}
   else if(k==='hshide'){save.hsHide=true;persist();showMenu('main');msg('Подсказка скрыта. Инструкция есть в «Настройках» и на кнопке «ВЕСЬ ЭКРАН».',6000);}
   else if(k==='install')installGame();
   else if(k==='mus'){if(n>=0&&n<=3){save.mus=n;persist();musUnlock();musVolume();showMenu('settings',a);}}
@@ -4554,6 +4556,8 @@ const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(/Macintosh/.test(navig
 const STANDALONE=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches;
 const HS_TIP=IS_IOS&&!CAN_FS&&!STANDALONE&&!IN_CLAUDE&&location.protocol==='https:';
 let installEv=null,hsBack='main';
+// страница с пошаговой инструкцией и картинками экранов Safari — лежит рядом с игрой
+const HS_GUIDE='iphone.html';
 addEventListener('beforeinstallprompt',e=>{
   if(IN_CLAUDE)return;
   e.preventDefault();installEv=e;
@@ -4580,7 +4584,7 @@ function hsHTML(){
     '<li>В списке выбери «На экран „Домой“» '+add+' (пролистай вниз, если его не видно сразу). Если там есть переключатель открытия как веб-приложения — оставь его включённым.</li>'+
     '<li>Нажми «Добавить» и запускай DATA.OUT значком с экрана «Домой».</li></ol>'+
     '<p class="foot">В приложении один раз войди в тот же аккаунт: прогресс, биты и облик хранятся в нём и никуда не денутся. Играть лучше боком.</p>'+
-    mb(hsBack,'Назад','primary');
+    mb('hsguide','Инструкция с картинками')+mb(hsBack,'Назад','primary');
 }
 if(CAN_FS||HS_TIP)bFs.hidden=false;
 bFs.addEventListener('pointerdown',e=>e.stopPropagation());

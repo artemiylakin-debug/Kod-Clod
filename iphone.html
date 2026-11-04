@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f6fa">
+<!-- если эту страницу добавят на экран «Домой», значок всё равно откроет игру (start_url в манифесте) -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DATA.OUT">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Установить DATA.OUT на iPhone</title>
+<meta name="description" content="Как поставить DATA.OUT на экран «Домой» iPhone через Safari: игра откроется на весь экран, без адресной строки и вкладок.">
+<style>
+  :root{color-scheme:light;--bg:#f4f6fa;--ink:#057;--muted:#5b7488;--panel:#fff;--line:#0573;--blue:#007aff;--ok:#34c759;
+    --font:'Courier New',Courier,ui-monospace,monospace;--sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+    background-image:linear-gradient(rgba(0,120,150,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(0,120,150,.07) 1px,transparent 1px);background-size:32px 32px}
+  main{max-width:720px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 16px max(40px,env(safe-area-inset-bottom))}
+  .back{display:inline-block;margin-bottom:14px;color:var(--ink);font-weight:bold;text-decoration:none}
+  header{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+  header img{width:76px;height:76px;border-radius:18px;box-shadow:0 4px 14px #0573;flex:none}
+  h1{margin:0 0 6px;font-size:24px;letter-spacing:1px;line-height:1.2}
+  .lead{margin:0;font-size:14px;line-height:1.5;color:var(--muted)}
+  .warn{display:none;background:#fff4e5;border:2px solid #f59e0b;color:#7a4a00;border-radius:12px;padding:12px 14px;margin:0 0 16px;font-size:14px;line-height:1.5}
+  .warn.on{display:block}
+  .step{background:var(--panel);border:2px solid var(--ink);border-radius:14px;padding:16px;margin:0 0 14px;display:grid;grid-template-columns:1fr;gap:14px}
+  @media (min-width:620px){.step{grid-template-columns:1fr 250px;align-items:center}}
+  .num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:bold;margin-right:8px;flex:none}
+  .step h2{display:flex;align-items:center;margin:0 0 8px;font-size:17px;line-height:1.25}
+  .step p{margin:0 0 6px;font-size:14px;line-height:1.5;color:#245}
+  .step p.small{font-size:13px;color:var(--muted)}
+  .ui{font-family:var(--sys);font-weight:600;color:#111;background:#eef2f7;border-radius:6px;padding:1px 6px;white-space:nowrap}
+  .pic{justify-self:center;width:100%;max-width:250px}
+  .pic svg{display:block;width:100%;height:auto}
+  .ring{transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-out infinite}
+  @keyframes pulse{0%{opacity:.9;transform:scale(.8)}100%{opacity:0;transform:scale(1.7)}}
+  @media (prefers-reduced-motion:reduce){.ring{animation:none;opacity:.6}}
+  .go{display:block;text-align:center;background:var(--ink);color:#fff;font-weight:bold;font-size:17px;padding:14px;border-radius:12px;text-decoration:none;margin:18px 0}
+  .box{background:var(--panel);border:2px dashed var(--line);border-radius:14px;padding:14px 16px;margin:0 0 14px}
+  .box h2{margin:0 0 8px;font-size:16px}
+  .box p{margin:0 0 6px;font-size:14px;line-height:1.5;color:#245}
+  footer{font-size:12px;color:var(--muted);text-align:center;margin-top:20px}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="./">← В игру</a>
+<header>
+  <img src="icons/icon-180.png" alt="Значок DATA.OUT">
+  <div>
+    <h1>DATA.OUT на iPhone — на весь экран</h1>
+    <p class="lead">Поставьте игру на экран «Домой» через Safari: она будет открываться как приложение — без адресной строки, вкладок и названия сайта. Бесплатно, без App Store, полминуты.</p>
+  </div>
+</header>
+
+<div class="warn" id="inapp"><b>Откройте эту страницу в Safari.</b> Сейчас она открыта не в Safari, а внутри другого приложения или браузера — проще и надёжнее всего ставить игру из Safari. Нажмите <span class="ui">•••</span> или значок браузера и выберите <span class="ui">Открыть в Safari</span>.</div>
+
+<section class="step">
+  <div>
+    <h2><span class="num">1</span>Нажмите «Поделиться»</h2>
+    <p>Откройте игру в Safari и нажмите кнопку <span class="ui">Поделиться</span> — квадрат со стрелкой вверх. Обычно она внизу экрана, а когда телефон лежит боком — вверху.</p>
+    <p class="small">На новых iOS (26 и дальше) её не видно сразу: нажмите <span class="ui">•••</span> справа от адреса, потом <span class="ui">Поделиться</span>.</p>
+  </div>
+  <div class="pic" aria-hidden="true">
+    <svg viewBox="0 0 250 190">
+      <rect x="1" y="1" width="248" height="188" rx="22" fill="#fff" stroke="#c9d3de" stroke-width="2"/>
+      <g stroke="#e3eaf1"><path d="M1 40H249M1 72H249M60 1V140M124 1V140M188 1V140"/></g>
+      <rect x="40" y="46" width="72" height="12" rx="6" fill="#d9f2f5"/><rect x="40" y="64" width="120" height="8" rx="4" fill="#e9eef3"/><rect x="40" y="80" width="96" height="8" rx="4" fill="#e9eef3"/>
+      <rect x="12" y="100" width="226" height="30" rx="15" fill="#eef1f5"/>
+      <text x="125" y="120" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#333">artemiylakin-debug.github.io</text>
+      <path d="M1 138H249V167a22 22 0 0 1-22 22H23A22 22 0 0 1 1 167Z" fill="#f7f7f8"/>
+      <g fill="none" stroke="#007aff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M30 152l-7 7 7 7"/><path d="M74 152l7 7-7 7" opacity=".35"/>
+        <path d="M125 147v15M119.5 152.5 125 147l5.5 5.5"/><path d="M119 156h-4v14h20v-14h-4"/>
+        <path d="M168 150c4-1.5 9-1.5 12 1v17c-3-2.5-8-2.5-12-1zM192 150c-4-1.5-9-1.5-12 1"/>
+        <rect x="213" y="150" width="14" height="14" rx="3"/><path d="M217 146h12a3 3 0 0 1 3 3v12"/>
+      </g>
+      <circle class="ring" cx="125" cy="158" r="17" fill="none" stroke="#ff2d55" stroke-width="3"/>
+      <circle cx="125" cy="158" r="17" fill="none" stroke="#ff2d55" stroke-width="3"/>
+    </svg>
+  </div>
+</section>
+
+<section class="step">
+  <div>
+    <h2><span class="num">2</span>Выберите «На экран „Домой“»</h2>
+    <p>Откроется список действий. Пролистайте его вниз и нажмите <span class="ui">На экран «Домой»</span> — значок с плюсом в квадрате.</p>
+    <p class="small">Если пункта нет — внизу списка нажмите «Редактировать действия» и добавьте его.</p>
+  </div>
+  <div class="pic" aria-hidden="true">
+    <svg viewBox="0 0 250 200" font-family="-apple-system,Segoe UI,sans-serif" font-size="13">
+      <rect x="1" y="1" width="248" height="198" rx="18" fill="#f2f2f7" stroke="#c9d3de" stroke-width="2"/>
+      <rect x="12" y="12" width="226" height="176" rx="12" fill="#fff"/>
+      <g fill="#111"><text x="24" y="38">Скопировать</text><text x="24" y="80">Добавить в Избранное</text><text x="24" y="122">Добавить закладку</text><text x="24" y="164" font-weight="600">На экран «Домой»</text></g>
+      <g stroke="#e5e5ea"><path d="M24 54H238M24 96H238M24 138H238"/></g>
+      <g fill="none" stroke="#555" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+        <rect x="208" y="24" width="10" height="13" rx="2"/><path d="M212 21h9a2 2 0 0 1 2 2v11"/>
+        <path d="M215 64l3.4 7 7.6 1-5.5 5.3 1.3 7.6-6.8-3.6-6.8 3.6 1.3-7.6L204 72l7.6-1z"/>
+        <path d="M207 107h14v18l-7-5-7 5z"/>
+      </g>
+      <rect x="14" y="140" width="222" height="44" rx="10" fill="#007aff" opacity=".1"/>
+      <g fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round"><rect x="204" y="150" width="20" height="20" rx="5"/><path d="M214 155v10M209 160h10"/></g>
+      <rect class="ring" x="14" y="140" width="222" height="44" rx="10" fill="none" stroke="#ff2d55" stroke-width="3"/>
+      <rect x="14" y="140" width="222" height="44" rx="10" fill="none" stroke="#ff2d55" stroke-width="3"/>
+    </svg>
+  </div>
+</section>
+
+<section class="step">
+  <div>
+    <h2><span class="num">3</span>Нажмите «Добавить»</h2>
+    <p>Появится окно со значком и названием <b>DATA.OUT</b>. Нажмите <span class="ui">Добавить</span> в правом верхнем углу.</p>
+    <p class="small">Если в окне есть переключатель «Открыть как веб-приложение» — оставьте его включённым: так игра откроется на весь экран.</p>
+  </div>
+  <div class="pic" aria-hidden="true">
+    <svg viewBox="0 0 250 200" font-family="-apple-system,Segoe UI,sans-serif" font-size="13">
+      <rect x="1" y="1" width="248" height="198" rx="18" fill="#f2f2f7" stroke="#c9d3de" stroke-width="2"/>
+      <text x="14" y="30" fill="#007aff" font-size="11">Отменить</text>
+      <text x="118" y="30" text-anchor="middle" font-weight="600" fill="#111" font-size="10.5">На экран «Домой»</text>
+      <text x="237" y="30" text-anchor="end" font-weight="700" fill="#007aff" font-size="11.5">Добавить</text>
+      <rect class="ring" x="179" y="11" width="66" height="28" rx="14" fill="none" stroke="#ff2d55" stroke-width="3"/>
+      <rect x="179" y="11" width="66" height="28" rx="14" fill="none" stroke="#ff2d55" stroke-width="3"/>
+      <rect x="12" y="46" width="226" height="78" rx="12" fill="#fff"/>
+      <clipPath id="ic3"><rect x="22" y="56" width="58" height="58" rx="13"/></clipPath><image href="icons/icon-180.png" x="22" y="56" width="58" height="58" clip-path="url(#ic3)"/>
+      <text x="92" y="80" font-weight="600" fill="#111">DATA.OUT</text>
+      <path d="M92 90H228" stroke="#e5e5ea"/>
+      <text x="92" y="108" fill="#8e8e93" font-size="11">artemiylakin-debug.github.io</text>
+      <rect x="12" y="134" width="226" height="48" rx="12" fill="#fff"/>
+      <text x="22" y="162" fill="#111" font-size="10.5">Открыть как веб-приложение</text>
+      <rect x="194" y="147" width="36" height="22" rx="11" fill="#34c759"/><circle cx="219" cy="158" r="9" fill="#fff"/>
+    </svg>
+  </div>
+</section>
+
+<section class="step">
+  <div>
+    <h2><span class="num">4</span>Играйте со значка</h2>
+    <p>На экране «Домой» появится значок <b>DATA.OUT</b>. Запускайте игру им — она откроется на весь экран, без полосок Safari. Играть лучше боком.</p>
+    <p class="small">В первый раз войдите в свой аккаунт: у значка своё хранилище, отдельное от Safari. Прогресс, биты и облик хранятся в аккаунте и никуда не денутся.</p>
+  </div>
+  <div class="pic" aria-hidden="true">
+    <svg viewBox="0 0 250 200" font-family="-apple-system,Segoe UI,sans-serif" font-size="10">
+      <defs><linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#9b6fe0"/></linearGradient></defs>
+      <rect x="1" y="1" width="248" height="198" rx="22" fill="url(#wall)"/>
+      <g opacity=".9">
+        <rect x="22" y="20" width="44" height="44" rx="11" fill="#ffffff55"/><rect x="80" y="20" width="44" height="44" rx="11" fill="#ffffff55"/><rect x="138" y="20" width="44" height="44" rx="11" fill="#ffffff55"/><rect x="196" y="20" width="44" height="44" rx="11" fill="#ffffff55"/>
+        <rect x="22" y="88" width="44" height="44" rx="11" fill="#ffffff55"/><rect x="80" y="88" width="44" height="44" rx="11" fill="#ffffff55"/><rect x="196" y="88" width="44" height="44" rx="11" fill="#ffffff55"/>
+      </g>
+      <clipPath id="ic4"><rect x="138" y="88" width="44" height="44" rx="11"/></clipPath><image href="icons/icon-180.png" x="138" y="88" width="44" height="44" clip-path="url(#ic4)"/>
+      <text x="160" y="154" text-anchor="middle" fill="#fff" font-weight="600">DATA.OUT</text>
+      <rect class="ring" x="132" y="82" width="56" height="56" rx="15" fill="none" stroke="#ff2d55" stroke-width="3"/>
+      <rect x="132" y="82" width="56" height="56" rx="15" fill="none" stroke="#ff2d55" stroke-width="3"/>
+      <rect x="80" y="180" width="90" height="5" rx="2.5" fill="#ffffffaa"/>
+    </svg>
+  </div>
+</section>
+
+<a class="go" href="./">Открыть игру</a>
+
+<section class="box">
+  <h2>На Android</h2>
+  <p>В игре в главном меню есть кнопка <b>«Установить игру»</b> — она ставит DATA.OUT на экран как приложение. Если кнопки нет: в Chrome нажмите <span class="ui">⋮</span> → <span class="ui">Добавить на главный экран</span> или <span class="ui">Установить приложение</span>. Кнопка <b>«ВЕСЬ ЭКРАН»</b> в игре тоже работает.</p>
+</section>
+
+<section class="box">
+  <h2>Вопросы</h2>
+  <p><b>Это безопасно?</b> Да: на экран добавляется только ссылка на сайт игры со значком. Ничего не скачивается и не требует доступа к телефону.</p>
+  <p><b>Как удалить?</b> Как любое приложение: долгое нажатие на значок → «Удалить».</p>
+  <p><b>Обновления?</b> Приходят сами: значок всегда открывает свежую версию игры.</p>
+</section>
+
+<footer>DATA.OUT · <a href="./">artemiylakin-debug.github.io/Kod-Clod</a> · <a href="terms.html">Пользовательское соглашение</a></footer>
+</main>
+<script>
+// внутри Telegram, VK, Instagram и других браузеров на iPhone на экран «Домой» не добавить — просим открыть Safari
+(function(){
+  var ua=navigator.userAgent,ios=/iP(hone|od|ad)/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+  var inApp=/Telegram|VKClient|vkcom|Instagram|FBAN|FBAV|Line\/|CriOS|FxiOS|EdgiOS|YaBrowser|OPiOS|GSA\//.test(ua);
+  if(ios&&inApp)document.getElementById('inapp').className='warn on';
+})();
+</script>
+</body>
+</html>
