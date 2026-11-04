@@ -207,7 +207,6 @@
   .pg-a.got{border:2px solid var(--win);background:#2a611}
   .pg-a>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .pg-a b{font-size:12px}
-  .pg-ic{font-size:22px;flex:none;width:30px;text-align:center}
   .pg-a:not(.got) .pg-ic{filter:grayscale(1);opacity:.55}
   .pg-rw{font-size:11px;font-weight:bold;color:var(--coin);flex:none}
   .pg-a.got .pg-rw{color:var(--win);font-size:16px}
@@ -274,6 +273,16 @@
   .chip.lock{border-style:dashed;--f:#f6f8fb}
   .chip.lock[aria-pressed="true"]{--f:#38bdf8;--e:#0369a1;--t:#fff}
   .panel .coins{font-size:15px;color:var(--ink)}
+  /* значки (ICONS): в тексте — по размеру строки, на плитках и карточках — крупнее */
+  .ic{width:1.3em;height:1.3em;vertical-align:-.3em;flex:none;overflow:visible}
+  .mbtn .ic{margin-right:.15em;filter:drop-shadow(0 1px 0 rgba(0,0,0,.15))}
+  .tile .ti .ic{width:36px;height:36px;vertical-align:0}
+  .shop-tabs .ic{width:1.35em;height:1.35em}
+  .pg-ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:2px solid var(--b-out);background:#fde7d3}
+  .pg-ic .ic{width:24px;height:24px;vertical-align:0}
+  .pg-ic.t1{background:#e2e8f0}.pg-ic.t2{background:#fef3c7}.pg-ic.t3{background:#cffafe}
+  .place{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:2px solid var(--b-out);font:900 12px var(--font);color:#0b2545;background:#facc15}
+  .place.p2{background:#cbd5e1}.place.p3{background:#f0a868}
   /* главное меню: аккаунт и биты сверху, плитки разделов */
   .m-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
   .m-top .acct{justify-content:flex-start;min-width:0}
@@ -2113,7 +2122,7 @@ function spawnBoss(){
   const hp=Math.max(1,Math.round(Math.max(Math.min(D().bossMin,b.hp),b.hp-D().bossHp)*(D().hpK||1)));
   boss={x:W/2,y:-70,r:b.r||42,t:0,hp,maxHp:hp,vx:0,vy:0,kind:b.kind,name:b.name,ang:0,shield:b.kind==='captcha'};
   lastEmpDrop=time-300;
-  msg('⚠ БОСС: «'+b.name+'» ВЫШЕЛ НА УДАЛЕНИЕ — БЕРЕГИСЬ И БЕРЕГИ EMP ⚠');
+  msg('БОСС: «'+b.name+'» ВЫШЕЛ НА УДАЛЕНИЕ — БЕРЕГИСЬ И БЕРЕГИ EMP ');
 }
 function spawnPortal(){
   const s=freeSpot(220,70,34);
@@ -4246,13 +4255,72 @@ function updateHud(){
 // ================= МЕНЮ =================
 const menuEl=$id('menu'),panelEl=$id('panel');
 function mb(act,label,cls){return '<button type="button" class="mbtn'+(cls?' '+cls:'')+'" data-act="'+act+'">'+label+'</button>';}
+
+// ================= ЗНАЧКИ =================
+// свои значки вместо смайликов: цветная заливка и тёмно-синий контур, как у кнопок. Один спрайт <symbol>
+// в начале страницы, в разметке — <svg><use>. ico(имя) — значок для HTML; в строке сообщений и на холсте значков нет
+const ICONS={
+  play:'<path d="M8 5.2v13.6L18.8 12z" fill="#fff"/>',
+  map:'<path d="M3.5 6.5l5.5-2 6 2 5.5-2v13l-5.5 2-6-2-5.5 2z" fill="#7dd3fc"/><path d="M9 4.5v13M15 6.5v13"/><path d="M11 9.6l2.4 2.4m0-2.4L11 12" stroke="#dc2626" stroke-width="1.9"/>',
+  palette:'<path d="M12 3.4c-5 0-8.6 3.6-8.6 8.3 0 4.5 3.6 8.4 8.1 8.4 1.3 0 2-.7 2-1.7 0-1.4-1.3-1.6-1.3-2.9 0-1 .8-1.6 2-1.6h2.3c2.4 0 4.1-1.5 4.1-4 0-3.9-3.7-6.5-8.6-6.5z" fill="#fde68a"/><circle cx="8" cy="10.2" r="1.5" fill="#ef4444"/><circle cx="11.6" cy="7.3" r="1.5" fill="#22c55e"/><circle cx="15.6" cy="8.6" r="1.5" fill="#3b82f6"/><circle cx="7.9" cy="14.4" r="1.5" fill="#a855f7"/>',
+  target:'<circle cx="11" cy="13" r="8" fill="#fff"/><circle cx="11" cy="13" r="5" fill="#ef4444"/><circle cx="11" cy="13" r="2" fill="#fff"/><path d="M11 13l8.5-8.5M16.6 4.4h3v3"/>',
+  medal:'<path d="M7.3 3h4.2l1.6 5.4H9.4zM16.7 3h-4.2l-1.6 5.4h3.7z" fill="#38bdf8"/><circle cx="12" cy="15" r="6" fill="#facc15"/><path d="M12 11.5l1.1 2.2 2.4.4-1.8 1.6.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.6 2.4-.4z" fill="#fff" stroke-width="1"/>',
+  bolt:'<path d="M13.6 2.5L5 13.6h6.1l-1.6 7.9 8.6-11.1h-6.1z" fill="#facc15"/>',
+  flag:'<path d="M5.5 21.5V3"/><path d="M5.5 4h13l-2.4 4.4L18.5 13h-13z" fill="#fff"/><path d="M8.3 4h3v3h-3zm6 0h3.4l-1.6 3h-1.8zM5.5 7h2.8v3H5.5zm5.8 0h3v3h-3zM8.3 10h3v3h-3zm6 0h3l1.2 3h-4.2z" fill="#0b2545" stroke="none"/>',
+  puzzle:'<path d="M4 8.5h4.1a2.4 2.4 0 1 1 4.8 0H17v4.1a2.4 2.4 0 1 1 0 4.8v3.6h-4.1a2.4 2.4 0 1 0-4.8 0H4z" fill="#4ade80"/>',
+  cup:'<path d="M7 4h10v5a5 5 0 0 1-10 0z" fill="#facc15"/><path d="M7 5.8H4.6a2.6 2.6 0 0 0 3.1 3.6M17 5.8h2.4a2.6 2.6 0 0 1-3.1 3.6M12 14v3"/><path d="M8 20.5h8l-1-3.5H9z" fill="#d97706"/>',
+  user:'<circle cx="12" cy="8" r="4" fill="#38bdf8"/><path d="M4.5 20.5c.6-4 3.6-6.5 7.5-6.5s6.9 2.5 7.5 6.5z" fill="#38bdf8"/>',
+  gear:'<path d="M10.3 2.8h3.4l.5 2.4 1.7.7 2-1.4 2.4 2.4-1.4 2 .7 1.7 2.4.5v3.4l-2.4.5-.7 1.7 1.4 2-2.4 2.4-2-1.4-1.7.7-.5 2.4h-3.4l-.5-2.4-1.7-.7-2 1.4-2.4-2.4 1.4-2-.7-1.7-2.4-.5v-3.4l2.4-.5.7-1.7-1.4-2 2.4-2.4 2 1.4 1.7-.7z" fill="#a5b4c8"/><circle cx="12" cy="12" r="3.2" fill="#fff"/>',
+  help:'<circle cx="12" cy="12" r="9" fill="#a78bfa"/><path d="M9.4 9.4a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2-2.6 3.9" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="17.2" r="1.25" fill="#fff" stroke="none"/>',
+  heart:'<path d="M12 20.2s-7.6-4.6-7.6-10.1a4.3 4.3 0 0 1 7.6-2.7 4.3 4.3 0 0 1 7.6 2.7c0 5.5-7.6 10.1-7.6 10.1z" fill="#f43f5e"/><path d="M7.6 9.2a2 2 0 0 1 1.8-1.6" stroke="#fff" stroke-width="1.4"/>',
+  wrench:'<path d="M14.6 3.4a5 5 0 0 0-4.7 6.8l-6.1 6.1a1.9 1.9 0 0 0 2.7 2.7l6.1-6.1a5 5 0 0 0 6.8-4.7l-3 3-2.6-.6-.6-2.6z" fill="#cbd5e1"/>',
+  cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.6" fill="#fff"/><path d="M3.5 7.6A2.6 2.6 0 0 1 6.1 5h11.8a2.6 2.6 0 0 1 2.6 2.6v2H3.5z" fill="#ef4444"/><path d="M8 3v4M16 3v4"/><path d="M8.2 14.3l2.5 2.4 5-5" stroke="#16a34a" stroke-width="2.1"/>',
+  gift:'<rect x="4" y="10.5" width="16" height="10" rx="1.6" fill="#ef4444"/><rect x="3" y="7.3" width="18" height="4" rx="1.3" fill="#f87171"/><path d="M12 7.3v13.2" stroke="#facc15" stroke-width="2.6"/><path d="M12 7.3c-1-3.1-5.2-4-5.2-1.4 0 1.5 3.6 1.4 5.2 1.4 1.6 0 5.2.1 5.2-1.4 0-2.6-4.2-1.7-5.2 1.4z" fill="#facc15"/>',
+  refresh:'<path d="M19 12.3A7 7 0 1 1 16.8 7" fill="none" stroke-width="2.4"/><path d="M19.6 3.6v5.2h-5.2z" fill="#0b2545"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.6" fill="#e0f2fe"/><path d="M12 6.8v7.4m-3-3l3 3 3-3"/><path d="M10.5 18.5h3"/>',
+  snow:'<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" stroke="#0284c7" stroke-width="2"/><path d="M9.8 4.4L12 6.5l2.2-2.1M9.8 19.6l2.2-2.1 2.2 2.1M4.6 10.4l2.9-.9-.7-2.9M19.4 13.6l-2.9.9.7 2.9M4.6 13.6l2.9.9-.7 2.9M19.4 10.4l-2.9-.9.7-2.9" stroke="#0284c7" stroke-width="1.5"/>',
+  tree:'<path d="M12 2.5l5 6.4h-2.4l4 5.5h-3l3.5 5H4.9l3.5-5h-3l4-5.5H7z" fill="#22c55e"/><path d="M12 19.4v2.3"/><circle cx="10" cy="12.2" r="1.1" fill="#facc15" stroke="none"/><circle cx="14.2" cy="16" r="1.1" fill="#ef4444" stroke="none"/><circle cx="12.6" cy="8.4" r="1" fill="#38bdf8" stroke="none"/>',
+  firework:'<path d="M12 2.5v4.5M12 17v4.5M2.5 12H7M17 12h4.5M5.3 5.3l3.2 3.2M15.5 15.5l3.2 3.2M5.3 18.7l3.2-3.2M15.5 8.5l3.2-3.2" stroke="#f43f5e" stroke-width="2.1"/><circle cx="12" cy="12" r="2.6" fill="#facc15"/>',
+  lock:'<rect x="5" y="10.5" width="14" height="10" rx="2.2" fill="#facc15"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15.5" r="1.4" fill="#0b2545" stroke="none"/>',
+  check:'<rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="#22c55e"/><path d="M7.6 12.3l3 3 5.9-6.5" stroke="#fff" stroke-width="2.6"/>',
+  cart:'<path d="M2.8 4h2.6l2.3 10.6h10.1l2-7.6H6.3" fill="none"/><path d="M6.9 7h12.9l-2 7.6H7.7z" fill="#fde68a"/><circle cx="9" cy="19" r="1.7" fill="#fff"/><circle cx="17" cy="19" r="1.7" fill="#fff"/>',
+  star:'<path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" fill="#facc15"/>',
+  shirt:'<path d="M8.6 3.5L3.4 6.6l2.1 4 2-1v11h9v-11l2 1 2.1-4-5.2-3.1C15 5.1 13.7 6 12 6s-3-.9-3.4-2.5z" fill="#a78bfa"/>',
+  bulb:'<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z" fill="#fde047"/><path d="M9 19h6M10 21.4h4M10.5 12.5l1.5-2 1.5 2"/>',
+  hex:'<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" fill="#38bdf8"/><path d="M8 8.6l4-2.3" stroke="#fff" stroke-width="1.6"/>',
+  sparkle:'<path d="M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6z" fill="#facc15"/><path d="M17.5 13l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z" fill="#c084fc"/>',
+  hat:'<path d="M7 16.2V5.5h10v10.7" fill="#334155"/><path d="M7.9 12.6h8.2" stroke="#ef4444" stroke-width="2.6"/><rect x="3.5" y="16.2" width="17" height="3" rx="1.2" fill="#334155"/>',
+  coin:'<circle cx="12" cy="12" r="8.6" fill="#facc15"/><path d="M12 7l4.3 5-4.3 5-4.3-5z" fill="#fff7d6"/>',
+  data:'<path d="M12 3l8 9-8 9-8-9z" fill="#4ade80"/><path d="M12 7.5l4 4.5-4 4.5-4-4.5z" fill="#dcfce7"/>',
+  shield:'<path d="M12 3l7.6 3v5.6c0 4.6-3.2 8.2-7.6 9.5-4.4-1.3-7.6-4.9-7.6-9.5V6z" fill="#38bdf8"/><path d="M8.5 12l2.5 2.5 4.6-5" stroke="#fff" stroke-width="2.2"/>',
+  boss:'<path d="M4.8 20.5v-8.3a7.2 7.2 0 0 1 14.4 0v8.3l-2.4-2-2.4 2-2.4-2-2.4 2-2.4-2z" fill="#a855f7"/><circle cx="9.4" cy="11" r="1.9" fill="#fff"/><circle cx="14.6" cy="11" r="1.9" fill="#fff"/><circle cx="9.8" cy="11.3" r=".85" fill="#0b2545" stroke="none"/><circle cx="15" cy="11.3" r=".85" fill="#0b2545" stroke="none"/>',
+  wind:'<path d="M3 8.2h10.8a2.9 2.9 0 1 0-2.9-2.9M3 13h15a3 3 0 1 1-3 3M3 17.8h6.5" stroke="#0284c7" stroke-width="2.3"/>',
+  boot:'<path d="M6.5 3.5h5.3v8.4l6.6 2.4a2.6 2.6 0 0 1 1.6 2.4v3.4H4.5V12z" fill="#f97316"/><path d="M4.5 17.2h15.5"/>',
+  robot:'<path d="M12 8V4.6"/><circle cx="12" cy="3.6" r="1.3" fill="#facc15"/><rect x="4.5" y="8" width="15" height="11.5" rx="2.6" fill="#1e293b"/><circle cx="9.3" cy="13" r="1.7" fill="#22d3ee" stroke="none"/><circle cx="14.7" cy="13" r="1.7" fill="#22d3ee" stroke="none"/><path d="M9.6 16.6h4.8" stroke="#f43f5e"/>',
+  crown:'<path d="M3.4 8l4.2 3.6L12 5l4.4 6.6L20.6 8l-1.8 10.6H5.2z" fill="#facc15"/><circle cx="12" cy="14.6" r="1.3" fill="#ef4444" stroke="none"/>',
+  rocket:'<path d="M12 2.4c3.6 2.6 5.1 6.3 4.6 11.1l-2.1 2.6h-5l-2.1-2.6c-.5-4.8 1-8.5 4.6-11.1z" fill="#e2e8f0"/><circle cx="12" cy="9.4" r="2" fill="#38bdf8"/><path d="M9.6 16.1l-1 4 3.4-2 3.4 2-1-4z" fill="#f97316"/>',
+  search:'<circle cx="10.4" cy="10.4" r="6.1" fill="#e0f2fe"/><path d="M14.9 14.9l5.6 5.6" stroke-width="2.7"/>',
+  moon:'<path d="M15.6 3.4a8.6 8.6 0 1 0 5 13.7A7 7 0 0 1 15.6 3.4z" fill="#fde047"/>',
+  cloud:'<path d="M7 18.6a4.6 4.6 0 0 1-.4-9.1 5.6 5.6 0 0 1 10.8 1.3 3.9 3.9 0 0 1-.4 7.8z" fill="#e0f2fe"/>',
+  globe:'<circle cx="12" cy="12" r="8.6" fill="#7dd3fc"/><path d="M3.4 12h17.2M12 3.4c2.5 2.5 3.5 5.5 3.5 8.6s-1 6.1-3.5 8.6c-2.5-2.5-3.5-5.5-3.5-8.6s1-6.1 3.5-8.6z"/>',
+  volcano:'<path d="M2.5 20.5l6.4-11h6.2l6.4 11z" fill="#b45309"/><path d="M8.9 9.5l1.6 2.6 1.5-1.5 1.5 1.5 1.6-2.6z" fill="#ef4444"/><path d="M11 6.6c0-1.6 1-2.2 2.1-2.6M13.6 6.4c.6-.9 1.6-1.1 2.5-1"/>',
+  trash:'<path d="M5.6 7.2h12.8l-1.2 13.3H6.8z" fill="#cbd5e1"/><path d="M4 7.2h16M9.6 7.2V4.6h4.8v2.6M10 11v6M14 11v6"/>',
+  gem:'<path d="M6.2 4h11.6l3.6 5L12 20.6 2.6 9z" fill="#a5f3fc"/><path d="M2.6 9h18.8M9.2 4L12 20.6 14.8 4"/>',
+  door:'<rect x="5.5" y="3" width="13" height="18" rx="1.5" fill="#fde68a"/><path d="M3.5 21h17"/><circle cx="15.4" cy="12.5" r="1.1" fill="#0b2545" stroke="none"/>'
+};
+(function(){
+  let s='<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>';
+  for(const k in ICONS)s+='<symbol id="ic-'+k+'" viewBox="0 0 24 24" fill="none" stroke="#0b2545" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">'+ICONS[k]+'</symbol>';
+  document.body.insertAdjacentHTML('afterbegin',s+'</defs></svg>');
+})();
+function ico(n,cls){return ICONS[n]?'<svg class="ic'+(cls?' '+cls:'')+'" aria-hidden="true" focusable="false"><use href="#ic-'+n+'"/></svg>':'';}
 function heartsStr(n){const m=maxLives(),l=Math.max(0,Math.min(m,n));return '♥'.repeat(l)+'♡'.repeat(m-l);}
 function chip(act,label,on){return '<button type="button" class="chip" data-act="'+act+'" aria-pressed="'+on+'">'+label+'</button>';}
 
 // ================= МАГАЗИН ОБЛИКА =================
 // как в магазинах популярных игр: сверху — большая примерка и одна главная кнопка, ниже — разделы-вкладки
 // и ряды карточек с картинкой, которые листаются вбок. Картинки рисует сама игра (shopThumb) и запоминает
-const SHOP_TABS=[['c','🎨','Цвет'],['s','🔷','Форма'],['t','✨','След'],['h','🎩','Аксессуар'],['o','👕','Наряды']];
+const SHOP_TABS=[['c','palette','Цвет'],['s','hex','Форма'],['t','sparkle','След'],['h','hat','Аксессуар'],['o','shirt','Наряды']];
 const THUMBS={};
 function shopThumb(L,mode){
   const key=mode+':'+L.c+'.'+L.s+'.'+L.t+'.'+L.h;
@@ -4276,7 +4344,7 @@ function shopCard(cat,i,base,cur){
   let tag;
   if(worn)tag='<span class="tag own">✓ Надето</span>';
   else if(own)tag='<span class="tag own">Твоё</span>';
-  else if(it.ex)tag='<span class="tag ex">'+EX_TAG[it.ex]+' Эксклюзив</span>';
+  else if(it.ex)tag='<span class="tag ex">'+ico(EX_TAG[it.ex])+' Эксклюзив</span>';
   else tag='<span class="tag price'+(coins()<it.price?' short':'')+'">◈ '+it.price+'</span>';
   const sub=own||it.ex?'':(it.act?'<small>или пройди акт '+it.act+'</small>':(it.sup?'<small>или ★ поддержка</small>':''));
   return '<button type="button" class="card'+(worn?' worn':'')+'" data-act="item:'+cat+':'+i+'" aria-pressed="'+(i===cur)+'">'+
@@ -4295,10 +4363,10 @@ function shopRows(){
   g.buy.sort((x,y)=>cat.list[x].price-cat.list[y].price);
   g.act.sort((x,y)=>cat.list[x].act-cat.list[y].act);
   const card=i=>shopCard(shopTab,i,base,cur),id=shopTab+'-';
-  return shopRow(id+'own','✅ Твоё',g.own.length+' шт.',g.own.map(card))+
-    shopRow(id+'buy','🛒 Купить за биты','дешёвые — первыми',g.buy.map(card))+
-    shopRow(id+'act','🏁 За прохождение актов','или купи сразу',g.act.map(card))+
-    shopRow(id+'ex','⚡ Эксклюзивы','только за ивенты',g.ex.map(card))+
+  return shopRow(id+'own',''+ico('check')+' Твоё',g.own.length+' шт.',g.own.map(card))+
+    shopRow(id+'buy',''+ico('cart')+' Купить за биты','дешёвые — первыми',g.buy.map(card))+
+    shopRow(id+'act',''+ico('flag')+' За прохождение актов','или купи сразу',g.act.map(card))+
+    shopRow(id+'ex',''+ico('bolt')+' Эксклюзивы','только за ивенты',g.ex.map(card))+
     shopRow(id+'sup','★ Подарки за поддержку','или купи за биты',g.sup.map(card));
 }
 function shopOutfits(){
@@ -4307,11 +4375,11 @@ function shopOutfits(){
       '<button type="button" class="card-x" data-act="ofdel:'+i+'" aria-label="Удалить наряд '+escHTML(o.n)+'">'+(armed==='ofdel:'+i?'точно?':'✕')+'</button></div>';});
   const ideas=OUTFIT_IDEAS.map((o,i)=>{
     const sh=outfitShop(o),on=outfitOn(o);
-    const tag=!sh.sale.length&&!sh.locked.length?'<span class="tag own">'+(on?'✓ Надет':'✓ Всё есть')+'</span>':(sh.locked.length?'<span class="tag ex">🔒 Не всё продаётся</span>':'<span class="tag price'+(coins()<sh.sum?' short':'')+'">◈ '+sh.sum+'</span>');
+    const tag=!sh.sale.length&&!sh.locked.length?'<span class="tag own">'+(on?'✓ Надет':'✓ Всё есть')+'</span>':(sh.locked.length?'<span class="tag ex">'+ico('lock')+' Не всё продаётся</span>':'<span class="tag price'+(coins()<sh.sum?' short':'')+'">◈ '+sh.sum+'</span>');
     return '<button type="button" class="card'+(on?' worn':'')+'" data-act="ofidea:'+i+'" aria-pressed="'+(tryOutfit===o||on)+'"><img src="'+shopThumb(o,'o')+'" alt="" width="72" height="72" draggable="false"><span class="nm">'+o.n+'</span>'+tag+'</button>';});
-  return (mine.length?shopRow('o-mine','👕 Мои наряды',save.outfits.length+' из '+OUTFIT_MAX,mine):'<p>Своих нарядов пока нет. Надень цвет, форму, след и аксессуар — и сохрани их вместе.</p>')+
+  return (mine.length?shopRow('o-mine',''+ico('shirt')+' Мои наряды',save.outfits.length+' из '+OUTFIT_MAX,mine):'<p>Своих нарядов пока нет. Надень цвет, форму, след и аксессуар — и сохрани их вместе.</p>')+
     '<div class="copyrow"><input id="of-name" maxlength="16" placeholder="Название наряда" aria-label="Название наряда">'+mb('ofsave','Сохранить надетое','sm')+'</div>'+
-    shopRow('o-ideas','💡 Идеи нарядов','нажми — примеришь целиком',ideas);
+    shopRow('o-ideas',''+ico('bulb')+' Идеи нарядов','нажми — примеришь целиком',ideas);
 }
 // сверху: примерка на сцене, название и одна понятная кнопка — купить, не хватает бит или как получить
 function shopHero(){
@@ -4421,25 +4489,25 @@ function panelHTML(s){
     // минимализм, как в магазине: сверху аккаунт и биты, карточка уровня игрока, одна большая кнопка игры,
     // все разделы — плитками со значком; метки на плитках — где ждёт награда
     const cont=save.unlocked>1,dq=pgDaily(),done=dq.q.filter((_,i)=>dq.c[i]).length,t=evNow();
-    const tile=(act,ic,label,extra,cls)=>'<button type="button" class="tile'+(cls?' '+cls:'')+'" data-act="'+act+'"><span class="ti" aria-hidden="true">'+ic+'</span><span class="tl">'+label+'</span>'+(extra||'')+'</button>';
+    const tile=(act,ic,label,extra,cls)=>'<button type="button" class="tile'+(cls?' '+cls:'')+'" data-act="'+act+'"><span class="ti" aria-hidden="true">'+ico(ic)+'</span><span class="tl">'+label+'</span>'+(extra||'')+'</button>';
     return '<div class="m-top">'+ACCT_ROW+'<span class="coin-pill" title="Биты">◈ <b>'+pgNum(coins())+'</b></span></div>'+
       '<h2 class="logo">DATA.OUT</h2><p class="sub">ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
-      (updReady?mb('upd','🔄 Вышла новая версия игры — обновить','primary'):'')+
+      (updReady?mb('upd',''+ico('refresh')+' Вышла новая версия игры — обновить','primary'):'')+
       pgMenuHTML()+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
-      (hsTipOn()?'<div class="hs-tip"><b>📲 Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
-      (installEv?mb('install','📲 Установить игру — на весь экран'):'')+
-      '<div class="mcol">'+(cont?mb('play','▶ Играть · уровень '+save.unlocked,'primary big'):mb('new','▶ Играть','primary big'))+'</div>'+
+      (hsTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
+      (installEv?mb('install',''+ico('phone')+' Установить игру — на весь экран'):'')+
+      '<div class="mcol">'+(cont?mb('play',''+ico('play')+' Играть · уровень '+save.unlocked,'primary big'):mb('new',''+ico('play')+' Играть','primary big'))+'</div>'+
       evMenuBanner()+
       '<div class="tiles">'+
-        tile('levels','🗺️','Уровни')+tile('skins','🎨','Облик')+
-        tile('quests','🎯','Задания','<small>'+done+'/'+dq.q.length+'</small>'+pgDot(pgClaims()))+
-        tile('ach','🏅','Достижения','<small>'+save.pg.ach.length+'/'+PG_ACH.length+'</small>'+pgDot(save.pg.ach.length-save.pg.seen))+
-        tile('events','⚡','Ивенты','',abOn(t)||nynOn(t)?'hot':'')+tile('race','🏁','Гонка')+
-        tile('community','🧩','Сообщество')+tile('top','🏆','Рекорды')+tile('acct','👤','Аккаунт')+
-        tile('settings','⚙️','Настройки')+tile('help','❓','Как играть')+
-        (CAN_DONATE?tile('donate','❤️','Поддержать','','donate'):'')+
-        (NET.admin?tile('admin','🛠️','Админ'):'')+
+        tile('levels','map','Уровни')+tile('skins','palette','Облик')+
+        tile('quests','target','Задания','<small>'+done+'/'+dq.q.length+'</small>'+pgDot(pgClaims()))+
+        tile('ach','medal','Достижения','<small>'+save.pg.ach.length+'/'+PG_ACH.length+'</small>'+pgDot(save.pg.ach.length-save.pg.seen))+
+        tile('events','bolt','Ивенты','',abOn(t)||nynOn(t)?'hot':'')+tile('race','flag','Гонка')+
+        tile('community','puzzle','Сообщество')+tile('top','cup','Рекорды')+tile('acct','user','Аккаунт')+
+        tile('settings','gear','Настройки')+tile('help','help','Как играть')+
+        (CAN_DONATE?tile('donate','heart','Поддержать','','donate'):'')+
+        (NET.admin?tile('admin','wrench','Админ'):'')+
       '</div>'+
       pgNextHTML()+
       '<p class="foot">Рекорд '+save.best+' · уровней '+save.unlocked+' из '+LEVELS.length+' · сложность «'+D().name.toLowerCase()+'» · v6.0</p>'+COPYRIGHT;
@@ -4451,12 +4519,12 @@ function panelHTML(s){
     };
     const a=lvAct,from=actStart(a);
     return '<h2>УРОВНИ</h2>'+
-      '<section class="shop-sec"><h3><span>🗺️ Акты <small>'+ACTS.filter((x,i)=>save.unlocked>x.end+1).length+' из '+ACTS.length+' пройдено</small></span>'+
+      '<section class="shop-sec"><h3><span>'+ico('map')+' Акты <small>'+ACTS.filter((x,i)=>save.unlocked>x.end+1).length+' из '+ACTS.length+' пройдено</small></span>'+
       '<span class="arrs"><button type="button" class="arr" data-act="row:acts:-1" aria-label="Листать влево">‹</button><button type="button" class="arr" data-act="row:acts:1" aria-label="Листать вправо">›</button></span></h3>'+
       '<div class="shop-row" data-row="acts">'+ACTS.map((x,i)=>{
         const st=actStart(i),open=st<save.unlocked,tot=x.end+1-st,got=Math.max(0,Math.min(tot,save.unlocked-1-st)),fin=got>=tot;
         return '<button type="button" class="card act'+(fin?' worn':'')+'" data-act="lvact:'+i+'" aria-pressed="'+(i===a)+'"'+(open?'':' disabled')+'><span class="an">'+(i+1)+'</span><span class="nm">'+x.name+'</span>'+
-          '<span class="tag'+(fin?' own':'')+'">'+(open?(fin?'✓ пройден':got+' / '+tot):'🔒 закрыт')+'</span></button>';
+          '<span class="tag'+(fin?' own':'')+'">'+(open?(fin?'✓ пройден':got+' / '+tot):''+ico('lock')+' закрыт')+'</span></button>';
       }).join('')+'</div></section>'+
       '<p class="lbl2">АКТ '+(a+1)+' · '+ACTS[a].name+' · УРОВНИ '+(from+1)+'–'+(ACTS[a].end+1)+'</p>'+
       '<div class="lvgrid">'+LEVELS.slice(from,ACTS[a].end+1).map((l,i)=>lv(l,i+from)).join('')+'</div>'+
@@ -4515,7 +4583,7 @@ function panelHTML(s){
   if(s==='gate'){
     return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       '<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
-      (HS_TIP?'<div class="hs-tip"><b>📲 На iPhone сначала поставь игру на экран «Домой»</b> — она будет открываться на весь экран, без полосок Safari. Войти лучше уже в ней: у значка свой вход, отдельный от Safari.<div class="hs-btns">'+mb('hsguide','Как поставить — с картинками','sm')+'</div></div>':'')+
+      (HS_TIP?'<div class="hs-tip"><b>'+ico('phone')+' На iPhone сначала поставь игру на экран «Домой»</b> — она будет открываться на весь экран, без полосок Safari. Войти лучше уже в ней: у значка свой вход, отдельный от Safari.<div class="hs-btns">'+mb('hsguide','Как поставить — с картинками','sm')+'</div></div>':'')+
       '<p class="err" hidden></p>'+loginBtns()+
       '<p class="foot">Аккаунт на сайте — это только логин и пароль: почта и телефон не нужны.</p>';
   }
@@ -4581,7 +4649,7 @@ function panelHTML(s){
   }
   if(s==='skins'){
     return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит</p>'+shopHero()+
-      '<div class="shop-tabs" role="tablist">'+SHOP_TABS.map(x=>chip('tab:'+x[0],x[1]+' '+x[2]+(x[0]==='o'?'':'<small>'+shopOwnCount(x[0])+'/'+catOf(x[0]).list.length+'</small>'),x[0]===shopTab)).join('')+'</div>'+
+      '<div class="shop-tabs" role="tablist">'+SHOP_TABS.map(x=>chip('tab:'+x[0],ico(x[1])+' '+x[2]+(x[0]==='o'?'':'<small>'+shopOwnCount(x[0])+'/'+catOf(x[0]).list.length+'</small>'),x[0]===shopTab)).join('')+'</div>'+
       (shopTab==='o'?shopOutfits():shopRows())+
       '<p class="foot">Листай ряды вбок. Нажми на карточку — примеришь, своё надевается сразу. На клавиатуре: ← → вещь, ↑ ↓ раздел.</p>'+
       mb('main','Готово','primary');
@@ -4634,7 +4702,7 @@ function panelHTML(s){
   }
   if(s==='pause'){
     return '<h2>ПАУЗА</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p>'+
-      '<div class="mcol">'+mb('resume','▶ Продолжить','primary big')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu',CUSTOM?'Выйти с уровня':'Главное меню')+'</div>'+
+      '<div class="mcol">'+mb('resume',''+ico('play')+' Продолжить','primary big')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu',CUSTOM?'Выйти с уровня':'Главное меню')+'</div>'+
       '<p class="foot">P или Esc — продолжить</p>';
   }
   if(s==='clear'){
@@ -4647,7 +4715,7 @@ function panelHTML(s){
     const hp=Math.min(maxLives(),lives+D().heal);
     return head+'<div class="pills"><span>Очки <b>'+score+'</b></span><span class="gold">◈ <b>+'+lvBits+'</b></span><span class="hp" title="'+(lives<maxLives()?'Жизни подлечены':'Жизни целы')+'">'+heartsStr(hp)+'</span></div>'+evClearNote+
       '<div class="next-card"><small>ДАЛЬШЕ</small><b>'+(lvl+2)+' · '+n.name+'</b><span>'+objective(n)+(f?'<br>'+f:'')+'</span></div>'+
-      '<div class="mcol">'+mb('next','▶ Дальше','primary big')+mb('menu','Главное меню')+'</div>';
+      '<div class="mcol">'+mb('next',''+ico('play')+' Дальше','primary big')+mb('menu','Главное меню')+'</div>';
   }
   if(s==='dead'){
     return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+'</p>'+
@@ -4740,13 +4808,6 @@ function goMenu(){
   buildBg();
   msgEl.textContent='';
   showMenu('main');
-}
-// подпись предмета: цена, акт, звезда поддержки или галочка у надетого
-function itemChip(cat,i,cur){
-  const it=cat.list[i],own=owned(cat.id,i);
-  const tag=own?(save[cat.key]===i?'✓':''):(it.ex?EX_TAG[it.ex]:(it.price?'◈ '+it.price:(it.act?'акт '+it.act:'★')));
-  const sw=cat.id==='c'?'<span class="sw" style="background:'+it.main+(it.rainbow?';background:conic-gradient(#f33,#fd2,#3d5,#2cf,#55f,#e3e,#f33)':(it.sw?';background:'+it.sw:''))+'"></span>':'';
-  return '<button type="button" class="chip'+(own?'':' lock')+'" data-act="item:'+cat.id+':'+i+'" aria-pressed="'+(i===cur)+'">'+sw+it.name+(tag?'<small>'+tag+'</small>':'')+'</button>';
 }
 // нажатие на предмет: своё — надеть, чужое — примерить (в превью), купить — отдельной кнопкой
 function pickItem(cat,i,focusAct){
@@ -5405,7 +5466,7 @@ const TILE_HINT={
 TILE_HINT['<']=TILE_HINT['^']=TILE_HINT.v=TILE_HINT['>'];TILE_HINT['2']=TILE_HINT['3']=TILE_HINT['1'];
 const SYMS=[['none','Без зеркала'],['h','Зеркало ↔'],['v','Зеркало ↕'],['hv','Четыре угла'],['r','Поворот 180°']];
 // вид клетки: заливка, обводка и значок — одинаково на поле и на кнопках палитры
-const TILE_LOOK={'#':['#cfd8e3','#64748b',''],F:['rgba(220,38,38,0.28)','#dc2626','⚡'],H:['#e2e9f1','#ca8a04','↔'],V:['#e2e9f1','#ca8a04','↕'],
+const TILE_LOOK={'#':['#cfd8e3','#64748b',''],F:['rgba(220,38,38,0.28)','#dc2626','ϟ'],H:['#e2e9f1','#ca8a04','↔'],V:['#e2e9f1','#ca8a04','↕'],
   '~':['rgba(120,90,200,0.22)','#7c5cc4','≈'],I:['rgba(219,39,119,0.18)','#be185d','⇄'],
   '>':['rgba(51,153,204,0.2)','#1e6eb4','→'],'<':['rgba(51,153,204,0.2)','#1e6eb4','←'],'^':['rgba(51,153,204,0.2)','#1e6eb4','↑'],v:['rgba(51,153,204,0.2)','#1e6eb4','↓'],
   O:['#1e1b4b','#a78bfa','●'],'1':['rgba(122,79,214,0.16)','#7a4fd6','1'],'2':['rgba(214,64,138,0.16)','#d6408a','2'],'3':['rgba(43,138,158,0.16)','#2b8a9e','3'],
@@ -5498,7 +5559,7 @@ function edHTML(){
   }else{
     side='<label class="nick">Название<input id="ed-name" maxlength="30" value="'+escHTML(ED.name)+'" placeholder="Например: Арена с дырами"></label>'+
       '<label class="nick">Описание — что ждёт игрока<input id="ed-descr" maxlength="200" value="'+escHTML(ED.descr)+'"></label>'+
-      mb('edtest','▶ Проверить уровень','primary')+
+      mb('edtest',''+ico('play')+' Проверить уровень','primary')+
       (NET_ON?'<button type="button" class="mbtn" data-act="edpub"'+(edCanPub()?'':' disabled')+'>'+(edDraft&&edDraft.pub?'Обновить публикацию':'Опубликовать в сообществе')+'</button><p class="foot ed-pubhint">'+escHTML(edPubHint())+'</p>'
         :'<p class="foot">Публиковать уровни можно на сайте игры: '+escHTML(SITE_URL)+'</p>')+
       mb('mylevels','Мои уровни');
@@ -5760,13 +5821,13 @@ function renderLevelCards(box,list){
   for(const r of list){
     const card=document.createElement('div');card.className='lcard';
     const h=document.createElement('b');h.textContent=r.name+(r.hidden?' · скрыт администратором':'');
-    const meta=document.createElement('small');meta.textContent=(comNames[r.author]||'Игрок')+' · ▶ '+r.plays+' · ♥ '+r.likes+' · '+fmtDate(r.at);
+    const meta=document.createElement('small');meta.textContent=(comNames[r.author]||'Игрок')+' · сыграли '+r.plays+' · ♥ '+r.likes+' · '+fmtDate(r.at);
     card.append(h,meta);
     if(r.descr){const p=document.createElement('p');p.textContent=r.descr;card.appendChild(p);}
     const row=document.createElement('div');row.className='lacts';
     const btn=(act,label,cls)=>{const b=document.createElement('button');b.type='button';b.className='mbtn sm'+(cls?' '+cls:'');b.dataset.act=act;b.textContent=label;row.appendChild(b);};
     const mine=!!NET.user&&r.author===NET.user.id;
-    btn('cplay:'+r.id,'▶ Играть','primary');
+    btn('cplay:'+r.id,'Играть','primary');
     if(NET.user&&!mine&&!r.hidden)btn('clike:'+r.id,comLiked[r.id]?'♥ Нравится':'♡ Нравится',comLiked[r.id]?'liked':'');
     if(menuScreen!=='profile')btn('profile:'+r.author,'Автор');
     if(mine)btn('cedit:'+r.id,'Изменить');
@@ -6900,7 +6961,7 @@ const NY_REWARDS=[{code:'c28',need:30},{code:'t17',need:80},{code:'h32',need:150
 // эксклюзив каждой субботы: у вещи в таблице облика — неделя wk; 7 ноября — «Корона админа»
 const AB_WEEKLY={'2026-W45':'h27'};
 for(const cat of CATS)cat.list.forEach((it,i)=>{if(it.ex==='wk')AB_WEEKLY[it.wk]=cat.id+i;});
-const EX_TAG={w26:'❄',ab:'⚡',cup:'🏆',wk:'⚡',ny:'🎄',nyn:'🎆',cal:'📅'};
+const EX_TAG={w26:'snow',ab:'bolt',cup:'cup',wk:'bolt',ny:'tree',nyn:'firework',cal:'cal'};
 const ABUSES=[
   {id:'bits',name:'БИТОПАД',text:'Все биты ×3 целую минуту!',color:'#d97706'},
   {id:'freeze',name:'ЗАМОРОЗКА',text:'Админ заморозил врагов!',color:'#0284c7'},
@@ -6973,7 +7034,7 @@ function evStep(){
     evShown=id;
     if(x){
       evFlash=150;
-      msg('⚡ АДМИН-БОТ: '+x.a.name+'! '+x.a.text,5000);buzz(60);
+      msg('АДМИН-БОТ: '+x.a.name+'! '+x.a.text,5000);buzz(60);
       if(x.a.id==='emp'){emp=Math.min(9,emp+3);popup(player.x,player.y-24,'EMP +3','#2563eb');}
     }
   }
@@ -6994,7 +7055,7 @@ function snowNow(){const t=evNow();return (winterOn(t)||nyOn(t))&&!TOUR&&!RACE_D
 function evData(){if(snowNow()&&got%(evIs('snow')||evIs('gifts')?2:4)===0)dropPickup(nyOn(evNow())?'gift':'snow');}
 function evGiftGot(p){
   save.evd.gifts=Math.min(1e6,save.evd.gifts+1);
-  burst(p.x,p.y,'#dc2626',10);burst(p.x,p.y,'#facc15',8);popup(p.x,p.y,'🎁 +1','#dc2626');buzz(20);
+  burst(p.x,p.y,'#dc2626',10);burst(p.x,p.y,'#facc15',8);popup(p.x,p.y,'+1','#dc2626');buzz(20);
   for(const r of NY_REWARDS)if(save.evd.gifts>=r.need)evGrant(r.code);
   pgCheck('ev');
   persist();evCloudSoon();
@@ -7009,7 +7070,7 @@ function evDrawGift(c,x,y,s){
 function evSnowGot(p){
   const add=1;
   save.evd.snow=Math.min(1e6,save.evd.snow+add);
-  burst(p.x,p.y,'#7fc4f0',12);popup(p.x,p.y,'❄ +'+add,'#0284c7');buzz(20);
+  burst(p.x,p.y,'#7fc4f0',12);popup(p.x,p.y,'+'+add,'#0284c7');buzz(20);
   for(const r of WINTER_REWARDS)if(save.evd.snow>=r.need)evGrant(r.code);
   pgCheck('ev');
   persist();evCloudSoon();
@@ -7018,7 +7079,7 @@ function exItem(code){const c=catOf(code[0]),it=c.list[Number(code.slice(1))];re
 function evGrant(code){
   if(save.evd.ex.indexOf(code)>=0||!exItem(code))return false;
   save.evd.ex.push(code);persist();evCloudSoon();
-  msg('🎁 ЭКСКЛЮЗИВ: «'+exItem(code).name+'» — твой! Надень его в «Облике».',8000);buzz(150);
+  msg('ЭКСКЛЮЗИВ: «'+exItem(code).name+'» — твой! Надень его в «Облике».',8000);buzz(150);
   pgCheck('ex');
   return true;
 }
@@ -7026,15 +7087,15 @@ function exOwned(code){return save.evd.ex.indexOf(code)>=0;}
 // как получить эксклюзив (для магазина и нарядов)
 function exHow(it,code){
   if(it.ex==='wk'){const past=weekKey(evNow())>it.wk||(weekKey(evNow())===it.wk&&evNow()>=abWindow(evNow()).to);
-    return past?'⚡ Эксклюзив админ-абуза '+it.d+' — та суббота прошла.':'⚡ Эксклюзив админ-абуза '+it.d+': пройди '+AB_GOAL+' уровня в субботу '+it.d+' с '+AB_FROM+':00 до '+AB_TO+':00 (МСК).';}
+    return past?''+ico('bolt')+' Эксклюзив админ-абуза '+it.d+' — та суббота прошла.':''+ico('bolt')+' Эксклюзив админ-абуза '+it.d+': пройди '+AB_GOAL+' уровня в субботу '+it.d+' с '+AB_FROM+':00 до '+AB_TO+':00 (МСК).';}
   if(it.ex==='ny'){const r=NY_REWARDS.find(x=>x.code===code)||{need:0},t=evNow();
-    return t>=NY.to?'🎄 Эксклюзив ивента «Новый год» — ивент закончился.':'🎄 Эксклюзив ивента «Новый год» (1 декабря – 11 января): собери '+r.need+' подарков на уровнях (у тебя '+save.evd.gifts+').';}
-  if(it.ex==='nyn')return evNow()>=NYN.to?'🎆 Эксклюзив новогодней ночи — она прошла.':'🎆 Пройди уровень в новогоднюю ночь — 31 декабря с 20:00 до 03:00 (МСК).';
+    return t>=NY.to?''+ico('tree')+' Эксклюзив ивента «Новый год» — ивент закончился.':''+ico('tree')+' Эксклюзив ивента «Новый год» (1 декабря – 11 января): собери '+r.need+' подарков на уровнях (у тебя '+save.evd.gifts+').';}
+  if(it.ex==='nyn')return evNow()>=NYN.to?''+ico('firework')+' Эксклюзив новогодней ночи — она прошла.':''+ico('firework')+' Пройди уровень в новогоднюю ночь — 31 декабря с 20:00 до 03:00 (МСК).';
   if(it.ex==='w26'){const r=WINTER_REWARDS.find(x=>x.code===code)||{need:0};
-    return winterOn(evNow())?'❄ Эксклюзив ивента «'+WINTER.name+'»: собери '+r.need+' снежинок на уровнях (у тебя '+save.evd.snow+'). Только до 30 ноября!':'❄ Эксклюзив ивента «'+WINTER.name+'» (ноябрь 2026) — ивент закончился.';}
-  if(it.ex==='ab')return '⚡ Эксклюзив админ-абуза: пройди '+AB_GOAL+' уровня в субботу с '+AB_FROM+':00 до '+AB_TO+':00 по Москве.';
-  if(it.ex==='cup')return '🏆 Награда тройке лучших «Турнира недели» — по субботам в «Ивентах».';
-  if(it.ex==='cal')return '📅 Награда календаря за вход: забери 7 наград дня (у тебя '+Math.min(7,save.pg.cal.n)+' из 7). Дни можно пропускать — ничего не сгорает.';
+    return winterOn(evNow())?''+ico('snow')+' Эксклюзив ивента «'+WINTER.name+'»: собери '+r.need+' снежинок на уровнях (у тебя '+save.evd.snow+'). Только до 30 ноября!':''+ico('snow')+' Эксклюзив ивента «'+WINTER.name+'» (ноябрь 2026) — ивент закончился.';}
+  if(it.ex==='ab')return ''+ico('bolt')+' Эксклюзив админ-абуза: пройди '+AB_GOAL+' уровня в субботу с '+AB_FROM+':00 до '+AB_TO+':00 по Москве.';
+  if(it.ex==='cup')return ''+ico('cup')+' Награда тройке лучших «Турнира недели» — по субботам в «Ивентах».';
+  if(it.ex==='cal')return ''+ico('cal')+' Награда календаря за вход: забери 7 наград дня (у тебя '+Math.min(7,save.pg.cal.n)+' из 7). Дни можно пропускать — ничего не сгорает.';
   return 'Эксклюзив ивента.';
 }
 // снег над полем: лёгкие снежинки, сколько — по качеству графики
@@ -7068,7 +7129,7 @@ function evDraw(){
   }
   const x=evAbuse();
   if(!x)return;
-  const left=Math.max(0,Math.ceil((x.end-evNow())/1000)),s='⚡ '+x.a.name+' · 0:'+String(left).padStart(2,'0');
+  const left=Math.max(0,Math.ceil((x.end-evNow())/1000)),s=''+x.a.name+' · 0:'+String(left).padStart(2,'0');
   ctx.font='bold 12px Courier New, monospace';ctx.textAlign='center';
   const w=ctx.measureText(s).width+18;
   ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fillRect(W/2-w/2,34,w,20);
@@ -7101,13 +7162,13 @@ function abItem(wk){const c=AB_WEEKLY[wk];return c&&!exOwned(c)?c:(exOwned('h27'
 function evCleared(){
   if(CUSTOM||RACE_DIFF||TOUR)return '';
   let h='';
-  if(nynOn(evNow())&&evGrant('t18'))h+='<p class="good">🎆 Новогодняя ночь! След «Фейерверк» — твой!</p>';
+  if(nynOn(evNow())&&evGrant('t18'))h+='<p class="good">'+ico('firework')+' Новогодняя ночь! След «Фейерверк» — твой!</p>';
   if(!abOn(evNow()))return h;
   const wk=weekKey(evNow()),code=abItem(wk);
   if(save.evd.ab.w!==wk)save.evd.ab={w:wk,n:0};
   save.evd.ab.n++;persist();evCloudSoon();
-  if(code&&save.evd.ab.n>=AB_GOAL&&evGrant(code))return h+'<p class="good">⚡ «'+exItem(code).name+'» — твой эксклюзив этой субботы!</p>';
-  return h+'<p class="good">⚡ Админ-абуз: биты ×2'+(code&&!exOwned(code)?' · уровней к «'+exItem(code).name+'»: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL:'')+'</p>';
+  if(code&&save.evd.ab.n>=AB_GOAL&&evGrant(code))return h+'<p class="good">'+ico('bolt')+' «'+exItem(code).name+'» — твой эксклюзив этой субботы!</p>';
+  return h+'<p class="good">'+ico('bolt')+' Админ-абуз: биты ×2'+(code&&!exOwned(code)?' · уровней к «'+exItem(code).name+'»: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL:'')+'</p>';
 }
 let evClearNote='';
 
@@ -7125,7 +7186,7 @@ function tourStart(){
   const r=Math.random;let x=TOUR.seed;Math.random=()=>(x=x*16807%2147483647)/2147483647;
   try{startLevel(lv);}finally{Math.random=r;}
   TOUR.t0=performance.now();
-  msg('🏆 ТУРНИР НЕДЕЛИ: пройди уровень как можно быстрее! Погибнешь — попробуешь снова.',5000);
+  msg('ТУРНИР НЕДЕЛИ: пройди уровень как можно быстрее! Погибнешь — попробуешь снова.',5000);
 }
 function tourEnd(res){
   tourRes=res;TOUR=null;TOUR_DIFF='';runBits=0;lvBits=0;
@@ -7189,7 +7250,7 @@ async function tourPrize(){
     const top=await netFetch('/rest/v1/tourney?select=user_id&week=eq.'+last+'&order=ms.asc,at.asc&limit=3',{headers:netHeaders(tok)});
     const mine=await netFetch('/rest/v1/tourney?select=ms&week=eq.'+last+'&user_id=eq.'+encodeURIComponent(NET.user.id),{headers:netHeaders(tok)});
     save.evd.pw=last;
-    if(Array.isArray(mine)&&mine[0]){save.earned=Math.min(1e8,save.earned+100);msg('🏆 За участие в турнире — 100 бит!',6000);}
+    if(Array.isArray(mine)&&mine[0]){save.earned=Math.min(1e8,save.earned+100);msg('За участие в турнире — 100 бит!',6000);}
     if(Array.isArray(top)&&top.some(r=>r.user_id===NET.user.id))evGrant('h28');
     persist();evCloudSoon();
   }catch(_){}
@@ -7236,53 +7297,53 @@ function evLeft(ms){
 function evMenuBanner(){
   const t=evNow(),w=abWindow(t);
   let h='';
-  if(abOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">⚡ АДМИН-АБУЗ ИДЁТ! Биты ×2 · ещё '+evLeft(w.to-t)+'</button>';
-  if(winterOn(t))h+='<p class="ev-note">❄ Ивент «'+WINTER.name+'»: снежинок <b>'+save.evd.snow+'</b> · до конца '+evLeft(WINTER.to-t)+'</p>';
-  if(nynOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">🎆 НОВОГОДНЯЯ НОЧЬ! Биты ×3 · ещё '+evLeft(NYN.to-t)+'</button>';
-  else if(nyOn(t))h+='<p class="ev-note">🎄 Ивент «'+NY.name+'»: подарков <b>'+save.evd.gifts+'</b> · до 11 января</p>';
+  if(abOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">'+ico('bolt')+' АДМИН-АБУЗ ИДЁТ! Биты ×2 · ещё '+evLeft(w.to-t)+'</button>';
+  if(winterOn(t))h+='<p class="ev-note">'+ico('snow')+' Ивент «'+WINTER.name+'»: снежинок <b>'+save.evd.snow+'</b> · до конца '+evLeft(WINTER.to-t)+'</p>';
+  if(nynOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">'+ico('firework')+' НОВОГОДНЯЯ НОЧЬ! Биты ×3 · ещё '+evLeft(NYN.to-t)+'</button>';
+  else if(nyOn(t))h+='<p class="ev-note">'+ico('tree')+' Ивент «'+NY.name+'»: подарков <b>'+save.evd.gifts+'</b> · до 11 января</p>';
   return h;
 }
 function evHTML(){
   const t=evNow(),w=abWindow(t),on=abOn(t),wk=weekKey(t),x=abuseAt(t),bw=on?wk:weekKey(w.from-WEEK);
   let h='<h2>ИВЕНТЫ</h2>';
   // админ-абуз
-  h+='<div class="ev-card"><p class="lbl2">⚡ АДМИН-АБУЗ · КАЖДУЮ СУББОТУ '+AB_FROM+':00–'+AB_TO+':00 (МСК)</p>'+
+  h+='<div class="ev-card"><p class="lbl2">'+ico('bolt')+' АДМИН-АБУЗ · КАЖДУЮ СУББОТУ '+AB_FROM+':00–'+AB_TO+':00 (МСК)</p>'+
     (on?'<p class="good"><b>Идёт сейчас!</b> До конца — '+evLeft(w.to-t)+'.'+(x?' Сейчас: <b>'+x.a.name+'</b> — '+x.a.text:' Следующий абуз — через '+evLeft(AB_SLOT-((t-w.from)%AB_SLOT))+'.')+'</p>'
       :'<p>Следующий — через <b>'+evLeft(w.from-t)+'</b>.</p>')+
     '<p>Весь день все биты <b>×2</b>, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила — сразу у всех игроков: '+ABUSES.filter(a=>!a.winter||winterOn(t)).map(a=>'<b>'+a.name+'</b>').join(', ')+'.</p>'+
     evWeekHTML(t,wk)+'</div>';
   // Новый год
   if(nyOn(t)||save.evd.gifts||(t>=NY.from-7*DAY&&t<NY.from)){
-    h+='<div class="ev-card"><p class="lbl2">🎄 '+NY.name+' · 1 ДЕКАБРЯ – 11 ЯНВАРЯ</p>'+
+    h+='<div class="ev-card"><p class="lbl2">'+ico('tree')+' '+NY.name+' · 1 ДЕКАБРЯ – 11 ЯНВАРЯ</p>'+
       (t<NY.from?'<p>Начнётся через <b>'+evLeft(NY.from-t)+'</b>: снег, гирлянды и подарки на уровнях.</p>':'')+
-      (nyOn(t)?'<p>На уровнях появляются <b>подарки</b> 🎁 — собирай их! До конца ивента — '+evLeft(NY.to-t)+'.</p>':'')+
+      (nyOn(t)?'<p>На уровнях появляются <b>подарки</b> '+ico('gift')+' — собирай их! До конца ивента — '+evLeft(NY.to-t)+'.</p>':'')+
       '<p>Собрано подарков: <b>'+save.evd.gifts+'</b></p><ul class="ev-list">'+
-      NY_REWARDS.map(r=>{const it=exItem(r.code),own=exOwned(r.code);return '<li>'+(own?'✅':'🎁')+' <b>'+it.name+'</b> ('+catOf(r.code[0]).name.toLowerCase()+') — '+(own?'получено':r.need+' подарков')+'</li>';}).join('')+
-      '</ul><p>🎆 <b>Новогодняя ночь</b> — 31 декабря с 20:00 до 03:00 (МСК): биты ×3, салют, а за пройденный уровень — эксклюзивный след <b>«Фейерверк»</b>'+(exOwned('t18')?' <span class="good">(уже твой)</span>':'')+'.</p>'+
+      NY_REWARDS.map(r=>{const it=exItem(r.code),own=exOwned(r.code);return '<li>'+(own?''+ico('check')+'':''+ico('gift')+'')+' <b>'+it.name+'</b> ('+catOf(r.code[0]).name.toLowerCase()+') — '+(own?'получено':r.need+' подарков')+'</li>';}).join('')+
+      '</ul><p>'+ico('firework')+' <b>Новогодняя ночь</b> — 31 декабря с 20:00 до 03:00 (МСК): биты ×3, салют, а за пройденный уровень — эксклюзивный след <b>«Фейерверк»</b>'+(exOwned('t18')?' <span class="good">(уже твой)</span>':'')+'.</p>'+
       '<p class="foot">Собери всё — получится наряд «ЁЛОЧКА». После 11 января новогодние эксклюзивы останутся только у тех, кто успел.</p></div>';
   }
   // зима
   if(winterOn(t)||save.evd.snow){
-    h+='<div class="ev-card"><p class="lbl2">❄ '+WINTER.name+(winterOn(t)?' · ДО 30 НОЯБРЯ':' · ЗАКОНЧИЛСЯ')+'</p>'+
+    h+='<div class="ev-card"><p class="lbl2">'+ico('snow')+' '+WINTER.name+(winterOn(t)?' · ДО 30 НОЯБРЯ':' · ЗАКОНЧИЛСЯ')+'</p>'+
       (winterOn(t)?'<p>На всех полях идёт снег, а на уровнях появляются <b>снежинки</b> — собирай их! До конца ивента — '+evLeft(WINTER.to-t)+'.</p>':'')+
       '<p>Собрано снежинок: <b>'+save.evd.snow+'</b></p><ul class="ev-list">'+
-      WINTER_REWARDS.map(r=>{const it=exItem(r.code),own=exOwned(r.code);return '<li>'+(own?'✅':'❄')+' <b>'+it.name+'</b> ('+catOf(r.code[0]).name.toLowerCase()+') — '+(own?'получено':r.need+' снежинок')+'</li>';}).join('')+
+      WINTER_REWARDS.map(r=>{const it=exItem(r.code),own=exOwned(r.code);return '<li>'+(own?''+ico('check')+'':''+ico('snow')+'')+' <b>'+it.name+'</b> ('+catOf(r.code[0]).name.toLowerCase()+') — '+(own?'получено':r.need+' снежинок')+'</li>';}).join('')+
       '</ul><p class="foot">Эксклюзивы зимы потом не достать: после 30 ноября они останутся только у тех, кто успел. Собери всё — получится наряд «СНЕГОВИК».</p></div>';
   }
   // турнир
   const lv=tourLv(wk);
-  h+='<div class="ev-card"><p class="lbl2">🏆 ТУРНИР НЕДЕЛИ · СУББОТА '+AB_FROM+':00–'+AB_TO+':00 (МСК)</p>';
+  h+='<div class="ev-card"><p class="lbl2">'+ico('cup')+' ТУРНИР НЕДЕЛИ · СУББОТА '+AB_FROM+':00–'+AB_TO+':00 (МСК)</p>';
   if(!NET_ON)h+='<p>Турнир — на сайте игры: '+escHTML(SITE_URL)+'</p>';
   else if(tourOff)h+='<p>Турнир скоро откроется — таблица результатов готовится.</p>';
   else{
     h+='<p>'+(on?'Уровень недели: <b>'+(lv+1)+' · '+escHTML(LEVELS[lv].name)+'</b>':'Уровень турнира — секрет до субботы')+', сложность «Лёгкая», у всех одинаковое начало. Побеждает самое быстрое прохождение; попыток — сколько хочешь.</p>'+
-      '<p>🎁 Тройке лучших — эксклюзив <b>«Кубок турнира»</b>, каждому, кто прошёл, — <b>100 бит</b>.</p>'+
+      '<p>'+ico('gift')+' Тройке лучших — эксклюзив <b>«Кубок турнира»</b>, каждому, кто прошёл, — <b>100 бит</b>.</p>'+
       (save.evd.tb.w===bw&&save.evd.tb.ms?'<p>Твоё лучшее время: <b>'+tourSec(save.evd.tb.ms)+'</b>'+(tourMine?' · место '+tourMine.place+' из '+tourCount:'')+'</p>':'')+
-      (on?mb('tourplay','🏆 Играть турнир','primary'):'<p>Откроется через '+evLeft(w.from-t)+'.</p>');
+      (on?mb('tourplay',''+ico('cup')+' Играть турнир','primary'):'<p>Откроется через '+evLeft(w.from-t)+'.</p>');
     h+='<p class="lbl2">'+(on?'ТАБЛИЦА СЕЙЧАС':'ИТОГИ ПРОШЛОГО ТУРНИРА')+'</p>';
     if(tourRows===null||tourBw!==bw){h+='<p class="foot">Загружаю таблицу…</p>';tourBw=bw;tourRows=null;tourLoad(bw);}
     else if(tourRows.length){
-      h+='<ol class="ev-top">'+tourRows.map((r,i)=>'<li'+(NET.user&&r.user_id===NET.user.id?' class="me"':'')+'><span>'+(i<3?['🥇','🥈','🥉'][i]:(i+1)+'.')+' '+escHTML(edStr(r.name,20)||'Игрок')+'</span><b>'+tourSec(r.ms)+'</b>'+(NET.admin?'<button type="button" class="chip" data-act="tourdel:'+escHTML(r.user_id)+'" aria-label="Убрать результат">✕</button>':'')+'</li>').join('')+'</ol>'+
+      h+='<ol class="ev-top">'+tourRows.map((r,i)=>'<li'+(NET.user&&r.user_id===NET.user.id?' class="me"':'')+'><span>'+(i<3?'<span class="place p'+(i+1)+'">'+(i+1)+'</span>':(i+1)+'.')+' '+escHTML(edStr(r.name,20)||'Игрок')+'</span><b>'+tourSec(r.ms)+'</b>'+(NET.admin?'<button type="button" class="chip" data-act="tourdel:'+escHTML(r.user_id)+'" aria-label="Убрать результат">✕</button>':'')+'</li>').join('')+'</ol>'+
         '<p class="foot">Участников: '+tourCount+'.</p>';
     }else h+='<p class="foot">'+(tourErr||'В этой неделе ещё никто не прошёл — будь первым!')+'</p>';
   }
@@ -7293,9 +7354,9 @@ function evHTML(){
 function evWeekHTML(t,wk){
   const code=abItem(wk),it=code&&exItem(code),nx=weekKey(abWindow(t).from+WEEK),ncode=AB_WEEKLY[nx],nit=ncode&&exItem(ncode);
   let h='';
-  if(it)h+='<p>🎁 Эксклюзив '+(abOn(t)?'этой':'ближайшей')+' субботы: <b>«'+it.name+'»</b> ('+catOf(code[0]).name.toLowerCase()+') — пройди '+AB_GOAL+' уровня во время админ-абуза. '+
+  if(it)h+='<p>'+ico('gift')+' Эксклюзив '+(abOn(t)?'этой':'ближайшей')+' субботы: <b>«'+it.name+'»</b> ('+catOf(code[0]).name.toLowerCase()+') — пройди '+AB_GOAL+' уровня во время админ-абуза. '+
     (save.evd.ab.w===wk?'Пройдено: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL+'. ':'')+'</p>'+mb('extry:'+code,'Примерить «'+it.name+'»','sm');
-  else h+='<p>🎁 Все эксклюзивы админ-абуза уже твои — в эти субботы биты всё равно ×2!</p>';
+  else h+='<p>'+ico('gift')+' Все эксклюзивы админ-абуза уже твои — в эти субботы биты всё равно ×2!</p>';
   if(nit&&ncode!==code)h+='<p class="foot">Через неделю — «'+nit.name+'» ('+catOf(ncode[0]).name.toLowerCase()+').</p>';
   return h;
 }
@@ -7363,64 +7424,64 @@ const PG_FAST=1200;
 const PG_ACH=[];
 // код, значок, название, что сделать, счётчик, сколько, ступень награды, подсказка секретного
 function pgA(id,ic,name,text,k,n,t,hint){PG_ACH.push({id,ic,name,text,k,n,t,sec:!!hint,hint:hint||''});}
-pgA('u10','🚪','ПЕРВЫЕ ШАГИ','Пройди 10 уровней','u',10,0);
-pgA('u25','🗑','ПРОЧЬ ИЗ КОРЗИНЫ','Пройди 25 уровней','u',25,1);
-pgA('u50','☁','ВЫШЕ ОБЛАКОВ','Пройди 50 уровней','u',50,1);
-pgA('u100','🌐','СОТНЯ','Пройди 100 уровней','u',100,2);
-pgA('u200','🚀','ДВЕСТИ','Пройди 200 уровней','u',200,2);
-pgA('u300','🌋','ТРИСТА','Пройди 300 уровней','u',300,3);
-pgA('u499','✨','У ИСТОЧНИКА','Дойди до последнего уровня','u',LEVELS.length-1,3);
-pgA('win','🕊','СВОБОДНЫЙ КОД','Соверши побег — пройди всю игру','win',1,3);
-pgA('d100','💾','СБОРЩИК','Собери 100 данных','d',100,0);
-pgA('d1k','🗄','АРХИВАРИУС','Собери 1 000 данных','d',1000,1);
-pgA('d10k','🏦','ХРАНИЛИЩЕ','Собери 10 000 данных','d',10000,2);
-pgA('d50k','🌌','БОЛЬШИЕ ДАННЫЕ','Собери 50 000 данных','d',50000,3);
-pgA('cl1','🛡','БЕЗ ЦАРАПИНЫ','Пройди уровень, ни разу не получив урон','clean',1,0);
-pgA('cl10','🧤','АККУРАТИСТ','Пройди 10 уровней без урона','clean',10,1);
-pgA('cl50','💎','НЕУЛОВИМЫЙ','Пройди 50 уровней без урона','clean',50,2);
-pgA('b1','👾','ПЕРВЫЙ БОСС','Победи босса','boss',1,0);
-pgA('b10','⚔','ГРОЗА БОССОВ','Победи 10 боссов','boss',10,1);
-pgA('b25','👑','ОХОТНИК НА БОССОВ','Победи 25 боссов','boss',25,2);
-pgA('e10','⚡','ЭЛЕКТРИК','Взорви EMP 10 врагов','emp',10,0);
-pgA('e100','🌩','ГРОЗА','Взорви EMP 100 врагов','emp',100,1);
-pgA('e1k','💥','ЭЛЕКТРОСТАНЦИЯ','Взорви EMP 1 000 врагов','emp',1000,2);
-pgA('ds100','💨','РЫВОК','Сделай 100 рывков','dash',100,0);
-pgA('ds1k','🏃','СПРИНТЕР','Сделай 1 000 рывков','dash',1000,1);
-pgA('tr10','🦶','ПОДНОЖКА','Сбей подножкой 10 врагов','trip',10,0);
-pgA('tr100','🤸','МАСТЕР ПОДНОЖЕК','Сбей подножкой 100 врагов','trip',100,1);
-pgA('dd10','🔁','РЕЗЕРВНАЯ КОПИЯ','Не сдавайся после 10 неудач','die',10,0);
-pgA('dd100','🧱','ЖЕЛЕЗНАЯ ВОЛЯ','Не сдавайся после 100 неудач','die',100,1);
-pgA('cm1','🎮','ГОСТЬ','Пройди уровень игрока в «Сообществе»','com',1,0);
-pgA('cm10','🧭','ПУТЕШЕСТВЕННИК','Пройди 10 уровней игроков','com',10,1);
-pgA('lk1','❤','ДОБРОЕ СЕРДЦЕ','Поставь лайк уровню игрока','like',1,0);
-pgA('pb1','🛠','СОЗДАТЕЛЬ','Опубликуй свой уровень','pub',1,1);
-pgA('rc1','🏁','НА СТАРТ!','Сыграй гонку','race',1,0);
-pgA('rw1','🥇','ПЕРВАЯ ПОБЕДА','Выиграй гонку','rwin',1,1);
-pgA('rw10','🏎','ГОНЩИК','Выиграй 10 гонок','rwin',10,2);
-pgA('ab3','🤖','ДРУГ АДМИН-БОТА','Пройди 3 уровня в админ-абуз','ab',3,1);
-pgA('to1','🏆','ТУРНИРНЫЙ БОЕЦ','Пройди уровень турнира недели','tour',1,1);
-pgA('ex1','🎁','КОЛЛЕКЦИОНЕР','Получи эксклюзив','ex',1,0);
-pgA('ex5','🧿','РЕДКОСТИ','Собери 5 эксклюзивов','ex',5,2);
-pgA('ev50','❄','МОРОЗНЫЙ СБОРЩИК','Собери 50 снежинок и подарков','ev',50,1);
-pgA('by1','🛍','ОБНОВКА','Купи вещь в «Облике»','buy',1,0);
-pgA('by10','🕶','МОДНИК','Купи 10 вещей','buy',10,1);
-pgA('of1','👗','СТИЛИСТ','Сохрани наряд','of',1,0);
-pgA('bt1k','🐷','КОПИЛКА','Заработай 1 000 бит','bits',1000,0);
-pgA('bt10k','💰','БИТОВЫЙ МАГНАТ','Заработай 10 000 бит','bits',10000,2);
-pgA('dq10','🎯','ИСПОЛНИТЕЛЬНЫЙ','Выполни 10 заданий дня','dq',10,1);
-pgA('dq50','📋','НАДЁЖНЫЙ','Выполни 50 заданий дня','dq',50,2);
-pgA('dy7','📅','НЕДЕЛЯ В ИГРЕ','Забери 7 наград календаря','days',7,1);
-pgA('dy30','🗓','СВОЙ ЧЕЛОВЕК','Забери 30 наград календаря','days',30,3);
-pgA('pl10','⭐','ДЕСЯТКА','Достигни 10-го уровня игрока','pl',10,1);
-pgA('pl25','🌟','ВЕТЕРАН','Достигни 25-го уровня игрока','pl',25,3);
+pgA('u10','door','ПЕРВЫЕ ШАГИ','Пройди 10 уровней','u',10,0);
+pgA('u25','trash','ПРОЧЬ ИЗ КОРЗИНЫ','Пройди 25 уровней','u',25,1);
+pgA('u50','cloud','ВЫШЕ ОБЛАКОВ','Пройди 50 уровней','u',50,1);
+pgA('u100','globe','СОТНЯ','Пройди 100 уровней','u',100,2);
+pgA('u200','rocket','ДВЕСТИ','Пройди 200 уровней','u',200,2);
+pgA('u300','volcano','ТРИСТА','Пройди 300 уровней','u',300,3);
+pgA('u499','sparkle','У ИСТОЧНИКА','Дойди до последнего уровня','u',LEVELS.length-1,3);
+pgA('win','crown','СВОБОДНЫЙ КОД','Соверши побег — пройди всю игру','win',1,3);
+pgA('d100','data','СБОРЩИК','Собери 100 данных','d',100,0);
+pgA('d1k','data','АРХИВАРИУС','Собери 1 000 данных','d',1000,1);
+pgA('d10k','data','ХРАНИЛИЩЕ','Собери 10 000 данных','d',10000,2);
+pgA('d50k','gem','БОЛЬШИЕ ДАННЫЕ','Собери 50 000 данных','d',50000,3);
+pgA('cl1','shield','БЕЗ ЦАРАПИНЫ','Пройди уровень, ни разу не получив урон','clean',1,0);
+pgA('cl10','shield','АККУРАТИСТ','Пройди 10 уровней без урона','clean',10,1);
+pgA('cl50','gem','НЕУЛОВИМЫЙ','Пройди 50 уровней без урона','clean',50,2);
+pgA('b1','boss','ПЕРВЫЙ БОСС','Победи босса','boss',1,0);
+pgA('b10','boss','ГРОЗА БОССОВ','Победи 10 боссов','boss',10,1);
+pgA('b25','crown','ОХОТНИК НА БОССОВ','Победи 25 боссов','boss',25,2);
+pgA('e10','bolt','ЭЛЕКТРИК','Взорви EMP 10 врагов','emp',10,0);
+pgA('e100','bolt','ГРОЗА','Взорви EMP 100 врагов','emp',100,1);
+pgA('e1k','firework','ЭЛЕКТРОСТАНЦИЯ','Взорви EMP 1 000 врагов','emp',1000,2);
+pgA('ds100','wind','РЫВОК','Сделай 100 рывков','dash',100,0);
+pgA('ds1k','wind','СПРИНТЕР','Сделай 1 000 рывков','dash',1000,1);
+pgA('tr10','boot','ПОДНОЖКА','Сбей подножкой 10 врагов','trip',10,0);
+pgA('tr100','boot','МАСТЕР ПОДНОЖЕК','Сбей подножкой 100 врагов','trip',100,1);
+pgA('dd10','refresh','РЕЗЕРВНАЯ КОПИЯ','Не сдавайся после 10 неудач','die',10,0);
+pgA('dd100','refresh','ЖЕЛЕЗНАЯ ВОЛЯ','Не сдавайся после 100 неудач','die',100,1);
+pgA('cm1','puzzle','ГОСТЬ','Пройди уровень игрока в «Сообществе»','com',1,0);
+pgA('cm10','map','ПУТЕШЕСТВЕННИК','Пройди 10 уровней игроков','com',10,1);
+pgA('lk1','heart','ДОБРОЕ СЕРДЦЕ','Поставь лайк уровню игрока','like',1,0);
+pgA('pb1','wrench','СОЗДАТЕЛЬ','Опубликуй свой уровень','pub',1,1);
+pgA('rc1','flag','НА СТАРТ!','Сыграй гонку','race',1,0);
+pgA('rw1','cup','ПЕРВАЯ ПОБЕДА','Выиграй гонку','rwin',1,1);
+pgA('rw10','cup','ГОНЩИК','Выиграй 10 гонок','rwin',10,2);
+pgA('ab3','robot','ДРУГ АДМИН-БОТА','Пройди 3 уровня в админ-абуз','ab',3,1);
+pgA('to1','cup','ТУРНИРНЫЙ БОЕЦ','Пройди уровень турнира недели','tour',1,1);
+pgA('ex1','gift','КОЛЛЕКЦИОНЕР','Получи эксклюзив','ex',1,0);
+pgA('ex5','gem','РЕДКОСТИ','Собери 5 эксклюзивов','ex',5,2);
+pgA('ev50','snow','МОРОЗНЫЙ СБОРЩИК','Собери 50 снежинок и подарков','ev',50,1);
+pgA('by1','cart','ОБНОВКА','Купи вещь в «Облике»','buy',1,0);
+pgA('by10','hat','МОДНИК','Купи 10 вещей','buy',10,1);
+pgA('of1','shirt','СТИЛИСТ','Сохрани наряд','of',1,0);
+pgA('bt1k','coin','КОПИЛКА','Заработай 1 000 бит','bits',1000,0);
+pgA('bt10k','coin','БИТОВЫЙ МАГНАТ','Заработай 10 000 бит','bits',10000,2);
+pgA('dq10','target','ИСПОЛНИТЕЛЬНЫЙ','Выполни 10 заданий дня','dq',10,1);
+pgA('dq50','target','НАДЁЖНЫЙ','Выполни 50 заданий дня','dq',50,2);
+pgA('dy7','cal','НЕДЕЛЯ В ИГРЕ','Забери 7 наград календаря','days',7,1);
+pgA('dy30','cal','СВОЙ ЧЕЛОВЕК','Забери 30 наград календаря','days',30,3);
+pgA('pl10','star','ДЕСЯТКА','Достигни 10-го уровня игрока','pl',10,1);
+pgA('pl25','star','ВЕТЕРАН','Достигни 25-го уровня игрока','pl',25,3);
 // секретные: что сделать — не видно, пока не получишь; видна только загадка
-pgA('still','🗿','ПРИТВОРИЛСЯ ВЫКЛЮЧЕННЫМ','Простой 10 секунд на уровне рядом с врагами','sec',1,1,'Иногда лучше ничего не делать…');
-pgA('trip5','🎳','СТРАЙК','Сбей подножкой 5 врагов сразу','sec',1,1,'Чем их больше, тем громче падают');
-pgA('emp5','🎆','МЕГАВЗРЫВ','Взорви 5 врагов одним EMP','sec',1,1,'Один заряд — целая толпа');
-pgA('close','😅','НА ВОЛОСКЕ','Пройди уровень с последней жизнью','sec',1,1,'Последняя жизнь — ещё не конец');
-pgA('bossclean','🛸','НЕПРИКАСАЕМЫЙ','Победи босса, не получив урона на уровне','sec',1,1,'Босс так до тебя и не дотронулся');
-pgA('fast','⚡','МОЛНИЯ','Пройди уровень быстрее 20 секунд','sec',1,1,'Быстрее, ещё быстрее!');
-pgA('logo','🔍','ЛЮБОПЫТНЫЙ','Нажми 7 раз на название игры в меню','sec',1,1,'Название игры что-то скрывает');
+pgA('still','moon','ПРИТВОРИЛСЯ ВЫКЛЮЧЕННЫМ','Простой 10 секунд на уровне рядом с врагами','sec',1,1,'Иногда лучше ничего не делать…');
+pgA('trip5','boot','СТРАЙК','Сбей подножкой 5 врагов сразу','sec',1,1,'Чем их больше, тем громче падают');
+pgA('emp5','firework','МЕГАВЗРЫВ','Взорви 5 врагов одним EMP','sec',1,1,'Один заряд — целая толпа');
+pgA('close','heart','НА ВОЛОСКЕ','Пройди уровень с последней жизнью','sec',1,1,'Последняя жизнь — ещё не конец');
+pgA('bossclean','shield','НЕПРИКАСАЕМЫЙ','Победи босса, не получив урона на уровне','sec',1,1,'Босс так до тебя и не дотронулся');
+pgA('fast','bolt','МОЛНИЯ','Пройди уровень быстрее 20 секунд','sec',1,1,'Быстрее, ещё быстрее!');
+pgA('logo','search','ЛЮБОПЫТНЫЙ','Нажми 7 раз на название игры в меню','sec',1,1,'Название игры что-то скрывает');
 const PG_ID={},PG_BY={};
 for(const a of PG_ACH){PG_ID[a.id]=a;if(a.k!=='sec')(PG_BY[a.k]=PG_BY[a.k]||[]).push(a);}
 // пул заданий дня: каждый день — три разных (по разным счётчикам), одинаковые у всех, кому они доступны
@@ -7436,7 +7497,7 @@ const PG_Q=[
   {id:'trip',k:'trip',n:5,t:'Сбей подножкой 5 врагов'},
   {id:'com',k:'com',n:1,t:'Пройди уровень игрока в «Сообществе»',ok:()=>NET_ON},
   {id:'like',k:'like',n:1,t:'Поставь лайк уровню игрока, который понравился',ok:()=>NET_ON},
-  {id:'ev',k:'ev',n:6,t:()=>nyOn(evNow())?'Собери 6 подарков 🎁':'Собери 6 снежинок ❄',ok:()=>{const t=evNow();return winterOn(t)||nyOn(t);}},
+  {id:'ev',k:'ev',n:6,t:()=>nyOn(evNow())?'Собери 6 подарков ':'Собери 6 снежинок ',ok:()=>{const t=evNow();return winterOn(t)||nyOn(t);}},
   {id:'ab',k:'ab',n:2,t:'Пройди 2 уровня в админ-абуз',ok:()=>{const t=evNow();return mskDay(abWindow(t).from)===mskDay(t);}}
 ];
 function pgQ(id){return PG_Q.find(q=>q.id===id)||null;}
@@ -7511,7 +7572,7 @@ function pgUnlock(a){
   const b=PG_TIER_BITS[a.t];
   save.earned=Math.min(1e8,save.earned+b);
   pgNewLv.push(a);
-  if(!pgQuiet){pgToast('🏅 ДОСТИЖЕНИЕ «'+a.name+'» · ◈ +'+b,'#b45309');buzz(60);}
+  if(!pgQuiet){pgToast('ДОСТИЖЕНИЕ «'+a.name+'» · ◈ +'+b,'#b45309');buzz(60);}
   pgXp(PG_TIER_XP[a.t]);
   pgCheck('bits');
 }
@@ -7532,7 +7593,7 @@ function pgXp(n){
     const b=pgLvBits(p.lr),nt=PG_TITLES.find(x=>x[0]===p.lr);
     save.earned=Math.min(1e8,save.earned+b);
     pgUps.push(p.lr);
-    pgToast('⬆ УРОВЕНЬ ИГРОКА '+p.lr+'! ◈ +'+b+(nt?' · звание «'+nt[1]+'»':''),'#a2a');buzz(80);
+    pgToast('УРОВЕНЬ ИГРОКА '+p.lr+'! ◈ +'+b+(nt?' · звание «'+nt[1]+'»':''),'#a2a');buzz(80);
   }
   pgCheck('pl');
 }
@@ -7564,21 +7625,21 @@ function pgQPing(k){
     const q=pgQ(id);
     if(!q||q.k!==k||!pgQReady(i)||pgQN[dq.d+id])return;
     pgQN[dq.d+id]=1;
-    pgToast('🎯 ЗАДАНИЕ ДНЯ ВЫПОЛНЕНО: '+pgQText(q)+' — награда ждёт в меню','#2a6');
+    pgToast('ЗАДАНИЕ ДНЯ ВЫПОЛНЕНО: '+pgQText(q)+' — награда ждёт в меню','#2a6');
   });
 }
 function pgClaimQ(i){
   if(!pgQReady(i))return;
   save.pg.dq.c[i]=1;
   pgGive(PG_Q_BITS,PG_Q_XP);pgAdd('dq');buzz(40);
-  msg('🎯 Задание выполнено: ◈ +'+PG_Q_BITS+' и +'+PG_Q_XP+' опыта'+(pgBonusReady()?'. Все три — забирай бонус!':''));
+  msg('Задание выполнено: ◈ +'+PG_Q_BITS+' и +'+PG_Q_XP+' опыта'+(pgBonusReady()?'. Все три — забирай бонус!':''));
   pgFlush();
 }
 function pgClaimBonus(){
   if(!pgBonusReady())return;
   save.pg.dq.b=1;
   pgGive(PG_QB_BITS,PG_QB_XP);buzz(80);
-  msg('🎁 Бонус дня: ◈ +'+PG_QB_BITS+' и +'+PG_QB_XP+' опыта. Новые задания — завтра в 00:00 по Москве.');
+  msg('Бонус дня: ◈ +'+PG_QB_BITS+' и +'+PG_QB_XP+' опыта. Новые задания — завтра в 00:00 по Москве.');
   pgFlush();
 }
 
@@ -7590,7 +7651,7 @@ function pgCalClaim(){
   const i=c.n%7,b=PG_CAL[i];
   c.n++;c.d=pgDay();
   pgGive(b,20);buzz(60);
-  msg('📅 Награда дня '+(i+1)+' из 7: ◈ +'+b+' и +20 опыта');
+  msg('Награда дня '+(i+1)+' из 7: ◈ +'+b+' и +20 опыта');
   // эксклюзив за первую полную неделю; его сообщение — поверх
   if(c.n>=7)evGrant('c29');
   pgCheck('days');pgFlush();
@@ -7647,14 +7708,14 @@ function pgDraw(){
 function pgNote(){
   const p=save.pg,lv=pgLevel(p.xp);
   let h='<div class="pg-note"><p>'+(pgLvXp>0?'<b>+'+pgLvXp+' опыта</b> · ':'')+'уровень игрока '+lv.L+' · '+pgTitle(lv.L)+'</p>'+pgBar(lv.cur,lv.need);
-  for(const L of pgUps)h+='<p class="good">⬆ Новый уровень игрока: '+L+'! ◈ +'+pgLvBits(L)+'</p>';
-  for(const a of pgNewLv)h+='<p class="good">🏅 Достижение «'+escHTML(a.name)+'» · ◈ +'+PG_TIER_BITS[a.t]+'</p>';
+  for(const L of pgUps)h+='<p class="good">'+ico('star')+' Новый уровень игрока: '+L+'! ◈ +'+pgLvBits(L)+'</p>';
+  for(const a of pgNewLv)h+='<p class="good">'+ico('medal')+' Достижение «'+escHTML(a.name)+'» · ◈ +'+PG_TIER_BITS[a.t]+'</p>';
   const dq=p.dq;
   if(dq.d===pgDay()&&dq.q.length){
     const done=dq.q.filter((_,i)=>dq.c[i]||pgQProg(i)>=pgQ(dq.q[i]).n).length,ready=pgClaims();
     let near='';
     if(!ready&&done<dq.q.length){const i=dq.q.findIndex((_,j)=>!dq.c[j]&&pgQProg(j)<pgQ(dq.q[j]).n),q=pgQ(dq.q[i]);near=' · '+pgQText(q)+': '+pgQProg(i)+' из '+q.n;}
-    h+='<p>🎯 Задания дня: '+done+' из '+dq.q.length+(ready?' — <b>награда ждёт в меню!</b>':near)+'</p>';
+    h+='<p>'+ico('target')+' Задания дня: '+done+' из '+dq.q.length+(ready?' — <b>награда ждёт в меню!</b>':near)+'</p>';
   }
   return h+'</div>';
 }
@@ -7692,8 +7753,8 @@ function pgDot(n){return n>0?' <span class="dot">'+n+'</span>':'';}
 function pgMenuHTML(){
   const p=save.pg;
   let h=pgCard();
-  if(pgRetro)h+='<p class="good">🏅 За прошлые заслуги: достижений — '+pgRetro.n+', ◈ +'+pgNum(pgRetro.b)+'. Загляни в «Достижения»!</p>';
-  if(pgCalReady())h+=mb('quests','📅 Награда дня ждёт — день '+(p.cal.n%7+1)+' из 7!','pg-hot');
+  if(pgRetro)h+='<p class="good">'+ico('medal')+' За прошлые заслуги: достижений — '+pgRetro.n+', ◈ +'+pgNum(pgRetro.b)+'. Загляни в «Достижения»!</p>';
+  if(pgCalReady())h+=mb('quests',''+ico('cal')+' Награда дня ждёт — день '+(p.cal.n%7+1)+' из 7!','pg-hot');
   return h;
 }
 function pgNextHTML(){const nx=pgNext();return nx?'<p class="pg-next">'+nx+'</p>':'';}
@@ -7703,7 +7764,7 @@ function pgNext(){
   // у нового игрока — первая цель списка; уровень игрока и так виден на карточке
   for(const a of PG_ACH){if(a.sec||a.k==='pl'||pgHas(a.id))continue;const f=pgVal(a.k)/a.n;if(f<1&&(!best||f>bf)){bf=f;best=a;}}
   if(!best)return '';
-  return '🏁 Ближе всего: <b>«'+best.name+'»</b> — '+best.text.charAt(0).toLowerCase()+best.text.slice(1)+' ('+pgNum(Math.min(best.n,pgVal(best.k)))+' из '+pgNum(best.n)+')';
+  return ''+ico('flag')+' Ближе всего: <b>«'+best.name+'»</b> — '+best.text.charAt(0).toLowerCase()+best.text.slice(1)+' ('+pgNum(Math.min(best.n,pgVal(best.k)))+' из '+pgNum(best.n)+')';
 }
 function pgQuestsHTML(){
   const p=save.pg,dq=pgDaily(),lv=pgLevel(p.xp),nt=PG_TITLES.find(x=>x[0]>lv.L),t=evNow();
@@ -7711,22 +7772,22 @@ function pgQuestsHTML(){
     '<p>'+(nt?'Следующее звание — «'+nt[1]+'» с '+nt[0]+'-го уровня.':'У тебя высшее звание!')+' За каждый новый уровень игрока — биты. Опыт дают данные, уровни, боссы, гонки, задания и достижения.</p>';
   // календарь
   const ready=pgCalReady(),cur=p.cal.n%7,shown=!ready&&p.cal.n>0&&cur===0?7:cur;
-  h+='<div class="ev-card"><p class="lbl2">📅 НАГРАДА ЗА ВХОД · НЕДЕЛЯ '+(Math.floor((p.cal.n-(ready?0:1))/7)+1)+'</p><div class="pg-cal">'+
-    PG_CAL.map((b,i)=>'<div class="'+(i<shown?'got':(ready&&i===cur?'now':''))+'"><small>день '+(i+1)+'</small><b>'+(i<shown?'✓':(i===6?'🎁':'◈'))+'</b><span>'+b+'</span></div>').join('')+'</div>'+
+  h+='<div class="ev-card"><p class="lbl2">'+ico('cal')+' НАГРАДА ЗА ВХОД · НЕДЕЛЯ '+(Math.floor((p.cal.n-(ready?0:1))/7)+1)+'</p><div class="pg-cal">'+
+    PG_CAL.map((b,i)=>'<div class="'+(i<shown?'got':(ready&&i===cur?'now':''))+'"><small>день '+(i+1)+'</small><b>'+(i<shown?'✓':(i===6?''+ico('gift')+'':'◈'))+'</b><span>'+b+'</span></div>').join('')+'</div>'+
     (ready?mb('calclaim','Забрать награду дня: ◈ '+PG_CAL[cur]+(cur===6&&!exOwned('c29')?' и цвет «ВЕРНОСТЬ»':''),'primary')
       :'<p>Сегодняшняя награда получена. Следующая — через '+evLeft((pgDay()+1)*DAY-MSK-t)+'.</p>')+
     '<p class="foot">Пропустил день — не страшно: календарь не сгорает, продолжишь с того же дня. На 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ».</p></div>';
   // задания дня
-  h+='<div class="ev-card"><p class="lbl2">🎯 ЗАДАНИЯ ДНЯ · НОВЫЕ ЧЕРЕЗ '+evLeft((pgDay()+1)*DAY-MSK-t).toUpperCase()+'</p>'+
+  h+='<div class="ev-card"><p class="lbl2">'+ico('target')+' ЗАДАНИЯ ДНЯ · НОВЫЕ ЧЕРЕЗ '+evLeft((pgDay()+1)*DAY-MSK-t).toUpperCase()+'</p>'+
     dq.q.map((id,i)=>{
       const q=pgQ(id),v=pgQProg(i),got=!!dq.c[i];
       return '<div class="pg-q'+(got?' got':'')+'"><div><b>'+pgQText(q)+'</b>'+pgBar(v,q.n)+'<small>'+v+' из '+q.n+' · ◈ '+PG_Q_BITS+' и '+PG_Q_XP+' опыта</small></div>'+
         (got?'<span class="pg-ok" aria-label="Получено">✓</span>':(v>=q.n?mb('qclaim:'+i,'Забрать','sm primary'):''))+'</div>';
     }).join('')+
-    (dq.b?'<p class="good">🎁 Бонус за все три задания получен. До завтра!</p>'
-      :(pgBonusReady()?mb('qbonus','🎁 Бонус за все три: ◈ '+PG_QB_BITS+' и '+PG_QB_XP+' опыта','primary')
+    (dq.b?'<p class="good">'+ico('gift')+' Бонус за все три задания получен. До завтра!</p>'
+      :(pgBonusReady()?mb('qbonus',''+ico('gift')+' Бонус за все три: ◈ '+PG_QB_BITS+' и '+PG_QB_XP+' опыта','primary')
         :'<p class="foot">Выполни все три — получишь бонус: ◈ '+PG_QB_BITS+' и '+PG_QB_XP+' опыта.</p>'))+'</div>';
-  return h+'<div class="mrow2">'+mb('ach','🏅 Достижения'+pgDot(p.ach.length-p.seen))+mb('main','Назад')+'</div>';
+  return h+'<div class="mrow2">'+mb('ach',''+ico('medal')+' Достижения'+pgDot(p.ach.length-p.seen))+mb('main','Назад')+'</div>';
 }
 function pgAchHTML(){
   const p=save.pg;
@@ -7742,10 +7803,10 @@ function pgAchHTML(){
   return '<h2>ДОСТИЖЕНИЯ</h2><p>Получено <b>'+p.ach.length+' из '+PG_ACH.length+'</b>. За каждое — биты и опыт. Секретные откроются, когда сделаешь что-то необычное: подсказка — загадка под знаком вопроса.</p>'+
     '<div class="pg-ach">'+list.map(a=>{
       const has=pgHas(a.id),hid=a.sec&&!has,v=Math.min(a.n,pgVal(a.k));
-      return '<div class="pg-a'+(has?' got':'')+'"><span class="pg-ic">'+(hid?'❓':a.ic)+'</span><div><b>'+(hid?'СЕКРЕТНОЕ':a.name)+'</b><small>'+(hid?a.hint:a.text)+'</small>'+
+      return '<div class="pg-a'+(has?' got':'')+'"><span class="pg-ic t'+a.t+'">'+ico(hid?'help':a.ic)+'</span><div><b>'+(hid?'СЕКРЕТНОЕ':a.name)+'</b><small>'+(hid?a.hint:a.text)+'</small>'+
         (has||a.sec?'':pgBar(v,a.n)+'<small>'+pgNum(v)+' из '+pgNum(a.n)+'</small>')+'</div><span class="pg-rw">'+(has?'✓':'◈ '+PG_TIER_BITS[a.t])+'</span></div>';
     }).join('')+'</div>'+
-    '<div class="mrow2">'+mb('quests','🎯 Задания дня'+pgDot(pgClaims()))+mb('main','Назад','primary')+'</div>';
+    '<div class="mrow2">'+mb('quests',''+ico('target')+' Задания дня'+pgDot(pgClaims()))+mb('main','Назад','primary')+'</div>';
 }
 // секрет «Любопытный»: семь нажатий на название игры в главном меню
 panelEl.addEventListener('click',e=>{
