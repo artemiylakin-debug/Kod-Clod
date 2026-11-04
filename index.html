@@ -27,6 +27,9 @@
 <title>DATA.OUT v6.0</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
+  /* шрифт меню и кнопок — Rubik (SIL OFL 1.1, fonts/OFL.txt), лежит рядом с игрой */
+  @font-face{font-family:'Rubik';font-style:normal;font-weight:400 900;font-display:swap;src:url(fonts/rubik-cyrillic.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+  @font-face{font-family:'Rubik';font-style:normal;font-weight:400 900;font-display:swap;src:url(fonts/rubik-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   /* Раскладка: на компьютере — заголовок, полоса HUD, холст 800×500, строка сообщений; меню лежит поверх поля. На сенсорном экране поле занимает весь экран, HUD, джойстик и кнопки лежат прямо на нём (боком — по краям поля). Одна светлая тема, как в оригинале. */
   :root{
     color-scheme:light;
@@ -36,7 +39,10 @@
     --brand-vk:#0077ff;--brand-yandex:#fc3f1d;--brand-google:#34a853;--brand-apple:#111;
     --keys-bg:#eef;--keys-ink:#468;--keys-line:#57a;--shadow:#0572;
     --out:#eef2f7;--grid:rgba(0,120,150,.12);--glass:rgba(255,255,255,.72);--veil:rgba(244,246,250,.55);
-    --font:'Courier New',Courier,ui-monospace,monospace;
+    --font:'Rubik',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+    --mono:'Courier New',Courier,ui-monospace,monospace;
+    /* кнопки: обводка, лицо, бортик снизу и текст — у каждого стиля свои (см. «КНОПКИ» ниже) */
+    --b-out:#0b2545;
   }
   html,body{height:100%;overscroll-behavior:none}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden}
@@ -52,7 +58,7 @@
   #levelVal{color:var(--level);font-size:16px}
   #emp{color:var(--emp)}
   #keys{background:var(--keys-bg);border:1px dashed var(--keys-line);border-radius:6px;padding:4px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;color:var(--keys-ink);font-size:12px}
-  kbd{background:var(--panel);border:1px solid var(--kbd-line);border-radius:4px;padding:0 6px;font-family:inherit}
+  kbd{background:var(--panel);border:1px solid var(--kbd-line);border-radius:4px;padding:0 6px;font-family:var(--mono)}
   #stage{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
   #screen{position:relative}
   canvas{display:block}
@@ -101,9 +107,9 @@
   .panel .terms p{margin:0 0 6px;font-size:12px;text-align:left;color:var(--ink)}
   .terms hr{border:0;border-top:1px solid var(--line);margin:10px 0}
   .terms a,.panel .foot a{color:var(--ink);overflow-wrap:anywhere}
-  .mrow2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .mcol{display:flex;flex-direction:column;gap:8px}
-  .mrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .mrow2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px}
+  .mcol{display:flex;flex-direction:column;gap:12px}
+  .mrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px}
   .acct{display:flex;align-items:center;justify-content:center;gap:10px;text-align:left}
   .acct img{width:32px;height:32px;border-radius:50%;flex:none}
   .acct b{display:block;font-size:14px}
@@ -159,12 +165,7 @@
   .panel .lcard p,.panel p.bio{text-align:left;color:var(--ink);font-size:12px;overflow-wrap:anywhere}
   .panel p.bio{text-align:center;font-size:13px}
   .lacts{display:flex;flex-wrap:wrap;gap:6px}
-  .mbtn.sm{padding:6px 10px;font-size:12px;border-width:1px}
-  .mbtn.liked{border-color:var(--heart);color:var(--heart)}
   .copyrow{display:flex;gap:6px;align-items:center}
-  .ev-hot{border-color:#7c3aed!important;color:#7c3aed!important;animation:evpulse 1.4s ease-in-out infinite}
-  @keyframes evpulse{50%{box-shadow:0 0 0 4px #7c3aed33}}
-  @media (prefers-reduced-motion:reduce){.ev-hot{animation:none}}
   .ev-note{font-size:13px;text-align:center;margin:4px 0}
   .ev-card{border:2px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;text-align:left}
   .ev-card p{margin:6px 0}
@@ -174,11 +175,9 @@
   .ev-top li span{flex:1}
   .ev-top li.me{background:#7c3aed1a;font-weight:bold}
   /* прогресс: уровень игрока, задания дня, календарь, достижения */
-  .pg-hot{border-color:var(--coin)!important;color:var(--coin)!important;animation:pgpulse 1.4s ease-in-out infinite}
-  @keyframes pgpulse{50%{box-shadow:0 0 0 4px #b4530933}}
-  @media (prefers-reduced-motion:reduce){.pg-hot{animation:none}}
-  .pg-card{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;font:inherit;color:var(--ink);background:var(--panel);border:2px solid var(--level);border-radius:12px;padding:8px 12px;margin:6px 0;cursor:pointer;text-align:left;touch-action:manipulation}
-  .pg-lv{flex:none;width:42px;height:42px;border-radius:50%;background:var(--level);color:#fff;font:bold 18px var(--font);display:flex;align-items:center;justify-content:center}
+  .pg-card{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;font:inherit;color:var(--ink);background:var(--panel);border:2px solid var(--b-out);border-radius:14px;padding:8px 12px;margin:6px 0 10px;cursor:pointer;text-align:left;touch-action:manipulation;box-shadow:0 5px 0 #a855f7,0 5px 0 2px var(--b-out);transition:transform .07s,box-shadow .07s}
+  .pg-card:active{transform:translateY(4px);box-shadow:0 1px 0 #a855f7,0 1px 0 2px var(--b-out)}
+  .pg-lv{flex:none;width:42px;height:42px;border-radius:50%;background:linear-gradient(180deg,#c084fc,#9333ea);border:2px solid var(--b-out);color:#fff;font:900 18px var(--font);display:flex;align-items:center;justify-content:center;text-shadow:0 2px 0 rgba(0,0,0,.25)}
   .pg-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
   .pg-mid b{font-size:14px;color:var(--level);letter-spacing:1px}
   .pg-mid small,.pg-q small,.pg-a small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
@@ -221,30 +220,57 @@
   .mp-lv span{flex:1;min-width:120px;text-align:center}
   #mp-code{text-transform:uppercase;letter-spacing:3px}
   .copyrow input{flex:1;min-width:0;font:12px var(--font);padding:7px 8px;border:2px solid var(--line);border-radius:8px;color:var(--ink);background:var(--keys-bg)}
-  .help code{font-family:var(--font);background:var(--keys-bg);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
+  .help code{font-family:var(--mono);background:var(--keys-bg);border-radius:4px;padding:0 4px;overflow-wrap:anywhere}
   @media (max-height:420px){.panel .intro{display:none}}
-  .mbtn{font:bold 14px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--ink);border-radius:8px;padding:10px 12px;cursor:pointer;touch-action:manipulation}
-  .mbtn:hover:not(:disabled){background:var(--keys-bg)}
-  .mbtn.primary{background:var(--ink);color:var(--panel)}
-  .mbtn.primary:hover:not(:disabled){background:var(--ink-2)}
-  .mbtn:disabled{opacity:.4;cursor:default}
-  .lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
-  .lvbtn{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 10px;text-align:left;font-size:12px;border-width:1px}
-  .lvbtn b{font-size:15px;color:var(--level)}
-  .lvbtn small{font-weight:normal;font-size:10px;color:var(--muted)}
-  .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-  .chip{display:flex;align-items:center;gap:6px;font:bold 12px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;touch-action:manipulation}
-  .chip[aria-pressed="true"]{border-color:var(--ink);background:var(--keys-bg)}
-  .chip:disabled{opacity:.4;cursor:default}
+  /* ===== КНОПКИ — как в играх-убегалках: толстая обводка, блик сверху, бортик снизу, при нажатии проседают.
+     Стиль задают три переменные: --f лицо, --e бортик, --t текст. Синяя — разделы, зелёная (.primary) — играть
+     и главное действие, белая — назад и мелкие, золотая — купить и награды, фиолетовая — ивенты, красная — поддержка ===== */
+  .mbtn{--f:#0ea5e9;--e:#0369a1;--t:#fff;--d:5px;position:relative;font:800 15px/1.2 var(--font);letter-spacing:.2px;color:var(--t);
+    background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,0) 58%),var(--f);
+    border:2px solid var(--b-out);border-radius:14px;padding:11px 14px 10px;cursor:pointer;touch-action:manipulation;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.4),0 var(--d) 0 var(--e),0 var(--d) 0 2px var(--b-out);
+    text-shadow:0 2px 0 rgba(0,0,0,.22);transition:transform .07s ease-out,box-shadow .07s ease-out,filter .15s;-webkit-tap-highlight-color:transparent}
+  .mbtn:hover:not(:disabled){filter:brightness(1.07)}
+  .mbtn:active:not(:disabled){transform:translateY(calc(var(--d) - 1px));box-shadow:inset 0 2px 0 rgba(255,255,255,.3),0 1px 0 var(--e),0 1px 0 2px var(--b-out)}
+  .mbtn:focus-visible{outline:3px solid #facc15;outline-offset:3px}
+  .mbtn.primary{--f:#22c55e;--e:#15803d}
+  .mbtn.buy,.mbtn.pg-hot{--f:#facc15;--e:#c28a04;--t:#5b3a00;text-shadow:0 1px 0 rgba(255,255,255,.45)}
+  .mbtn.ev-hot{--f:#a855f7;--e:#7e22ce}
+  .mbtn.donate,.mbtn.liked{--f:#f43f5e;--e:#be123c}
+  .mbtn.sm,.mbtn[data-act="main"],.mbtn[data-act="menu"],.mbtn[data-act="mpleave"],.mbtn[data-act="hshide"]{--f:#fff;--e:#b6c3d1;--t:#0b3954;text-shadow:none}
+  .mbtn.sm{--d:4px;font-size:13px;border-radius:11px;padding:7px 12px 6px}
+  .mbtn.sm.primary{--f:#22c55e;--e:#15803d;--t:#fff;text-shadow:0 2px 0 rgba(0,0,0,.22)}
+  .mbtn.sm.liked{--f:#f43f5e;--e:#be123c;--t:#fff}
+  /* недоступная — серая при любом стиле (селектор усилен, чтобы перебить .sm.primary и плитки уровней) */
+  .mbtn.mbtn.mbtn:disabled{--f:#d6dde5;--e:#aab6c3;--t:#7b8a9a;text-shadow:none;cursor:default;filter:none;animation:none}
+  /* горящие кнопки (ивент идёт, награда ждёт) светятся; без анимации — если игрок просил меньше движения */
+  .mbtn.ev-hot,.mbtn.pg-hot{animation:btnglow 1.4s ease-in-out infinite}
+  .mbtn.ev-hot{--g:#a855f7}.mbtn.pg-hot{--g:#f59e0b}
+  @keyframes btnglow{50%{filter:brightness(1.1) drop-shadow(0 0 7px var(--g))}}
+  @media (prefers-reduced-motion:reduce){.mbtn.ev-hot,.mbtn.pg-hot{animation:none}.mbtn,.chip{transition:none}}
+  .dot{box-shadow:0 0 0 2px #fff}
+  .lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px 8px}
+  .mbtn.lvbtn{--f:#fff;--e:#b6c3d1;--t:#0b3954;--d:4px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 10px 6px;text-align:left;font-size:12px;font-weight:700;border-radius:12px;text-shadow:none}
+  .lvbtn b{font-size:16px;font-weight:900;color:#0284c7}
+  .lvbtn small{font-weight:500;font-size:10px;color:var(--muted)}
+  .mbtn.lvbtn:disabled b{color:inherit}
+  .chips{display:flex;flex-wrap:wrap;gap:10px 6px;justify-content:center}
+  .chip{--f:#fff;--e:#b6c3d1;--t:#0b3954;display:flex;align-items:center;gap:6px;font:700 13px var(--font);color:var(--t);background:var(--f);
+    border:2px solid var(--b-out);border-radius:999px;padding:6px 13px 5px;cursor:pointer;touch-action:manipulation;
+    box-shadow:0 3px 0 var(--e),0 3px 0 2px var(--b-out);transition:transform .07s,box-shadow .07s;-webkit-tap-highlight-color:transparent}
+  .chip:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 var(--e),0 1px 0 2px var(--b-out)}
+  .chip:focus-visible{outline:3px solid #facc15;outline-offset:3px}
+  .chip[aria-pressed="true"]{--f:#0ea5e9;--e:#0369a1;--t:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+  .chip[aria-pressed="true"] small{color:#e0f2fe}
+  .chip:disabled{--f:#e5eaf0;--e:#c3ccd6;--t:#8796a6;cursor:default}
   .sw{width:12px;height:12px;border-radius:50%;flex:none}
   #pv{margin:0 auto;width:180px;height:84px}
   #pv[hidden]{display:none}
   .chip small{font-weight:normal;font-size:10px;color:var(--muted)}
-  .chip.lock{border-style:dashed}
+  .chip.lock{border-style:dashed;--f:#f6f8fb}
+  .chip.lock[aria-pressed="true"]{--f:#38bdf8;--e:#0369a1;--t:#fff}
   .panel .coins{font-size:15px;color:var(--ink)}
   .panel .coins b{color:var(--coin)}
-  .mbtn.buy{border-color:var(--coin);color:var(--coin)}
-  .mbtn.donate{border-color:var(--heart);color:var(--heart)}
   .panel p.good{color:var(--win)}
   .help{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
   .help .r b{color:var(--c-chaser)}
@@ -276,7 +302,8 @@
     #hearts,#dataVal,#scoreVal,#levelVal,#emp{font-size:13px}
     #dash,#trip{font-size:12px}
     .tbtns{grid-area:4/3;justify-self:end;display:flex;gap:4px;pointer-events:auto}
-    .tbtns button{font:bold 10px var(--font);color:var(--ink);background:var(--glass);border:1px solid var(--line);border-radius:6px;padding:4px 8px;touch-action:none}
+    .tbtns button{font:800 10px var(--font);color:#0b3954;background:rgba(255,255,255,.88);border:2px solid var(--b-out);border-radius:9px;padding:4px 9px 3px;touch-action:none;box-shadow:0 3px 0 #b6c3d1,0 3px 0 2px var(--b-out);margin-bottom:5px}
+    .tbtns button:active{transform:translateY(2px);box-shadow:0 1px 0 #b6c3d1,0 1px 0 2px var(--b-out)}
     #msg{position:absolute;z-index:2;top:calc(var(--cvs-top,0px) + 8px);left:50%;transform:translateX(-50%);width:max-content;max-width:56%;max-width:min(56%,420px);min-height:0;font-size:12px;background:var(--glass);border-radius:6px;padding:3px 10px;pointer-events:none}
     #msg:empty{display:none}
     #stick{display:block;position:absolute;z-index:3;left:14px;bottom:14px;width:120px;height:120px;border-radius:50%;background:var(--glass);border:2px dashed var(--keys-line);opacity:.6;pointer-events:none}
@@ -284,16 +311,19 @@
     #knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:var(--ink);opacity:.8}
     /* дугой под большой палец: EMP слева, ПОДНОЖКА над РЫВКОМ */
     .pbtns{display:grid;grid-template-columns:auto auto;position:absolute;z-index:3;right:14px;bottom:14px;align-items:end;justify-items:center;gap:10px}
-    .pbtns button{border-radius:50%;border:2px solid var(--ink);background:var(--glass);color:var(--ink);font:bold 12px var(--font);touch-action:none}
-    .pbtns button:active{background:var(--keys-bg)}
-    .pbtns button.off{opacity:.45}
-    #bTrip{grid-area:1/2;width:64px;height:64px;border-color:var(--trip);color:var(--trip);font-size:10px}
+    /* круглые игровые кнопки: полупрозрачные, чтобы поле под ними было видно; на перезарядке — серые */
+    .pbtns button{--f:14,165,233;--e:#0369a1;border-radius:50%;border:2px solid var(--b-out);color:#fff;font:900 12px var(--font);letter-spacing:.3px;touch-action:none;
+      background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.45),rgba(255,255,255,0) 55%),rgba(var(--f),.82);
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.4),0 5px 0 var(--e),0 5px 0 2px var(--b-out);text-shadow:0 2px 0 rgba(0,0,0,.3);transition:transform .06s,box-shadow .06s}
+    .pbtns button:active{transform:translateY(4px);box-shadow:inset 0 2px 0 rgba(255,255,255,.3),0 1px 0 var(--e),0 1px 0 2px var(--b-out)}
+    .pbtns button.off,.pbtns #bTrip.off,.pbtns #bEmp.off{--f:148,163,184;--e:#64748b;opacity:.7}
+    #bTrip{grid-area:1/2;width:64px;height:64px;padding:0;font-size:8px;letter-spacing:0;--f:249,115,22;--e:#c2410c}
     #bDash{grid-area:2/2;width:84px;height:84px}
-    #bEmp{grid-area:2/1;width:64px;height:64px;margin-bottom:44px;border-color:var(--emp);color:var(--emp)}
+    #bEmp{grid-area:2/1;width:64px;height:64px;margin-bottom:44px;--f:168,85,247;--e:#7e22ce}
     #rot{display:block;position:absolute;left:0;right:0;top:calc(var(--cvs-top,0px) - 26px);text-align:center;font-size:12px;color:var(--muted);pointer-events:none}
     #screen.menu-open #ui,#screen.menu-open .pbtns,#screen.menu-open #stick,#screen.menu-open #msg,#screen.menu-open #rot{visibility:hidden}
     .panel{padding:12px 14px;gap:8px}
-    .mbtn{padding:9px 10px;font-size:13px}
+    .mbtn{padding:10px 10px 9px;font-size:14px}
   }
   @media (pointer:coarse) and (orientation:portrait){.panel .rotp{display:block}}
   @media (pointer:coarse) and (orientation:landscape){
@@ -7355,7 +7385,7 @@ function pgDraw(){
 // после уровня: опыт, новые достижения и задания дня
 function pgNote(){
   const p=save.pg,lv=pgLevel(p.xp);
-  let h='<div class="pg-note"><p><b>+'+pgLvXp+' опыта</b> · уровень игрока '+lv.L+' · '+pgTitle(lv.L)+'</p>'+pgBar(lv.cur,lv.need);
+  let h='<div class="pg-note"><p>'+(pgLvXp>0?'<b>+'+pgLvXp+' опыта</b> · ':'')+'уровень игрока '+lv.L+' · '+pgTitle(lv.L)+'</p>'+pgBar(lv.cur,lv.need);
   for(const L of pgUps)h+='<p class="good">⬆ Новый уровень игрока: '+L+'! ◈ +'+pgLvBits(L)+'</p>';
   for(const a of pgNewLv)h+='<p class="good">🏅 Достижение «'+escHTML(a.name)+'» · ◈ +'+PG_TIER_BITS[a.t]+'</p>';
   const dq=p.dq;
