@@ -270,6 +270,44 @@
   .chip.lock{border-style:dashed;--f:#f6f8fb}
   .chip.lock[aria-pressed="true"]{--f:#38bdf8;--e:#0369a1;--t:#fff}
   .panel .coins{font-size:15px;color:var(--ink)}
+  /* магазин облика: сцена с примеркой, вкладки, ряды карточек вбок */
+  /* панель меню — колонка с прокруткой: без этого ряды с прокруткой вбок сжимались бы по высоте */
+  .shop-hero,.shop-tabs,.shop-sec,.shop-row,.panel .copyrow{flex-shrink:0}
+  .shop-hero{display:flex;flex-direction:column;gap:8px}
+  .shop-stage{border:2px solid var(--b-out);border-radius:16px;background:radial-gradient(ellipse at 62% 70%,#e0f2fe 0,#f8fbff 55%,#fff 100%);box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);margin-bottom:6px;overflow:hidden}
+  .shop-stage #pv{display:block;width:100%;max-width:none;height:auto;aspect-ratio:360/168;margin:0}
+  .shop-info{display:flex;flex-direction:column;gap:6px;text-align:center}
+  .shop-name{font:900 20px var(--font);letter-spacing:1px;color:var(--b-out)}
+  .shop-info>small{font-size:12px;color:var(--muted);margin-top:-6px}
+  .shop-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 6px;padding:2px 2px 8px}
+  @media (pointer:coarse){.shop-tabs{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;margin:0 -4px}}
+  .shop-tabs::-webkit-scrollbar{display:none}
+  .shop-tabs .chip{flex:none;font-size:14px;padding:8px 13px 7px}
+  .shop-sec{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .shop-sec h3{margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;font:800 14px var(--font);color:var(--b-out);text-align:left}
+  .shop-sec h3 small{font-weight:600;font-size:11px;color:var(--muted)}
+  .arrs{display:flex;gap:6px;flex:none}
+  .arr{width:30px;height:28px;border:2px solid var(--b-out);border-radius:9px;background:#fff;color:#0b3954;font:900 17px/1 var(--font);cursor:pointer;box-shadow:0 3px 0 #b6c3d1,0 3px 0 2px var(--b-out);margin-bottom:5px;padding:0}
+  .arr:active{transform:translateY(2px);box-shadow:0 1px 0 #b6c3d1,0 1px 0 2px var(--b-out)}
+  @media (pointer:coarse){.arrs{display:none}}
+  .shop-row{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 4px 12px;margin:0 -4px;scrollbar-width:thin;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;user-select:none;-webkit-user-select:none}
+  .card{flex:none;width:106px;box-sizing:border-box;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 5px 7px;border:2px solid var(--b-out);border-radius:14px;background:#fff;
+    box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);cursor:pointer;font:800 11px/1.2 var(--font);color:#0b3954;position:relative;transition:transform .07s,box-shadow .07s;-webkit-tap-highlight-color:transparent}
+  .card:active{transform:translateY(3px);box-shadow:0 1px 0 #b6c3d1,0 1px 0 2px var(--b-out)}
+  .card:focus-visible{outline:3px solid #facc15;outline-offset:3px}
+  .card img{width:72px;height:72px;border-radius:10px;background:radial-gradient(circle at 50% 42%,#ffffff,#e6eef7);pointer-events:none;-webkit-user-drag:none}
+  .card .nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.2px}
+  .card .tag{font:800 11px var(--font);padding:2px 8px;border-radius:999px;background:#eef2f7;color:#0b3954;white-space:nowrap}
+  .card .tag.price{background:#facc15;color:#5b3a00;box-shadow:inset 0 -2px 0 #c28a04}
+  .card .tag.short{background:#e8ecf1;color:#8796a6;box-shadow:none}
+  .card .tag.own{background:#dcfce7;color:#166534}
+  .card .tag.ex{background:#f3e8ff;color:#6b21a8}
+  .card small{font-size:9px;font-weight:600;color:var(--muted);white-space:nowrap}
+  .card[aria-pressed="true"]{border-color:#0284c7;background:#f0f9ff;box-shadow:0 0 0 3px #38bdf8,0 4px 0 #0369a1,0 4px 0 2px var(--b-out)}
+  .card.worn::after{content:'✓';position:absolute;top:4px;right:5px;width:20px;height:20px;border-radius:50%;background:#22c55e;color:#fff;font:900 12px/20px var(--font);border:2px solid var(--b-out)}
+  .card-wrap{position:relative;flex:none;scroll-snap-align:start}
+  .card-wrap .card{scroll-snap-align:none}
+  .card-x{position:absolute;top:-6px;left:-6px;min-width:24px;height:24px;border-radius:999px;border:2px solid var(--b-out);background:#f43f5e;color:#fff;font:900 11px var(--font);cursor:pointer;padding:0 5px;z-index:1}
   .panel .coins b{color:var(--coin)}
   .panel p.good{color:var(--win)}
   .help{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
@@ -1719,13 +1757,7 @@ async function outfitsCloud(){
   try{const tok=await netToken();if(tok)await netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body:JSON.stringify({data:{outfits:save.outfits}})});}
   catch(_){msg('Наряд сохранён на этом устройстве — в аккаунт попадёт, когда будет связь.');}
 }
-function outfitsHTML(){
-  const mine=save.outfits.map((o,i)=>chip('outfit:'+i,escHTML(o.n),outfitOn(o))+'<button type="button" class="chip" data-act="ofdel:'+i+'" aria-label="Удалить наряд '+escHTML(o.n)+'">'+(armed==='ofdel:'+i?'точно?':'✕')+'</button>').join('');
-  return '<p class="lbl2">НАРЯДЫ — СОБЕРИ ОБЛИК ЦЕЛИКОМ</p>'+
-    (mine?'<div class="chips">'+mine+'</div>':'<p>Нарядов пока нет. Надень цвет, форму, след и аксессуар — и сохрани их вместе.</p>')+
-    '<div class="copyrow"><input id="of-name" maxlength="16" placeholder="Название наряда" aria-label="Название наряда">'+mb('ofsave','Сохранить надетое','sm')+'</div>'+
-    '<p class="lbl2">ИДЕИ — НАЖМИ, ЧТОБЫ ПРИМЕРИТЬ · ✓ — ВСЁ УЖЕ ЕСТЬ</p><div class="chips">'+OUTFIT_IDEAS.map((o,i)=>chip('ofidea:'+i,o.n+(outfitMissing(o).length?'':'<small>✓</small>'),outfitOn(o))).join('')+'</div>';
-}
+
 // примерка в магазине: показывается только в превью, в игре — надетое
 let shopTab='c',tryOn=null,tryLook=null,tryOutfit=null;
 function previewLook(){const L=wornLook();if(tryLook)Object.assign(L,tryLook);if(tryOn)L[tryOn.cat]=tryOn.i;return L;}
@@ -3637,10 +3669,53 @@ function drawHeart(cx,cy,s,fill){
   ctx.restore();
 }
 
-// full — рисовать с полным качеством независимо от настройки (превью в меню)
+// контур-«наклейка», как у героев мультяшных игр: тело, лицо и аксессуар рисуются на отдельный холст,
+// его силуэт кладётся тёмным со сдвигом в 8 сторон, сверху — сам рисунок. Холсты общие и переиспользуются
+const STK={a:null,b:null,ax:null,bx:null,P:0},STK_S=112,STK_OUT='#0b1d33';
+const STK_DIRS=[[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
+function drawSticker(c,draw){
+  const m=c.getTransform(),k=Math.max(1,Math.min(4,Math.sqrt(Math.abs(m.a*m.d-m.b*m.c))||1)),P=Math.ceil(STK_S*k);
+  if(!STK.a){STK.a=document.createElement('canvas');STK.b=document.createElement('canvas');STK.ax=STK.a.getContext('2d');STK.bx=STK.b.getContext('2d');}
+  if(STK.P!==P){STK.a.width=STK.a.height=STK.b.width=STK.b.height=P;STK.P=P;}
+  const a=STK.ax,b=STK.bx;
+  a.setTransform(1,0,0,1,0,0);a.clearRect(0,0,P,P);
+  a.save();a.setTransform(k,0,0,k,P/2,P/2);draw(a);a.restore();
+  b.setTransform(1,0,0,1,0,0);b.globalCompositeOperation='copy';b.drawImage(STK.a,0,0);
+  b.globalCompositeOperation='source-in';b.fillStyle=STK_OUT;b.fillRect(0,0,P,P);b.globalCompositeOperation='source-over';
+  const h=STK_S/2,o=1.5;
+  for(const d of STK_DIRS)c.drawImage(STK.b,-h+d[0]*o,-h+d[1]*o,STK_S,STK_S);
+  c.drawImage(STK.a,-h,-h,STK_S,STK_S);
+}
+// лицо: глаза с бликом смотрят туда, куда движешься, и моргают; румянец и улыбка, после удара — «о».
+// В очках (аксессуар 4) — тёмные стёкла с бликом вместо глаз
+function drawFace(c,L,sk,f,t,hurt){
+  const ex=Math.cos(f)*4,ey=Math.sin(f)*4;
+  const e1x=ex-4+ey*0.5,e1y=ey-ex*0.5,e2x=ex+4+ey*0.5,e2y=ey+ex*0.5;
+  if(L.h===4){
+    c.fillStyle='#111';c.beginPath();c.ellipse(e1x,e1y,4.2,3.5,0,0,TAU);c.ellipse(e2x,e2y,4.2,3.5,0,0,TAU);c.fill();
+    c.strokeStyle='#111';c.lineWidth=1.5;c.beginPath();c.moveTo(e1x,e1y);c.lineTo(e2x,e2y);c.stroke();
+    c.fillStyle='rgba(255,255,255,0.75)';c.beginPath();c.arc(e1x-1.5,e1y-1.2,1,0,TAU);c.arc(e2x-1.5,e2y-1.2,1,0,TAU);c.fill();
+  }else{
+    const blink=t%230<7,ry=blink?0.7:3.4,px=Math.cos(f)*1.1,py=Math.sin(f)*1.1;
+    c.lineWidth=1;c.strokeStyle=sk.dark;
+    for(const q of [[e1x,e1y],[e2x,e2y]]){
+      c.fillStyle='#fff';c.beginPath();c.ellipse(q[0],q[1],2.9,ry,0,0,TAU);c.fill();c.stroke();
+      if(blink)continue;
+      c.fillStyle='#0b1d33';c.beginPath();c.arc(q[0]+px,q[1]+py,1.8,0,TAU);c.fill();
+      c.fillStyle='#fff';c.beginPath();c.arc(q[0]+px-0.6,q[1]+py-0.7,0.65,0,TAU);c.fill();
+    }
+  }
+  c.fillStyle='rgba(255,105,140,0.38)';c.beginPath();c.ellipse(e1x-1.6,e1y+3.6,1.8,1.1,0,0,TAU);c.ellipse(e2x+1.6,e2y+3.6,1.8,1.1,0,0,TAU);c.fill();
+  const mx=(e1x+e2x)/2,my=(e1y+e2y)/2+4.4;
+  c.strokeStyle=sk.dark;c.lineWidth=1.2;c.lineCap='round';c.beginPath();
+  if(hurt)c.arc(mx,my+0.8,1.2,0,TAU);else c.arc(mx,my-1.2,2.2,0.2*Math.PI,0.8*Math.PI);
+  c.stroke();c.lineCap='butt';
+}
+// full — рисовать с полным качеством независимо от настройки (превью в меню, карточки магазина)
 function drawPlayerBody(c,p,t,full,L){
   L=L||wornLook();
-  const sk=colOf(L.c,t),f=p.face;
+  // контур-наклейка — в меню и магазине (там персонаж крупный); на поле — тёмная обводка одного тела, она в разы дешевле
+  const sk=colOf(L.c,t),f=p.face,hi=full||Q.grad,stk=full;
   c.save();c.translate(p.x,p.y);
   const stretch=Math.min(0.4,Math.hypot(p.vx,p.vy)*0.02);
   c.rotate(f);c.scale(1+stretch,1-stretch*0.5);c.rotate(-f);
@@ -3660,30 +3735,28 @@ function drawPlayerBody(c,p,t,full,L){
   }
   c.restore();
 
-  // тело по форме
+  // тело по форме, блик, лицо и аксессуар; на хорошей графике — в тёмном контуре
   const rot=t*0.02;
   const rr=p.r*(1+Math.sin(t*0.1)*0.05);
-  if(full||Q.grad){
-    const grad=c.createRadialGradient(-4,-4,2,0,0,rr+4);
-    grad.addColorStop(0,'#ffffff');
-    grad.addColorStop(0.4,sk.main);
-    grad.addColorStop(1,sk.dark);
-    c.fillStyle=grad;
-  }else c.fillStyle=sk.main;
-  shapePath(c,L.s,rr,rot);
-  c.fill();
-  if((SKIN_COLORS[L.c]||{}).suit)drawSuit(c,L.s,rr,rot);
-  c.strokeStyle=sk.dark;c.lineWidth=1.5;shapePath(c,L.s,rr,rot);c.stroke();
-
-  // глаза; в очках — тёмные стёкла с перемычкой
-  const ex=Math.cos(f)*4,ey=Math.sin(f)*4;
-  const e1x=ex-4+ey*0.5,e1y=ey-ex*0.5,e2x=ex+4+ey*0.5,e2y=ey+ex*0.5;
-  c.fillStyle=L.h===4?'#111':sk.dark;
-  const er=L.h===4?4:2.6;
-  c.beginPath();c.arc(e1x,e1y,er,0,TAU);c.fill();
-  c.beginPath();c.arc(e2x,e2y,er,0,TAU);c.fill();
-  if(L.h===4){c.strokeStyle='#111';c.lineWidth=1.5;c.beginPath();c.moveTo(e1x,e1y);c.lineTo(e2x,e2y);c.stroke();}
-  drawHat(c,L.h,rr,sk,t,f);
+  const hurt=p===player&&p.cool>0&&phase==='game';
+  const body=g=>{
+    if(hi){
+      const grad=g.createRadialGradient(-4,-4,2,0,0,rr+4);
+      grad.addColorStop(0,'#ffffff');
+      grad.addColorStop(0.4,sk.main);
+      grad.addColorStop(1,sk.dark);
+      g.fillStyle=grad;
+    }else g.fillStyle=sk.main;
+    if(hi&&!stk){g.strokeStyle=STK_OUT;g.lineWidth=3.6;shapePath(g,L.s,rr,rot);g.stroke();}
+    shapePath(g,L.s,rr,rot);
+    g.fill();
+    if((SKIN_COLORS[L.c]||{}).suit)drawSuit(g,L.s,rr,rot);
+    if(hi){g.save();shapePath(g,L.s,rr,rot);g.clip();g.fillStyle='rgba(255,255,255,0.55)';g.beginPath();g.ellipse(-rr*0.38,-rr*0.5,rr*0.3,rr*0.15,-0.55,0,TAU);g.fill();g.restore();}
+    g.strokeStyle=sk.dark;g.lineWidth=1.5;shapePath(g,L.s,rr,rot);g.stroke();
+    drawFace(g,L,sk,f,t,hurt);
+    drawHat(g,L.h,rr,sk,t,f);
+  };
+  if(stk)drawSticker(c,body);else body(c);
   c.restore();
 }
 
@@ -4136,6 +4209,109 @@ const menuEl=$id('menu'),panelEl=$id('panel');
 function mb(act,label,cls){return '<button type="button" class="mbtn'+(cls?' '+cls:'')+'" data-act="'+act+'">'+label+'</button>';}
 function heartsStr(n){const m=maxLives(),l=Math.max(0,Math.min(m,n));return '♥'.repeat(l)+'♡'.repeat(m-l);}
 function chip(act,label,on){return '<button type="button" class="chip" data-act="'+act+'" aria-pressed="'+on+'">'+label+'</button>';}
+
+// ================= МАГАЗИН ОБЛИКА =================
+// как в магазинах популярных игр: сверху — большая примерка и одна главная кнопка, ниже — разделы-вкладки
+// и ряды карточек с картинкой, которые листаются вбок. Картинки рисует сама игра (shopThumb) и запоминает
+const SHOP_TABS=[['c','🎨','Цвет'],['s','🔷','Форма'],['t','✨','След'],['h','🎩','Аксессуар'],['o','👕','Наряды']];
+const THUMBS={};
+function shopThumb(L,mode){
+  const key=mode+':'+L.c+'.'+L.s+'.'+L.t+'.'+L.h;
+  if(THUMBS[key])return THUMBS[key];
+  const cv=document.createElement('canvas');cv.width=cv.height=144;
+  const g=cv.getContext('2d');g.setTransform(2,0,0,2,0,0);
+  const tr=mode==='t'||mode==='o',bx=tr?46:36,by=41;
+  if(tr){
+    const pts=[];
+    for(let k=0;k<18;k++){const d=(18-k)*2.7;pts.push({x:bx-d,y:by+4+Math.sin(d*0.11)*5,life:k+1,hot:0});}
+    drawTrail(g,pts,L,colOf(L.c,30),pts.length,30);
+  }
+  g.fillStyle='rgba(11,37,69,0.14)';g.beginPath();g.ellipse(bx,by+21,13,3.2,0,0,TAU);g.fill();
+  drawPlayerBody(g,{x:bx,y:by,vx:0,vy:0,r:14,face:0},30,true,L);
+  return THUMBS[key]=cv.toDataURL();
+}
+function shopOwnCount(cat){const c=catOf(cat);let n=0;c.list.forEach((x,i)=>{if(owned(cat,i))n++;});return n;}
+function shopCard(cat,i,base,cur){
+  const c=catOf(cat),it=c.list[i],own=owned(cat,i),worn=own&&wornLook()[cat]===i,look=Object.assign({},base);
+  look[cat]=i;
+  let tag;
+  if(worn)tag='<span class="tag own">✓ Надето</span>';
+  else if(own)tag='<span class="tag own">Твоё</span>';
+  else if(it.ex)tag='<span class="tag ex">'+EX_TAG[it.ex]+' Эксклюзив</span>';
+  else tag='<span class="tag price'+(coins()<it.price?' short':'')+'">◈ '+it.price+'</span>';
+  const sub=own||it.ex?'':(it.act?'<small>или пройди акт '+it.act+'</small>':(it.sup?'<small>или ★ поддержка</small>':''));
+  return '<button type="button" class="card'+(worn?' worn':'')+'" data-act="item:'+cat+':'+i+'" aria-pressed="'+(i===cur)+'">'+
+    '<img src="'+shopThumb(look,cat)+'" alt="" width="72" height="72" draggable="false"><span class="nm">'+it.name+'</span>'+tag+sub+'</button>';
+}
+function shopRow(id,title,note,cards){
+  if(!cards.length)return '';
+  return '<section class="shop-sec"><h3><span>'+title+(note?' <small>'+note+'</small>':'')+'</span>'+
+    '<span class="arrs"><button type="button" class="arr" data-act="row:'+id+':-1" aria-label="Листать влево">‹</button><button type="button" class="arr" data-act="row:'+id+':1" aria-label="Листать вправо">›</button></span></h3>'+
+    '<div class="shop-row" data-row="'+id+'">'+cards.join('')+'</div></section>';
+}
+// ряды вкладки: своё, за биты (по цене), за акты, эксклюзивы, подарки за поддержку
+function shopRows(){
+  const cat=catOf(shopTab),base=wornLook(),cur=previewLook()[shopTab],g={own:[],buy:[],act:[],ex:[],sup:[]};
+  cat.list.forEach((it,i)=>{g[owned(shopTab,i)?'own':(it.ex?'ex':(it.sup?'sup':(it.act?'act':'buy')))].push(i);});
+  g.buy.sort((x,y)=>cat.list[x].price-cat.list[y].price);
+  g.act.sort((x,y)=>cat.list[x].act-cat.list[y].act);
+  const card=i=>shopCard(shopTab,i,base,cur),id=shopTab+'-';
+  return shopRow(id+'own','✅ Твоё',g.own.length+' шт.',g.own.map(card))+
+    shopRow(id+'buy','🛒 Купить за биты','дешёвые — первыми',g.buy.map(card))+
+    shopRow(id+'act','🏁 За прохождение актов','или купи сразу',g.act.map(card))+
+    shopRow(id+'ex','⚡ Эксклюзивы','только за ивенты',g.ex.map(card))+
+    shopRow(id+'sup','★ Подарки за поддержку','или купи за биты',g.sup.map(card));
+}
+function shopOutfits(){
+  const mine=save.outfits.map((o,i)=>{const on=outfitOn(o);
+    return '<div class="card-wrap"><button type="button" class="card'+(on?' worn':'')+'" data-act="outfit:'+i+'" aria-pressed="'+on+'"><img src="'+shopThumb(o,'o')+'" alt="" width="72" height="72" draggable="false"><span class="nm">'+escHTML(o.n)+'</span><span class="tag own">'+(on?'✓ Надет':'Мой')+'</span></button>'+
+      '<button type="button" class="card-x" data-act="ofdel:'+i+'" aria-label="Удалить наряд '+escHTML(o.n)+'">'+(armed==='ofdel:'+i?'точно?':'✕')+'</button></div>';});
+  const ideas=OUTFIT_IDEAS.map((o,i)=>{
+    const sh=outfitShop(o),on=outfitOn(o);
+    const tag=!sh.sale.length&&!sh.locked.length?'<span class="tag own">'+(on?'✓ Надет':'✓ Всё есть')+'</span>':(sh.locked.length?'<span class="tag ex">🔒 Не всё продаётся</span>':'<span class="tag price'+(coins()<sh.sum?' short':'')+'">◈ '+sh.sum+'</span>');
+    return '<button type="button" class="card'+(on?' worn':'')+'" data-act="ofidea:'+i+'" aria-pressed="'+(tryOutfit===o||on)+'"><img src="'+shopThumb(o,'o')+'" alt="" width="72" height="72" draggable="false"><span class="nm">'+o.n+'</span>'+tag+'</button>';});
+  return (mine.length?shopRow('o-mine','👕 Мои наряды',save.outfits.length+' из '+OUTFIT_MAX,mine):'<p>Своих нарядов пока нет. Надень цвет, форму, след и аксессуар — и сохрани их вместе.</p>')+
+    '<div class="copyrow"><input id="of-name" maxlength="16" placeholder="Название наряда" aria-label="Название наряда">'+mb('ofsave','Сохранить надетое','sm')+'</div>'+
+    shopRow('o-ideas','💡 Идеи нарядов','нажми — примеришь целиком',ideas);
+}
+// сверху: примерка на сцене, название и одна понятная кнопка — купить, не хватает бит или как получить
+function shopHero(){
+  let title='Твой облик',sub='',act='';
+  if(tryOutfit&&tryLook&&!tryOn){
+    title='Наряд «'+escHTML(tryOutfit.n)+'»';sub='примерка';
+    act=(outfitBuyHTML(tryOutfit)||'<p class="good">Всё для этого наряда уже есть — он надет.</p>')+mb('untry','Вернуть свой облик','sm');
+  }else if(tryOn){
+    const c=catOf(tryOn.cat),it=c.list[tryOn.i];
+    title=it.name;sub=c.name.toLowerCase()+' · примерка';
+    if(it.ex)act='<p>'+exHow(it,tryOn.cat+tryOn.i)+'</p>';
+    else if(coins()>=it.price)act=mb('buy','Купить за ◈ '+it.price,'buy');
+    else act='<button type="button" class="mbtn" disabled>Не хватает ◈ '+(it.price-coins())+'</button><p class="foot">Биты дают за данные, уровни, боссов, задания дня и достижения.</p>';
+    if(!it.ex&&it.act)act+='<p class="foot">Или бесплатно — когда пройдёшь '+(it.act<ACTS.length?'акт '+it.act+' · '+ACTS[it.act-1].name:'всю игру')+'.</p>';
+    else if(!it.ex&&it.sup)act+='<p class="foot">Или бесплатно — подарок за поддержку игры.</p>';
+    act+=mb('untry','Снять примерку','sm');
+  }else{
+    const L=wornLook();
+    sub=[SKIN_COLORS[L.c].name,SKIN_SHAPES[L.s].name,TRAILS[L.t].name,HATS[L.h].name].join(' · ');
+    act='<p class="foot">Нажми на карточку внизу — примеришь. Своё надевается сразу.</p>';
+  }
+  return '<div class="shop-hero"><div class="shop-stage"><canvas id="pv" width="360" height="168" aria-label="Как выглядит твой файл"></canvas></div>'+
+    '<div class="shop-info"><b class="shop-name">'+title+'</b>'+(sub?'<small>'+sub+'</small>':'')+act+'</div></div>';
+}
+// ряды можно тянуть мышью; после такого перетаскивания нажатие на карточку не считается
+let rowDrag=null,rowDragged=false;
+panelEl.addEventListener('pointerdown',e=>{
+  if(e.pointerType!=='mouse'||e.button!==0)return;
+  const r=e.target.closest('.shop-row');
+  if(r)rowDrag={r,x:e.clientX,sl:r.scrollLeft,moved:false};
+});
+addEventListener('pointermove',e=>{
+  if(!rowDrag)return;
+  const dx=e.clientX-rowDrag.x;
+  if(Math.abs(dx)>6)rowDrag.moved=true;
+  if(rowDrag.moved)rowDrag.r.scrollLeft=rowDrag.sl-dx;
+});
+addEventListener('pointerup',()=>{if(rowDrag&&rowDrag.moved){rowDragged=true;setTimeout(()=>{rowDragged=false;},0);}rowDrag=null;});
+panelEl.addEventListener('click',e=>{if(rowDragged){e.stopPropagation();e.preventDefault();rowDragged=false;}},true);
 // кнопки входа: настроенные сервисы и свой аккаунт на сайте, для которого никакие компании не нужны
 function loginBtns(){
   const btns=netProviders().map(p=>mb('login:'+p.id,p.label,'prov prov-'+p.id)).join('');
@@ -4353,22 +4529,10 @@ function panelHTML(s){
       (cc.src==='ed'?'':pgNote())+'<div class="mcol">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
   }
   if(s==='skins'){
-    const cat=catOf(shopTab),L=previewLook(),cur=L[shopTab],it=cat.list[cur];
-    let info='';
-    if(tryOutfit&&tryLook&&!tryOn)info=outfitBuyHTML(tryOutfit);
-    else if(!owned(shopTab,cur)&&it.ex)info='<p>'+exHow(it,shopTab+cur)+'</p>';
-    else if(!owned(shopTab,cur)){
-      info=coins()>=it.price?mb('buy','Купить «'+it.name+'» за ◈ '+it.price,'buy')
-        :'<p>«'+it.name+'» стоит ◈ '+it.price+' — не хватает '+(it.price-coins())+'. Биты дают за данные, уровни и боссов.</p>';
-      if(it.act)info+='<p>Или бесплатно: откроется, когда '+(it.act<ACTS.length?'пройдёшь акт '+it.act+' · '+ACTS[it.act-1].name:'пройдёшь всю игру')+'.</p>';
-      else if(it.sup)info+='<p>Или бесплатно — подарок за поддержку игры.</p>'+(DONATE_ON?mb('donate','Поддержать игру'):'');
-    }
-    return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит</p>'+
-      '<canvas id="pv" width="360" height="168" aria-label="Как выглядит твой файл"></canvas>'+
-      '<div class="chips">'+CATS.map(x=>chip('tab:'+x.id,x.name,x.id===shopTab)).join('')+'</div>'+
-      '<div class="chips items">'+cat.list.map((x,i)=>itemChip(cat,i,cur)).join('')+'</div>'+info+
-      outfitsHTML()+
-      '<p class="foot">Нажми на предмет, чтобы примерить. Купленное надевается сразу. На клавиатуре: ← → предмет, ↑ ↓ раздел.</p>'+
+    return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит</p>'+shopHero()+
+      '<div class="shop-tabs" role="tablist">'+SHOP_TABS.map(x=>chip('tab:'+x[0],x[1]+' '+x[2]+(x[0]==='o'?'':'<small>'+shopOwnCount(x[0])+'/'+catOf(x[0]).list.length+'</small>'),x[0]===shopTab)).join('')+'</div>'+
+      (shopTab==='o'?shopOutfits():shopRows())+
+      '<p class="foot">Листай ряды вбок. Нажми на карточку — примеришь, своё надевается сразу. На клавиатуре: ← → вещь, ↑ ↓ раздел.</p>'+
       mb('main','Готово','primary');
   }
   if(s==='help'){
@@ -4470,7 +4634,8 @@ function showMenu(s,focusAct){
   // новый ключ MCP показывается один раз — уходим с экрана, и он больше не виден
   if(s!=='mcp')mcpNewKey='';
   // перерисовка того же экрана (выбор вкладки, правка в редакторе) не сбрасывает прокрутку
-  const keep=s===menuScreen&&!menuEl.hidden?panelEl.scrollTop:0;
+  const keep=s===menuScreen&&!menuEl.hidden?panelEl.scrollTop:0,rows={};
+  if(keep||s===menuScreen)panelEl.querySelectorAll('[data-row]').forEach(r=>{rows[r.dataset.row]=r.scrollLeft;});
   menuScreen=s;
   // конструктору карт нужна вся ширина
   panelEl.classList.toggle('wide',s==='editor');
@@ -4478,6 +4643,8 @@ function showMenu(s,focusAct){
   menuEl.hidden=false;
   screenEl.classList.add('menu-open');
   panelEl.scrollTop=keep;
+  panelEl.querySelectorAll('[data-row]').forEach(r=>{if(rows[r.dataset.row])r.scrollLeft=rows[r.dataset.row];});
+  if(s==='skins')shopShowSel();
   if(kbUser){
     const b=(focusAct&&panelEl.querySelector('[data-act="'+focusAct+'"]'))||((s==='signin'||s==='signup')&&$id('lg-login'))||panelEl.querySelector('.primary')||panelEl.querySelector('button:not([disabled])');
     if(b)b.focus({preventScroll:true});
@@ -4498,6 +4665,12 @@ function showMenu(s,focusAct){
   if(s==='race')mpBind();
   if(s==='skins'){const inp=$id('of-name');if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveOutfit();showMenu('skins','ofsave');}});}
   if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
+}
+function shopShowSel(){
+  for(const c of panelEl.querySelectorAll('.shop-row .card[aria-pressed="true"]')){
+    const r=c.closest('.shop-row');
+    if(c.offsetLeft<r.scrollLeft||c.offsetLeft+c.offsetWidth>r.scrollLeft+r.clientWidth)r.scrollLeft=Math.max(0,c.offsetLeft-r.clientWidth/2+c.offsetWidth/2);
+  }
 }
 function hideMenu(){
   if(menuEl.contains(document.activeElement))document.activeElement.blur();
@@ -4552,7 +4725,9 @@ function act(a){
   else if(k==='lv'){if(n<save.unlocked)newRun(n);}
   else if(k==='lvact'){if(actStart(n)<save.unlocked){lvAct=n;showMenu('levels',a);}}
   else if(k==='levels'){lvAct=actOf(save.unlocked-1);showMenu('levels');}
-  else if(k==='tab'){shopTab=catOf(a.split(':')[1]).id;tryOn=null;showMenu('skins',a);}
+  else if(k==='tab'){shopTab=arg==='o'?'o':catOf(arg).id;tryOn=null;showMenu('skins',a);}
+  else if(k==='row'){const r=panelEl.querySelector('.shop-row[data-row="'+arg+'"]');if(r)r.scrollBy({left:(Number(a.split(':')[2])<0?-1:1)*Math.max(120,r.clientWidth*0.8),behavior:'smooth'});}
+  else if(k==='untry'){tryOn=null;tryLook=null;tryOutfit=null;showMenu('skins');}
   else if(k==='item')pickItem(a.split(':')[1],Number(a.split(':')[2]));
   else if(k==='buy')buyItem();
   else if(k==='qclaim'){pgClaimQ(n);showMenu('quests');}
@@ -4731,15 +4906,14 @@ function onPress(code){
   if(phase==='pause'&&code==='Escape'&&menuScreen!=='pause'){showMenu('pause');return;}
   if(phase==='pause'&&(code==='KeyP'||code==='Escape')){resume();return;}
   if(phase==='dead'&&code==='KeyR'&&!RACE_DIFF&&!TOUR){retryLevel(true);return;}
-  if(phase==='menu'&&menuScreen==='skins'){
-    const c=catOf(shopTab),vis=[];
-    c.list.forEach((it,i)=>vis.push(i));
-    const k=Math.max(0,vis.indexOf(previewLook()[shopTab]));
-    if(code==='ArrowLeft')pickItem(shopTab,vis[(k+vis.length-1)%vis.length]);
-    if(code==='ArrowRight')pickItem(shopTab,vis[(k+1)%vis.length]);
+  if(phase==='menu'&&menuScreen==='skins'&&!(document.activeElement&&document.activeElement.id==='of-name')){
+    if(shopTab!=='o'&&(code==='ArrowLeft'||code==='ArrowRight')){
+      const n=catOf(shopTab).list.length,k=previewLook()[shopTab];
+      pickItem(shopTab,(k+(code==='ArrowLeft'?n-1:1))%n);
+    }
     if(code==='ArrowUp'||code==='ArrowDown'){
-      const j=CATS.indexOf(c);
-      shopTab=CATS[(j+(code==='ArrowUp'?CATS.length-1:1))%CATS.length].id;tryOn=null;
+      const j=SHOP_TABS.findIndex(x=>x[0]===shopTab);
+      shopTab=SHOP_TABS[(j+(code==='ArrowUp'?SHOP_TABS.length-1:1))%SHOP_TABS.length][0];tryOn=null;
       showMenu('skins','tab:'+shopTab);
     }
   }
