@@ -4210,7 +4210,7 @@ function panelHTML(s){
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       (hsTipOn()?'<div class="hs-tip"><b>📲 Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
       (installEv?mb('install','📲 Установить игру — на весь экран'):'')+
-      '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary')+mb('new','Новая игра'):mb('new','Играть','primary'))+'</div>'+
+      '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary'):mb('new','Играть','primary'))+'</div>'+
       '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
       evMenuBanner()+
       mb('events','⚡ Ивенты · админ-абуз и турнир')+
