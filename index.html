@@ -281,6 +281,27 @@
   .pg-ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:2px solid var(--b-out);background:#fde7d3}
   .pg-ic .ic{width:24px;height:24px;vertical-align:0}
   .pg-ic.t1{background:#e2e8f0}.pg-ic.t2{background:#fef3c7}.pg-ic.t3{background:#cffafe}
+  /* кристаллы и способности */
+  .m-pills{display:flex;gap:6px;flex:none}
+  .m-top .acct{flex:1 1 auto;min-width:0;overflow:hidden}
+  .m-top .acct>div{min-width:0}
+  .m-top .acct b,.m-top .acct small{max-width:100%}
+  .coin-pill.cr{background:#e0fbff;color:#0e7490;box-shadow:0 3px 0 #0891b2,0 3px 0 2px var(--b-out)}
+  .coin-pill .ic{width:1.15em;height:1.15em;vertical-align:-.22em}
+  .mbtn.gem{--f:#06b6d4;--e:#0e7490;--t:#fff}
+  .skill{display:flex;gap:10px;align-items:flex-start;text-align:left;border:2px solid var(--b-out);border-radius:14px;padding:8px 10px;background:#f0fdff;box-shadow:0 4px 0 #67e8f9,0 4px 0 2px var(--b-out);margin:2px 0 8px}
+  .sk-ic{flex:none;width:40px;height:40px;border-radius:12px;border:2px solid var(--b-out);background:#cffafe;display:flex;align-items:center;justify-content:center}
+  .sk-ic .ic{width:26px;height:26px;vertical-align:0}
+  .skill b{font-size:14px;color:var(--b-out)}
+  .skill small{display:block;font-size:11px;color:var(--muted);line-height:1.35}
+  .skill small.nx{color:#0e7490;font-weight:600}
+  .skill small.pr s{opacity:.55}
+  .pips{display:inline-flex;gap:3px;vertical-align:0;margin-left:6px}
+  .pips i{width:10px;height:10px;border-radius:50%;border:2px solid var(--b-out);background:#fff}
+  .pips i.on{background:#06b6d4}
+  .card .skb{position:absolute;top:4px;left:5px;display:flex;align-items:center;gap:1px;background:#fff;border:2px solid var(--b-out);border-radius:999px;padding:0 4px 0 2px;height:20px;box-sizing:border-box}
+  .card .skb .ic{width:14px;height:14px;vertical-align:0}
+  .card .skb b{font-size:10px;color:#0e7490}
   .place{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:2px solid var(--b-out);font:900 12px var(--font);color:#0b2545;background:#facc15}
   .place.p2{background:#cbd5e1}.place.p3{background:#f0a868}
   /* главное меню: аккаунт и биты сверху, плитки разделов */
@@ -1519,7 +1540,7 @@ function D(){
 function maxLives(){return D().lives;}
 function goalOf(c){return Math.max(6,Math.round(c.goal*D().goal*goalK(c.k)));}
 function timerOf(c){return c.timer?c.timer+D().timer:0;}
-function tripCdMax(){return Math.round((cfgNow().tripCd||TRIP_CD)*D().trip);}
+function tripCdMax(){return Math.round((cfgNow().tripCd||TRIP_CD)*D().trip*skTripCd());}
 function capOf(c){return Math.max(3,(c.cap||9)-D().cap);}
 
 // ================= КАСТОМИЗАЦИЯ И СОХРАНЕНИЕ =================
@@ -1630,7 +1651,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:''},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1897,7 +1918,7 @@ function startLevel(i,cust){
   stormT=150;intro=180;lastEmpDrop=0;
   emp=Math.max(emp,1);
   lvStart={score,emp,lives};
-  pgLvStart();
+  pgLvStart();skStart();
   player.cool=60;
   for(let k=0;k<4;k++)spawnData();
   c.start.slice(0,Math.max(1,c.start.length-D().startCut)).forEach(t=>spawnEnemy(t));
@@ -2139,6 +2160,7 @@ function shoot(x,y,a,sp,r,life){
 function hitPlayer(){
   if(phase!=='game'||player.cool>0||evIs('god'))return;
   burst(player.x,player.y,'#e33',20);
+  if(skBlock())return;
   lives--;shake=10;pgHurt=1;
   buzz(lives<=0?200:70);
   player.cool=D().cool;
@@ -2247,7 +2269,7 @@ function step(){
       if(d>0.5){dx=player.vx/d;dy=player.vy/d;}
       else{dx=Math.cos(player.face);dy=Math.sin(player.face);}
       player.vx=dx*16;player.vy=dy*16;
-      player.dashT=14;player.dashCd=70;pgAdd('dash');
+      player.dashT=14;player.dashCd=Math.round(70*skDash());pgAdd('dash');
       burst(player.x,player.y,sk.trail,12);
     }else pressed.dash--;
   }
@@ -2263,7 +2285,7 @@ function step(){
       for(const e of enemies){
         if(!TRIPPABLE[e.type])continue;
         const dx=e.x-player.x,dy=e.y-player.y,d=Math.hypot(dx,dy)||1;
-        if(enemyDist(e,player.x,player.y)>TRIP_R+e.r)continue;
+        if(enemyDist(e,player.x,player.y)>TRIP_R*skTripR()+e.r)continue;
         e.trip=TRIP_STUN;e.tripRot=Math.random()*TAU;
         e.vx=e.type==='turret'?0:dx/d*3;e.vy=e.type==='turret'?0:dy/d*3;
         e.warp=0;e.lunge=0;
@@ -2320,7 +2342,7 @@ function step(){
       let gained=0,kills=0;
       enemies=enemies.filter(e=>{
         const d=enemyDist(e,player.x,player.y);
-        if(d>=170)return true;
+        if(d>=170*skEmpR())return true;
         // у щитоносца 2 hp: первый заряд снимает щит, второй добивает
         if(e.type==='heavy'&&e.hp>1){
           e.hp--;e.touchCd=50;
@@ -2338,12 +2360,12 @@ function step(){
       });
       bullets=[];
       if(kills){pgAdd('emp',kills);if(kills>=5)pgSecret('emp5');}
-      if(boss&&bossDist(boss)<200&&boss.hid){
+      if(boss&&bossDist(boss)<200*skEmpR()&&boss.hid){
         msg('«'+boss.name+'» растворился — EMP его не видит. Жди, где он выйдет');
-      }else if(boss&&bossDist(boss)<200&&boss.shield){
+      }else if(boss&&bossDist(boss)<200*skEmpR()&&boss.shield){
         popup(boss.x,boss.y-boss.r-26,'ЩИТ!','#39c');
         msg('Щит «'+boss.name+'» держит EMP — бей, когда он погаснет');
-      }else if(boss&&bossDist(boss)<200){
+      }else if(boss&&bossDist(boss)<200*skEmpR()){
         boss.hp--;
         burst(boss.x,boss.y,'#39c',24);
         shake=14;
@@ -2371,6 +2393,8 @@ function step(){
   moveDust();
 
   // враги
+  const slowK=skSlow();
+  if(slowK)for(const e of enemies){e._ox=e.x;e._oy=e.y;}
   for(const e of enemies){
     e.t=(e.t||0)+1;
     if(e.touchCd>0)e.touchCd--;
@@ -2529,6 +2553,7 @@ function step(){
       }
     }
   }
+  if(slowK)for(const e of enemies){if(e._ox!==undefined&&Math.hypot(e._ox-player.x,e._oy-player.y)<SLOW_R){e.x=e._ox+(e.x-e._ox)*(1-slowK);e.y=e._oy+(e.y-e._oy)*(1-slowK);}e._ox=undefined;}
   if(enemies.some(e=>e.dead))enemies=enemies.filter(e=>!e.dead);
 
   // касание врагов
@@ -2728,6 +2753,7 @@ function step(){
   if(phase!=='game')return;
 
   // данные
+  skMagnet();
   for(let i=data.length-1;i>=0;i--){
     const dt=data[i];dt.t++;
     if(Math.hypot(dt.x-player.x,dt.y-player.y)<player.r+dt.r+5){
@@ -2738,7 +2764,7 @@ function step(){
       // бонусы по расписанию: каждые 5 данных — EMP, аптечка — каждые 6–10 (по сложности), каждые 12 — разгон
       if(!portal){
         if(got%5===0)dropPickup('emp');
-        if(got%D().hp===0)dropPickup('hp');
+        if(got%skHpEvery()===0)dropPickup('hp');
         if(got%12===0)dropPickup('boost');
       }
       if(got%D().ramp===0&&!portal&&cfg.ramp.length){
@@ -3825,6 +3851,7 @@ function drawPlayer(){
     ctx.stroke();ctx.globalAlpha=1;
   }
   if(p.cool>0&&Math.floor(time/4)%2===1)return;
+  skDraw(p);
   drawPlayerBody(ctx,p,time,false,L);
 
   // сердечки над игроком; с аксессуаром — чуть выше, чтобы не налезали
@@ -4306,6 +4333,7 @@ const ICONS={
   volcano:'<path d="M2.5 20.5l6.4-11h6.2l6.4 11z" fill="#b45309"/><path d="M8.9 9.5l1.6 2.6 1.5-1.5 1.5 1.5 1.6-2.6z" fill="#ef4444"/><path d="M11 6.6c0-1.6 1-2.2 2.1-2.6M13.6 6.4c.6-.9 1.6-1.1 2.5-1"/>',
   trash:'<path d="M5.6 7.2h12.8l-1.2 13.3H6.8z" fill="#cbd5e1"/><path d="M4 7.2h16M9.6 7.2V4.6h4.8v2.6M10 11v6M14 11v6"/>',
   gem:'<path d="M6.2 4h11.6l3.6 5L12 20.6 2.6 9z" fill="#a5f3fc"/><path d="M2.6 9h18.8M9.2 4L12 20.6 14.8 4"/>',
+  magnet:'<path d="M5 4h4.5v8a2.5 2.5 0 0 0 5 0V4H19v8a7 7 0 0 1-14 0z" fill="#ef4444"/><path d="M5 4h4.5v3.4H5zM14.5 4H19v3.4h-4.5z" fill="#e2e8f0"/>',
   door:'<rect x="5.5" y="3" width="13" height="18" rx="1.5" fill="#fde68a"/><path d="M3.5 21h17"/><circle cx="15.4" cy="12.5" r="1.1" fill="#0b2545" stroke="none"/>'
 };
 (function(){
@@ -4313,6 +4341,96 @@ const ICONS={
   for(const k in ICONS)s+='<symbol id="ic-'+k+'" viewBox="0 0 24 24" fill="none" stroke="#0b2545" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">'+ICONS[k]+'</symbol>';
   document.body.insertAdjacentHTML('afterbegin',s+'</defs></svg>');
 })();
+// ================= КРИСТАЛЛЫ И СПОСОБНОСТИ СКИНОВ =================
+// Кристаллы — вторая валюта: CR_AB штук раз в субботу за AB_GOAL уровней в админ-абуз. Ими прокачивается цвет (скин)
+// до 3-го уровня — и он даёт способность. Цена — по силе способности: от 10 (удача, 1-й уровень) до 1000 (щит, 3-й). Хранится в save.evd: cr — сколько получено всего, crw — неделя последней
+// награды, up — уровни прокачки по номеру цвета; потрачено = сумма цен уровней (как с битами: на двух устройствах
+// одни кристаллы дважды не потратить). В гонке и турнире способности выключены — там все в равных условиях
+const CR_AB=10,SLOW_R=120;
+const SKILLS={
+  magnet:{n:'МАГНИТ',ic:'magnet',cost:[30,60,120],d:l=>'данные сами летят к тебе с '+[0,60,95,130][l]+' px'},
+  shield:{n:'ЩИТ',ic:'shield',cost:[250,500,1000],d:l=>'блокирует '+l+' '+(l===1?'удар':'удара')+' на каждом уровне'},
+  dash:{n:'ТУРБО-РЫВОК',ic:'wind',cost:[80,160,320],d:l=>'рывок перезаряжается на '+[0,15,25,35][l]+'% быстрее'},
+  charge:{n:'ЗАРЯД',ic:'bolt',cost:[150,300,600],d:l=>'+'+[0,1,1,2][l]+' EMP в начале уровня, взрыв шире на '+[0,10,20,30][l]+'%'},
+  luck:{n:'УДАЧА',ic:'coin',cost:[10,25,50],d:l=>'на '+[0,10,20,30][l]+'% больше бит'},
+  slow:{n:'ХОЛОД',ic:'snow',cost:[120,250,500],d:l=>'враги рядом с тобой медленнее на '+[0,15,25,35][l]+'%'},
+  heal:{n:'ЛЕЧЕНИЕ',ic:'heart',cost:[50,100,200],d:l=>'аптечка выпадает на '+l+' '+(l===1?'данное':'данных')+' раньше'},
+  trip:{n:'СУПЕР-ПОДНОЖКА',ic:'boot',cost:[60,120,240],d:l=>'подножка чаще на '+[0,20,30,40][l]+'% и достаёт дальше'}
+};
+// способность каждого цвета — по номеру в SKIN_COLORS
+const SKIN_SKILL=['dash','magnet','luck','heal','charge','slow','shield','magnet','heal','shield',
+  'dash','charge','luck','shield','slow','magnet','dash','charge','luck','trip',
+  'slow','luck','shield','heal','trip','slow','charge','dash','heal','luck'];
+function skinLvl(c){return save.evd.up[c]||0;}
+// цена уровня l (0→1, 1→2, 2→3) у цвета c — по его способности
+function upCost(c,l){const S=SKILLS[SKIN_SKILL[c]];return S?S.cost[l]:0;}
+function crSpent(){let n=0;for(const k in save.evd.up)for(let i=0;i<save.evd.up[k];i++)n+=upCost(Number(k),i);return n;}
+function crystals(){return Math.max(0,save.evd.cr-crSpent());}
+// способность на этот уровень: выбирается при старте уровня (облик посреди уровня не меняется)
+let SK=null,skShield=0,skLuckAcc=0;
+function skStart(){
+  SK=null;skShield=0;skLuckAcc=0;
+  if(RACE_DIFF||TOUR)return;
+  const c=wornLook().c,l=skinLvl(c);
+  if(!l||!SKIN_SKILL[c])return;
+  SK={k:SKIN_SKILL[c],l};
+  if(SK.k==='shield')skShield=l;
+  if(SK.k==='charge')emp=Math.min(9,emp+[0,1,1,2][l]);
+}
+function skIs(k){return !!SK&&SK.k===k;}
+function skDash(){return skIs('dash')?1-[0,0.15,0.25,0.35][SK.l]:1;}
+function skEmpR(){return skIs('charge')?1+[0,0.1,0.2,0.3][SK.l]:1;}
+function skTripCd(){return skIs('trip')?1-[0,0.2,0.3,0.4][SK.l]:1;}
+function skTripR(){return skIs('trip')?1+[0,0.15,0.25,0.35][SK.l]:1;}
+function skHpEvery(){return skIs('heal')?Math.max(3,D().hp-SK.l):D().hp;}
+function skSlow(){return skIs('slow')?[0,0.15,0.25,0.35][SK.l]:0;}
+// удача: дробные биты копятся и добавляются целыми
+function skLuck(n){if(!skIs('luck'))return 0;skLuckAcc+=n*[0,0.1,0.2,0.3][SK.l];const x=Math.floor(skLuckAcc);skLuckAcc-=x;return x;}
+function skMagnet(){
+  if(!skIs('magnet'))return;
+  const R=[0,60,95,130][SK.l];
+  for(const d of data){const dx=player.x-d.x,dy=player.y-d.y,q=Math.hypot(dx,dy);if(q>2&&q<R){d.x+=dx/q*2;d.y+=dy/q*2;}}
+}
+// щит: принимает удар вместо жизни
+function skBlock(){
+  if(!skIs('shield')||skShield<=0)return false;
+  skShield--;player.cool=D().cool;
+  burst(player.x,player.y,'#38bdf8',18);popup(player.x,player.y-30,'ЩИТ!','#0284c7');buzz(30);shake=4;
+  return true;
+}
+function skDraw(p){
+  if(skIs('shield')&&skShield>0){ctx.strokeStyle='rgba(56,189,248,0.85)';ctx.lineWidth=2.5;ctx.setLineDash([6,4]);ctx.beginPath();ctx.arc(p.x,p.y,p.r+13,time*0.03,time*0.03+TAU);ctx.stroke();ctx.setLineDash([]);}
+  if(skIs('slow')){ctx.fillStyle='rgba(125,211,252,0.07)';ctx.beginPath();ctx.arc(p.x,p.y,SLOW_R,0,TAU);ctx.fill();}
+}
+// награда за админ-абуз: раз в субботу, когда пройдено AB_GOAL уровней
+function crAward(wk){
+  if(save.evd.ab.w!==wk||save.evd.ab.n<AB_GOAL||save.evd.crw===wk)return '';
+  save.evd.cr=Math.min(1e6,save.evd.cr+CR_AB);save.evd.crw=wk;persist();evCloudSoon();
+  return '<p class="good">'+ico('gem')+' +'+CR_AB+' кристаллов за админ-абуз! Ими прокачивают скины в «Облике».</p>';
+}
+function skUpgrade(){
+  const c=wornLook().c,l=skinLvl(c);
+  if(l>=3||!SKIN_SKILL[c])return;
+  const cost=upCost(c,l);
+  if(crystals()<cost)return;
+  save.evd.up[c]=l+1;persist();evCloudSoon();buzz(60);
+  msg('Скин «'+SKIN_COLORS[c].name+'» прокачан до уровня '+(l+1)+': '+SKILLS[SKIN_SKILL[c]].n+'!',5000);
+}
+// карточка способности в «Облике»: что даёт сейчас, что даст следующий уровень, кнопка прокачки
+function skillCard(c,own){
+  const S=SKILLS[SKIN_SKILL[c]];
+  if(!S)return '';
+  const l=own?skinLvl(c):0;
+  let h='<div class="skill"><span class="sk-ic">'+ico(S.ic)+'</span><div><b>'+S.n+'</b><span class="pips" aria-label="Уровень '+l+' из 3">'+[1,2,3].map(i=>'<i'+(i<=l?' class="on"':'')+'></i>').join('')+'</span>'+
+    '<small>'+(l?'Сейчас: '+S.d(l):'Способность этого скина — включается прокачкой')+'</small>'+(l<3?'<small class="nx">Уровень '+(l+1)+': '+S.d(l+1)+'</small>':'')+
+    '<small class="pr">Цены уровней: '+S.cost.map((x,i)=>(i<l?'<s>'+x+'</s>':x)).join(' · ')+' кристаллов</small></div></div>';
+  if(!own)return h+'<p class="foot">Сначала получи этот цвет — потом его можно прокачать за кристаллы.</p>';
+  if(l>=3)return h+'<p class="good">Прокачан до предела!</p>';
+  const cost=upCost(c,l);
+  h+=crystals()>=cost?mb('skup','Прокачать до уровня '+(l+1)+' · '+ico('gem')+' '+cost,'gem')
+    :'<button type="button" class="mbtn gem" disabled>Нужно '+ico('gem')+' '+cost+' · у тебя '+crystals()+'</button>';
+  return h+'<p class="foot">'+ico('gem')+' Кристаллы: '+CR_AB+' каждую субботу за '+AB_GOAL+' уровня в админ-абуз. В гонке и турнире способности выключены — там все равны.</p>';
+}
 function ico(n,cls){return ICONS[n]?'<svg class="ic'+(cls?' '+cls:'')+'" aria-hidden="true" focusable="false"><use href="#ic-'+n+'"/></svg>':'';}
 function heartsStr(n){const m=maxLives(),l=Math.max(0,Math.min(m,n));return '♥'.repeat(l)+'♡'.repeat(m-l);}
 function chip(act,label,on){return '<button type="button" class="chip" data-act="'+act+'" aria-pressed="'+on+'">'+label+'</button>';}
@@ -4348,6 +4466,7 @@ function shopCard(cat,i,base,cur){
   else tag='<span class="tag price'+(coins()<it.price?' short':'')+'">◈ '+it.price+'</span>';
   const sub=own||it.ex?'':(it.act?'<small>или пройди акт '+it.act+'</small>':(it.sup?'<small>или ★ поддержка</small>':''));
   return '<button type="button" class="card'+(worn?' worn':'')+'" data-act="item:'+cat+':'+i+'" aria-pressed="'+(i===cur)+'">'+
+    (cat==='c'&&SKIN_SKILL[i]?'<span class="skb" title="'+SKILLS[SKIN_SKILL[i]].n+'">'+ico(SKILLS[SKIN_SKILL[i]].ic)+(own&&skinLvl(i)?'<b>'+skinLvl(i)+'</b>':'')+'</span>':'')+
     '<img src="'+shopThumb(look,cat)+'" alt="" width="72" height="72" draggable="false"><span class="nm">'+it.name+'</span>'+tag+sub+'</button>';
 }
 function shopRow(id,title,note,cards){
@@ -4395,11 +4514,12 @@ function shopHero(){
     else act='<button type="button" class="mbtn" disabled>Не хватает ◈ '+(it.price-coins())+'</button><p class="foot">Биты дают за данные, уровни, боссов, задания дня и достижения.</p>';
     if(!it.ex&&it.act)act+='<p class="foot">Или бесплатно — когда пройдёшь '+(it.act<ACTS.length?'акт '+it.act+' · '+ACTS[it.act-1].name:'всю игру')+'.</p>';
     else if(!it.ex&&it.sup)act+='<p class="foot">Или бесплатно — подарок за поддержку игры.</p>';
+    if(tryOn.cat==='c')act+=skillCard(tryOn.i,false);
     act+=mb('untry','Снять примерку','sm');
   }else{
     const L=wornLook();
     sub=[SKIN_COLORS[L.c].name,SKIN_SHAPES[L.s].name,TRAILS[L.t].name,HATS[L.h].name].join(' · ');
-    act='<p class="foot">Нажми на карточку внизу — примеришь. Своё надевается сразу.</p>';
+    act=(shopTab==='c'?skillCard(L.c,true):'')+'<p class="foot">Нажми на карточку внизу — примеришь. Своё надевается сразу.</p>';
   }
   return '<div class="shop-hero"><div class="shop-stage"><canvas id="pv" width="360" height="168" aria-label="Как выглядит твой файл"></canvas></div>'+
     '<div class="shop-info"><b class="shop-name">'+title+'</b>'+(sub?'<small>'+sub+'</small>':'')+act+'</div></div>';
@@ -4490,7 +4610,7 @@ function panelHTML(s){
     // все разделы — плитками со значком; метки на плитках — где ждёт награда
     const cont=save.unlocked>1,dq=pgDaily(),done=dq.q.filter((_,i)=>dq.c[i]).length,t=evNow();
     const tile=(act,ic,label,extra,cls)=>'<button type="button" class="tile'+(cls?' '+cls:'')+'" data-act="'+act+'"><span class="ti" aria-hidden="true">'+ico(ic)+'</span><span class="tl">'+label+'</span>'+(extra||'')+'</button>';
-    return '<div class="m-top">'+ACCT_ROW+'<span class="coin-pill" title="Биты">◈ <b>'+pgNum(coins())+'</b></span></div>'+
+    return '<div class="m-top">'+ACCT_ROW+'<span class="m-pills"><span class="coin-pill" title="Биты">◈ <b>'+pgNum(coins())+'</b></span><span class="coin-pill cr" title="Кристаллы">'+ico('gem')+' <b>'+crystals()+'</b></span></span></div>'+
       '<h2 class="logo">DATA.OUT</h2><p class="sub">ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       (updReady?mb('upd',''+ico('refresh')+' Вышла новая версия игры — обновить','primary'):'')+
       pgMenuHTML()+
@@ -4648,7 +4768,7 @@ function panelHTML(s){
       (cc.src==='ed'?'':pgNote())+'<div class="mcol">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
   }
   if(s==='skins'){
-    return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит</p>'+shopHero()+
+    return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит · '+ico('gem')+' <b>'+crystals()+'</b> кристаллов</p>'+shopHero()+
       '<div class="shop-tabs" role="tablist">'+SHOP_TABS.map(x=>chip('tab:'+x[0],ico(x[1])+' '+x[2]+(x[0]==='o'?'':'<small>'+shopOwnCount(x[0])+'/'+catOf(x[0]).list.length+'</small>'),x[0]===shopTab)).join('')+'</div>'+
       (shopTab==='o'?shopOutfits():shopRows())+
       '<p class="foot">Листай ряды вбок. Нажми на карточку — примеришь, своё надевается сразу. На клавиатуре: ← → вещь, ↑ ↓ раздел.</p>'+
@@ -4691,6 +4811,7 @@ function panelHTML(s){
       '<li><b>Музыка.</b> На сайте у каждого акта три записанных трека — уровни берут их по очереди, — и свой трек для боя с боссом. Если трек не загрузился (или игра открыта не с сайта), у каждого уровня играет своя синтезированная мелодия. Громкость и выключение — в настройках.</li>'+
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы. Уровни идут от самых лёгких к самым трудным: каждый следующий чуть сложнее предыдущего.</li>'+
+      '<li><b>Кристаллы и способности.</b> Кристаллы дают за админ-абуз: '+CR_AB+' штук раз в субботу за '+AB_GOAL+' уровня. В «Облике» ими прокачивают цвет (скин) до 3-го уровня — и он даёт способность: магнит для данных, щит от ударов, турбо-рывок, заряд EMP, удачу (больше бит), холод (враги рядом медленнее), лечение или супер-подножку. Какая — видно на карточке цвета. Цена прокачки — по силе способности: от 10 кристаллов (удача) до 1000 (щит на 3-м уровне). В гонке и турнире способности выключены.</li>'+
       '<li><b>Прогресс.</b> За данные, уровни, боссов, гонки, задания и достижения копится <b>опыт</b>: растёт уровень игрока и звание — от «Новичка» до «Сингулярности», за каждый новый уровень — биты. <b>Задания дня</b> — три новых каждый день в 00:00 по Москве, за все три — бонус. <b>Награда за вход</b> — каждый день, когда заходишь в игру; пропущенный день ничего не сжигает, а на 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ». <b>Достижения</b> — '+PG_ACH.length+', из них '+PG_ACH.filter(a=>a.sec).length+' секретных.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
@@ -4840,6 +4961,7 @@ function act(a){
   else if(k==='levels'){lvAct=actOf(save.unlocked-1);showMenu('levels');}
   else if(k==='tab'){shopTab=arg==='o'?'o':catOf(arg).id;tryOn=null;showMenu('skins',a);}
   else if(k==='row'){const r=panelEl.querySelector('.shop-row[data-row="'+arg+'"]');if(r)r.scrollBy({left:(Number(a.split(':')[2])<0?-1:1)*Math.max(120,r.clientWidth*0.8),behavior:'smooth'});}
+  else if(k==='skup'){skUpgrade();showMenu('skins','skup');}
   else if(k==='untry'){tryOn=null;tryLook=null;tryOutfit=null;showMenu('skins');}
   else if(k==='item')pickItem(a.split(':')[1],Number(a.split(':')[2]));
   else if(k==='buy')buyItem();
@@ -7026,7 +7148,7 @@ function evAbuse(){
 }
 function evIs(id){const x=evAbuse();return !!x&&x.a.id===id;}
 function evBitsMul(){if(TOUR)return 1;const t=evNow();if(nynOn(t))return 3;if(!abOn(t))return 1;return evIs('bits')?3:2;}
-function addBits(n){n*=evBitsMul();runBits+=n;lvBits+=n;}
+function addBits(n){n*=evBitsMul();n+=skLuck(n);runBits+=n;lvBits+=n;}
 // каждый шаг игры: начало абуза — объявление, дальше — его действие
 function evStep(){
   const x=evAbuse(),id=x?x.a.id+x.end:'';
@@ -7167,6 +7289,7 @@ function evCleared(){
   const wk=weekKey(evNow()),code=abItem(wk);
   if(save.evd.ab.w!==wk)save.evd.ab={w:wk,n:0};
   save.evd.ab.n++;persist();evCloudSoon();
+  h+=crAward(wk);
   if(code&&save.evd.ab.n>=AB_GOAL&&evGrant(code))return h+'<p class="good">'+ico('bolt')+' «'+exItem(code).name+'» — твой эксклюзив этой субботы!</p>';
   return h+'<p class="good">'+ico('bolt')+' Админ-абуз: биты ×2'+(code&&!exOwned(code)?' · уровней к «'+exItem(code).name+'»: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL:'')+'</p>';
 }
@@ -7267,7 +7390,11 @@ function parseEvd(v){
   const o=v&&typeof v==='object'?v:{},wk=x=>typeof x==='string'&&/^\d{4}-W\d{2}$/.test(x)?x:'';
   const ex=[];for(const c of Array.isArray(o.ex)?o.ex:[])if(typeof c==='string'&&/^[csth]\d{1,2}$/.test(c)&&exItem(c)&&ex.indexOf(c)<0)ex.push(c);
   const ab=o.ab&&typeof o.ab==='object'?o.ab:{},tb=o.tb&&typeof o.tb==='object'?o.tb:{};
-  return{ex,snow:clampInt(o.snow,0,1e6,0),gifts:clampInt(o.gifts,0,1e6,0),ab:{w:wk(ab.w),n:clampInt(ab.n,0,99,0)},tb:{w:wk(tb.w),ms:clampInt(tb.ms,0,36e5,0)},pw:wk(o.pw)};
+  // уровни прокачки скинов: номер цвета → 1…3
+  const up={},u0=o.up&&typeof o.up==='object'?o.up:{};
+  for(const k in u0){const c=Number(k),l=clampInt(u0[k],1,3,0);if(Number.isInteger(c)&&c>=0&&c<SKIN_COLORS.length&&l)up[c]=l;}
+  return{ex,snow:clampInt(o.snow,0,1e6,0),gifts:clampInt(o.gifts,0,1e6,0),ab:{w:wk(ab.w),n:clampInt(ab.n,0,99,0)},tb:{w:wk(tb.w),ms:clampInt(tb.ms,0,36e5,0)},pw:wk(o.pw),
+    cr:clampInt(o.cr,0,1e6,0),crw:wk(o.crw),up};
 }
 // из аккаунта: эксклюзивы объединяются, снежинок — больше из двух
 function mergeEvd(v){
@@ -7277,6 +7404,8 @@ function mergeEvd(v){
   if(b.ab.w&&(b.ab.w>a.ab.w||(b.ab.w===a.ab.w&&b.ab.n>a.ab.n)))a.ab=b.ab;
   if(b.tb.w&&(b.tb.w>a.tb.w||(b.tb.w===a.tb.w&&b.tb.ms&&(!a.tb.ms||b.tb.ms<a.tb.ms))))a.tb=b.tb;
   if(b.pw>a.pw)a.pw=b.pw;
+  a.cr=Math.max(a.cr,b.cr);if(b.crw>a.crw)a.crw=b.crw;
+  for(const k in b.up)a.up[k]=Math.max(a.up[k]||0,b.up[k]);
 }
 let evCloudT=0,evCloudKey='';
 function evCloudSoon(){clearTimeout(evCloudT);evCloudT=setTimeout(evCloud,1500);}
@@ -7311,7 +7440,7 @@ function evHTML(){
     (on?'<p class="good"><b>Идёт сейчас!</b> До конца — '+evLeft(w.to-t)+'.'+(x?' Сейчас: <b>'+x.a.name+'</b> — '+x.a.text:' Следующий абуз — через '+evLeft(AB_SLOT-((t-w.from)%AB_SLOT))+'.')+'</p>'
       :'<p>Следующий — через <b>'+evLeft(w.from-t)+'</b>.</p>')+
     '<p>Весь день все биты <b>×2</b>, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила — сразу у всех игроков: '+ABUSES.filter(a=>!a.winter||winterOn(t)).map(a=>'<b>'+a.name+'</b>').join(', ')+'.</p>'+
-    evWeekHTML(t,wk)+'</div>';
+    evWeekHTML(t,wk)+'<p>'+ico('gem')+' А ещё за '+AB_GOAL+' уровня — <b>'+CR_AB+' кристаллов</b> (раз в субботу): ими прокачивают скины, и скин даёт способность.</p></div>';
   // Новый год
   if(nyOn(t)||save.evd.gifts||(t>=NY.from-7*DAY&&t<NY.from)){
     h+='<div class="ev-card"><p class="lbl2">'+ico('tree')+' '+NY.name+' · 1 ДЕКАБРЯ – 11 ЯНВАРЯ</p>'+
