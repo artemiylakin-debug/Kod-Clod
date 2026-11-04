@@ -173,6 +173,42 @@
   .ev-top li{display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:6px}
   .ev-top li span{flex:1}
   .ev-top li.me{background:#7c3aed1a;font-weight:bold}
+  /* прогресс: уровень игрока, задания дня, календарь, достижения */
+  .pg-hot{border-color:var(--coin)!important;color:var(--coin)!important;animation:pgpulse 1.4s ease-in-out infinite}
+  @keyframes pgpulse{50%{box-shadow:0 0 0 4px #b4530933}}
+  @media (prefers-reduced-motion:reduce){.pg-hot{animation:none}}
+  .pg-card{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;font:inherit;color:var(--ink);background:var(--panel);border:2px solid var(--level);border-radius:12px;padding:8px 12px;margin:6px 0;cursor:pointer;text-align:left;touch-action:manipulation}
+  .pg-lv{flex:none;width:42px;height:42px;border-radius:50%;background:var(--level);color:#fff;font:bold 18px var(--font);display:flex;align-items:center;justify-content:center}
+  .pg-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .pg-mid b{font-size:14px;color:var(--level);letter-spacing:1px}
+  .pg-mid small,.pg-q small,.pg-a small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+  .pg-bar{display:block;height:8px;border-radius:4px;background:#0571;overflow:hidden}
+  .pg-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--level),#d946ef);border-radius:4px}
+  .dot{display:inline-block;min-width:16px;padding:0 4px;border-radius:9px;background:var(--danger);color:#fff;font-size:11px;line-height:16px;text-align:center;vertical-align:1px}
+  .panel p.pg-next{font-size:12px;margin:4px 0}
+  .pg-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:6px 0}
+  .pg-cal div{border:1px solid var(--line);border-radius:8px;padding:4px 1px;display:flex;flex-direction:column;align-items:center;gap:1px}
+  .pg-cal small{font-size:9px;color:var(--muted)}
+  .pg-cal b{font-size:15px;line-height:1.3}
+  .pg-cal span{font-size:11px;font-weight:bold;color:var(--coin)}
+  .pg-cal .got{background:#2a61a;border-color:var(--win)}
+  .pg-cal .got b{color:var(--win)}
+  .pg-cal .now{border:2px solid var(--level);background:#a2a1a}
+  .pg-q{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--line)}
+  .pg-q>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .pg-q b{font-size:13px}
+  .pg-q.got b{text-decoration:line-through;opacity:.6}
+  .pg-ok{color:var(--win);font-weight:bold;font-size:18px;flex:none}
+  .pg-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin:8px 0}
+  .pg-a{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;text-align:left}
+  .pg-a.got{border:2px solid var(--win);background:#2a611}
+  .pg-a>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .pg-a b{font-size:12px}
+  .pg-ic{font-size:22px;flex:none;width:30px;text-align:center}
+  .pg-a:not(.got) .pg-ic{filter:grayscale(1);opacity:.55}
+  .pg-rw{font-size:11px;font-weight:bold;color:var(--coin);flex:none}
+  .pg-a.got .pg-rw{color:var(--win);font-size:16px}
+  .pg-note{border:1px dashed var(--level);border-radius:10px;padding:6px 10px;margin:6px 0;display:flex;flex-direction:column;gap:4px}
   .hs-tip{border:2px dashed var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.35}
   .hs-btns{display:flex;gap:6px;justify-content:center;margin-top:6px}
   .hs-steps{text-align:left;padding-left:22px;margin:8px 0}
@@ -1406,7 +1442,9 @@ const SKIN_COLORS=[
   // эксклюзивы суббот (wk — неделя админ-абуза) и Нового года (ny)
   {name:'АДМИН-НЕОН',ex:'wk',wk:'2026-W46',d:'14.11',neon:280,main:'#a855f7',dark:'#2e1065',ring:'#c084fc',trail:'#d8b4fe',sw:'linear-gradient(135deg,#7c3aed,#c084fc,#7c3aed)'},
   {name:'ГЛИТЧ',ex:'wk',wk:'2026-W49',d:'05.12',main:'#22d3ee',dark:'#3b0764',ring:'#e879f9',trail:'#f0abfc',alt:{main:'#e879f9',dark:'#083344',ring:'#22d3ee',trail:'#67e8f9'},sw:'linear-gradient(90deg,#22d3ee 50%,#e879f9 50%)'},
-  {name:'ЁЛКА',ex:'ny',main:'#15803d',dark:'#052e16',ring:'#facc15',trail:'#4ade80',sw:'linear-gradient(135deg,#15803d,#22c55e,#facc15)'}
+  {name:'ЁЛКА',ex:'ny',main:'#15803d',dark:'#052e16',ring:'#facc15',trail:'#4ade80',sw:'linear-gradient(135deg,#15803d,#22c55e,#facc15)'},
+  // награда календаря за вход (cal): седьмой день в первый раз
+  {name:'ВЕРНОСТЬ',ex:'cal',main:'#14b8a6',dark:'#042f2e',ring:'#f59e0b',trail:'#5eead4',sw:'linear-gradient(135deg,#14b8a6,#5eead4,#f59e0b)'}
 ];
 const SKIN_SHAPES=[
   {name:'ГЕКСАГОН'},{name:'ЯДРО'},{name:'РОМБ'},
@@ -1476,7 +1514,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:''},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:''},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1506,6 +1544,8 @@ try{
     save.nick=typeof s.nick==='string'?s.nick.slice(0,20):'';
     save.outfits=parseOutfits(s.outfits);
     save.bio=typeof s.bio==='string'?s.bio.slice(0,200):'';
+    // прогресс разбирается в разделе ПРОГРЕСС (parsePg): там описаны достижения и задания
+    save.pg=s.pg&&typeof s.pg==='object'?s.pg:null;
   }
 }catch(_){}
 // аккаунт (см. раздел АККАУНТ ниже); пока не подключён — прогресс только в этом браузере
@@ -1611,6 +1651,7 @@ function buyOutfit(){
   const sh=outfitShop(o);
   if(!sh.sale.length||coins()<sh.sum)return;
   for(const x of sh.sale)save.own.push(x.k+x.i);
+  pgAdd('buy',sh.sale.length);
   buzz(40);
   if(!sh.locked.length){wearOutfit(o);msg('Наряд «'+o.n+'» куплен и надет.');return;}
   // надеваем всё, что теперь есть; остальное остаётся примеркой
@@ -1637,6 +1678,7 @@ function saveOutfit(){
   if(i<0&&save.outfits.length>=OUTFIT_MAX){msg('Нарядов уже '+OUTFIT_MAX+' — удали ненужный (✕), чтобы сохранить новый.',6000);return;}
   const o={n,c:L.c,s:L.s,t:L.t,h:L.h};
   if(i>=0)save.outfits[i]=o;else save.outfits.push(o);
+  pgAdd('of');
   persist();outfitsCloud();
   msg('Наряд «'+n+'» сохранён.');
 }
@@ -1682,7 +1724,7 @@ function colOf(i,t){
 }
 // биты текущего уровня: копятся в игре и записываются в сохранение на паузе, в меню и в конце уровня
 let runBits=0,lvBits=0;
-function bankBits(){if(CUSTOM||RACE_DIFF||TOUR){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();}}
+function bankBits(){if(CUSTOM||RACE_DIFF||TOUR){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();pgCheck('bits');}}
 
 let Q=QUALITY.high,resScale=1,perfT=0,perfFrames=0;
 function computeQuality(){
@@ -1745,6 +1787,7 @@ function startLevel(i,cust){
   stormT=150;intro=180;lastEmpDrop=0;
   emp=Math.max(emp,1);
   lvStart={score,emp,lives};
+  pgLvStart();
   player.cool=60;
   for(let k=0;k<4;k++)spawnData();
   c.start.slice(0,Math.max(1,c.start.length-D().startCut)).forEach(t=>spawnEnemy(t));
@@ -1986,13 +2029,13 @@ function shoot(x,y,a,sp,r,life){
 function hitPlayer(){
   if(phase!=='game'||player.cool>0||evIs('god'))return;
   burst(player.x,player.y,'#e33',20);
-  lives--;shake=10;
+  lives--;shake=10;pgHurt=1;
   buzz(lives<=0?200:70);
   player.cool=D().cool;
   player.vx=(Math.random()-0.5)*14;
   player.vy=(Math.random()-0.5)*14;
   if(lives<=0){
-    lives=0;
+    lives=0;pgDied();
     if(TOUR){tourDied();return;}
     if(RACE_DIFF){mpDied();return;}
     if(!CUSTOM)save.best=Math.max(save.best,score);
@@ -2009,12 +2052,12 @@ function levelClear(){
   if(lvl>=LEVELS.length-1){
     save.unlocked=LEVELS.length;
     save.wins=(save.wins||0)+1;
-    persist();
+    persist();pgCleared();
     phase='win';showMenu('win');
     return;
   }
   save.unlocked=Math.max(save.unlocked,lvl+2);persist();
-  evClearNote=evCleared();
+  evClearNote=evCleared()+pgCleared();
   phase='clear';showMenu('clear');
 }
 // роутер: вошёл в кольцо — вышел из парного; снова сработает, только когда выйдешь из колец
@@ -2075,6 +2118,7 @@ function step(){
   let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
   let iy=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+joy.y;
   const il=Math.hypot(ix,iy);if(il>1){ix/=il;iy/=il;}
+  pgStep(ix,iy);
   // в зоне инверсии управление наоборот
   if((invs.length||zInv)&&inInv(player.x,player.y)){ix=-ix;iy=-iy;}
   player.vx+=ix*acc*mult;player.vy+=iy*acc*mult;
@@ -2093,7 +2137,7 @@ function step(){
       if(d>0.5){dx=player.vx/d;dy=player.vy/d;}
       else{dx=Math.cos(player.face);dy=Math.sin(player.face);}
       player.vx=dx*16;player.vy=dy*16;
-      player.dashT=14;player.dashCd=70;
+      player.dashT=14;player.dashCd=70;pgAdd('dash');
       burst(player.x,player.y,sk.trail,12);
     }else pressed.dash--;
   }
@@ -2117,6 +2161,7 @@ function step(){
       }
       burst(player.x,player.y,'#b7791f',14,3);
       buzz(25);
+      if(n){pgAdd('trip',n);if(n>=5)pgSecret('trip5');}
       msg(n?'ПОДНОЖКА! Споткнулись: '+n+' — беги!':'ПОДНОЖКА: рядом никого');
     }else pressed.trip--;
   }
@@ -2162,7 +2207,7 @@ function step(){
       emp--;player.empCd=25;shake=12;
       buzz(30);
       burst(player.x,player.y,'#39c',26,4);
-      let gained=0;
+      let gained=0,kills=0;
       enemies=enemies.filter(e=>{
         const d=enemyDist(e,player.x,player.y);
         if(d>=170)return true;
@@ -2177,11 +2222,12 @@ function step(){
         const pts=PTS[e.type]||1;
         burst(e.x,e.y,'#e33',16);
         popup(e.x,e.y,'+'+pts,'#0a5');
-        gained+=pts;
+        gained+=pts;kills++;
         if(e.type==='thief'&&e.loot)returnLoot(e);
         return false;
       });
       bullets=[];
+      if(kills){pgAdd('emp',kills);if(kills>=5)pgSecret('emp5');}
       if(boss&&bossDist(boss)<200&&boss.hid){
         msg('«'+boss.name+'» растворился — EMP его не видит. Жди, где он выйдет');
       }else if(boss&&bossDist(boss)<200&&boss.shield){
@@ -2198,7 +2244,7 @@ function step(){
           popup(boss.x,boss.y,'+5','#f80');
           boss=null;
           spawnPortal();
-          gained+=5;addBits(BOSS_BITS);
+          gained+=5;addBits(BOSS_BITS);pgBoss();
           popup(player.x,player.y-40,'+'+BOSS_BITS+' ◈','#b45309');
           const a=actOf(lvl);
           msg('«'+name+'» УНИЧТОЖЕН! '+(lvl===LEVELS.length-1?'ВЫХОД НА СВОБОДУ':(lvl===ACTS[a].end?'ПОРТАЛ: '+ACTS[a+1].name:'ПОРТАЛ'))+' ОТКРЫТ — ВХОДИ!');
@@ -2578,7 +2624,7 @@ function step(){
       burst(dt.x,dt.y,'#0a5',12);
       popup(dt.x,dt.y,'+1','#0a5');
       data.splice(i,1);spawnData();
-      score++;got++;addBits(1);evData();
+      score++;got++;addBits(1);evData();pgAdd('d');pgXp(1);
       // бонусы по расписанию: каждые 5 данных — EMP, аптечка — каждые 6–10 (по сложности), каждые 12 — разгон
       if(!portal){
         if(got%5===0)dropPickup('emp');
@@ -4011,7 +4057,7 @@ function render(opaque){
     ctx.fillStyle='#057';ctx.fillText(s,8,H-8);
   }
   if(RACE_DIFF&&MP)mpDrawHud();
-  evDraw();
+  evDraw();pgDraw();
   updateHud();
 }
 
@@ -4129,7 +4175,7 @@ function panelHTML(s){
   if(s==='main'){
     const cont=save.unlocked>1;
     return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
-      ACCT_ROW+
+      ACCT_ROW+pgMenuHTML()+
       '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</p>'+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       (hsTipOn()?'<div class="hs-tip"><b>📲 Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
@@ -4263,6 +4309,8 @@ function panelHTML(s){
   if(s==='race')return mpHTML();
   if(s==='homescr')return hsHTML();
   if(s==='events')return evHTML();
+  if(s==='quests')return pgQuestsHTML();
+  if(s==='ach')return pgAchHTML();
   if(s==='tourres')return tourResHTML();
   if(s==='mcp')return mcpHTML();
   if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
@@ -4272,7 +4320,7 @@ function panelHTML(s){
     return '<h2 class="good">УРОВЕНЬ ПРОЙДЕН</h2><p><b>'+escHTML(cc.name||'')+'</b>'+(cc.by?' · автор: '+escHTML(cc.by):'')+'</p>'+
       '<p>Очки: <b>'+score+'</b>. Уровни игроков не влияют на рекорд, уровни и биты.</p>'+
       (cc.src==='ed'?'<p class="good">Проверка пройдена — теперь уровень можно опубликовать.</p>':'')+
-      '<div class="mcol">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
+      (cc.src==='ed'?'':pgNote())+'<div class="mcol">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
   }
   if(s==='skins'){
     const cat=catOf(shopTab),L=previewLook(),cur=L[shopTab],it=cat.list[cur];
@@ -4329,6 +4377,7 @@ function panelHTML(s){
       '<li><b>Музыка.</b> На сайте у каждого акта три записанных трека — уровни берут их по очереди, — и свой трек для боя с боссом. Если трек не загрузился (или игра открыта не с сайта), у каждого уровня играет своя синтезированная мелодия. Громкость и выключение — в настройках.</li>'+
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы. Уровни идут от самых лёгких к самым трудным: каждый следующий чуть сложнее предыдущего.</li>'+
+      '<li><b>Прогресс.</b> За данные, уровни, боссов, гонки, задания и достижения копится <b>опыт</b>: растёт уровень игрока и звание — от «Новичка» до «Сингулярности», за каждый новый уровень — биты. <b>Задания дня</b> — три новых каждый день в 00:00 по Москве, за все три — бонус. <b>Награда за вход</b> — каждый день, когда заходишь в игру; пропущенный день ничего не сжигает, а на 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ». <b>Достижения</b> — '+PG_ACH.length+', из них '+PG_ACH.filter(a=>a.sec).length+' секретных.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
   }
@@ -4357,7 +4406,7 @@ function panelHTML(s){
   }
   if(s==='dead'){
     return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' · данных спасено: <b>'+score+'</b>'+(lvBits&&!CUSTOM?' · биты: <b>+'+lvBits+'</b>':'')+'</p>'+
-      '<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu',CUSTOM?'Назад':'Главное меню')+'</div>'+
+      pgNote()+'<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu',CUSTOM?'Назад':'Главное меню')+'</div>'+
       '<p class="foot">R — запустить резервную копию</p>';
   }
   if(s==='win'){
@@ -4428,7 +4477,7 @@ function hideMenu(){
 function goMenu(){
   if(TOUR){TOUR=null;TOUR_DIFF='';runBits=0;}
   evClearNote='';
-  bankBits();
+  bankBits();pgFlush();
   phase='menu';zmap='';zLag=zInv=zFlow=false;
   // с уровня игрока — обратно к своему уровню основной игры (он виден в полосе сверху)
   if(CUSTOM){CUSTOM=null;lvl=lvlMain;}
@@ -4457,7 +4506,7 @@ function buyItem(){
   if(!tryOn)return;
   const c=catOf(tryOn.cat),it=c.list[tryOn.i];
   if(!it.price||owned(tryOn.cat,tryOn.i)||coins()<it.price)return;
-  save.own.push(tryOn.cat+tryOn.i);
+  save.own.push(tryOn.cat+tryOn.i);pgAdd('buy');
   save[c.key]=tryOn.i;
   const id='item:'+tryOn.cat+':'+tryOn.i;
   tryOn=null;persist();buzz(40);
@@ -4476,6 +4525,9 @@ function act(a){
   else if(k==='tab'){shopTab=catOf(a.split(':')[1]).id;tryOn=null;showMenu('skins',a);}
   else if(k==='item')pickItem(a.split(':')[1],Number(a.split(':')[2]));
   else if(k==='buy')buyItem();
+  else if(k==='qclaim'){pgClaimQ(n);showMenu('quests');}
+  else if(k==='qbonus'){pgClaimBonus();showMenu('quests');}
+  else if(k==='calclaim'){pgCalClaim();showMenu('quests');}
   else if(k==='outfit'){wearOutfit(save.outfits[n]);showMenu('skins',a);}
   else if(k==='ofidea'){wearOutfit(OUTFIT_IDEAS[n]);showMenu('skins',a);}
   else if(k==='ofbuy'){buyOutfit();showMenu('skins','ofbuy');}
@@ -5065,6 +5117,7 @@ function newRunCustom(c){score=0;lives=maxLives();emp=1;startLevel(0,c);}
 function customClear(){
   const c=CUSTOM;
   if(c.src==='ed'&&ED&&c.edKey===edKey()){edTested=c.edKey;edPersist();}
+  if(c.src!=='ed'){pgHush=true;try{pgAdd('com');pgXp(10);}finally{pgHush=false;}pgFlush();}
   phase='clear';showMenu('cclear');
 }
 function leaveCustom(){const back=customBack;goMenu();showMenu(back);}
@@ -5375,6 +5428,7 @@ async function edPublish(){
     if(!id)throw new Error('сервер не вернул уровень');
     if(!edDraft)edDraft={id:'d'+Date.now().toString(36),pub:null};
     edDraft.pub=id;edPersist();
+    pgAdd('pub');pgFlush();
     edNote='Опубликовано! Уровень виден всем в «Сообществе».';
   }catch(e){edNote='Не получилось опубликовать: '+(e.status===0?'нет связи с сервером.':errMsg(e));}
   if(menuScreen==='editor')showMenu('editor');
@@ -5498,6 +5552,7 @@ async function comLike(id){
     if(was)await netFetch('/rest/v1/level_likes?level_id=eq.'+id+'&user_id=eq.'+encodeURIComponent(NET.user.id),{method:'DELETE',headers:netHeaders(tok)});
     else await netFetch('/rest/v1/level_likes?on_conflict=level_id,user_id',{method:'POST',headers:Object.assign(netHeaders(tok),{Prefer:'resolution=ignore-duplicates,return=minimal'}),body:JSON.stringify({level_id:id})});
     comLiked[id]=!was;
+    if(!was){pgAdd('like');pgFlush();}
     if(r)r.likes=Math.max(0,r.likes+(was?-1:1));
     if(menuScreen==='cclear'){const b=panelEl.querySelector('[data-act="clike:'+id+'"]');if(b){b.textContent='♥ Спасибо!';b.disabled=true;}}
     else redrawCards();
@@ -6202,6 +6257,9 @@ function mpEnd(res){
   runBits=0;lvBits=0;RACE_DIFF='';
   if(phase!=='menu')goMenu();
   showMenu('race');
+  pgAdd('race');pgXp(20);
+  if(res==='win'||res==='left'||res==='lost'){pgAdd('rwin');pgXp(20);}
+  pgFlush();
 }
 // сдаться: соперник получает «пока» и победу, а сдавшийся выходит и из комнаты
 function mpQuit(){
@@ -6584,7 +6642,7 @@ const NY_REWARDS=[{code:'c28',need:30},{code:'t17',need:80},{code:'h32',need:150
 // эксклюзив каждой субботы: у вещи в таблице облика — неделя wk; 7 ноября — «Корона админа»
 const AB_WEEKLY={'2026-W45':'h27'};
 for(const cat of CATS)cat.list.forEach((it,i)=>{if(it.ex==='wk')AB_WEEKLY[it.wk]=cat.id+i;});
-const EX_TAG={w26:'❄',ab:'⚡',cup:'🏆',wk:'⚡',ny:'🎄',nyn:'🎆'};
+const EX_TAG={w26:'❄',ab:'⚡',cup:'🏆',wk:'⚡',ny:'🎄',nyn:'🎆',cal:'📅'};
 const ABUSES=[
   {id:'bits',name:'БИТОПАД',text:'Все биты ×3 целую минуту!',color:'#d97706'},
   {id:'freeze',name:'ЗАМОРОЗКА',text:'Админ заморозил врагов!',color:'#0284c7'},
@@ -6680,6 +6738,7 @@ function evGiftGot(p){
   save.evd.gifts=Math.min(1e6,save.evd.gifts+1);
   burst(p.x,p.y,'#dc2626',10);burst(p.x,p.y,'#facc15',8);popup(p.x,p.y,'🎁 +1','#dc2626');buzz(20);
   for(const r of NY_REWARDS)if(save.evd.gifts>=r.need)evGrant(r.code);
+  pgCheck('ev');
   persist();evCloudSoon();
 }
 // коробка с лентой (подарок на поле)
@@ -6694,6 +6753,7 @@ function evSnowGot(p){
   save.evd.snow=Math.min(1e6,save.evd.snow+add);
   burst(p.x,p.y,'#7fc4f0',12);popup(p.x,p.y,'❄ +'+add,'#0284c7');buzz(20);
   for(const r of WINTER_REWARDS)if(save.evd.snow>=r.need)evGrant(r.code);
+  pgCheck('ev');
   persist();evCloudSoon();
 }
 function exItem(code){const c=catOf(code[0]),it=c.list[Number(code.slice(1))];return it&&it.ex?it:null;}
@@ -6701,6 +6761,7 @@ function evGrant(code){
   if(save.evd.ex.indexOf(code)>=0||!exItem(code))return false;
   save.evd.ex.push(code);persist();evCloudSoon();
   msg('🎁 ЭКСКЛЮЗИВ: «'+exItem(code).name+'» — твой! Надень его в «Облике».',8000);buzz(150);
+  pgCheck('ex');
   return true;
 }
 function exOwned(code){return save.evd.ex.indexOf(code)>=0;}
@@ -6715,6 +6776,7 @@ function exHow(it,code){
     return winterOn(evNow())?'❄ Эксклюзив ивента «'+WINTER.name+'»: собери '+r.need+' снежинок на уровнях (у тебя '+save.evd.snow+'). Только до 30 ноября!':'❄ Эксклюзив ивента «'+WINTER.name+'» (ноябрь 2026) — ивент закончился.';}
   if(it.ex==='ab')return '⚡ Эксклюзив админ-абуза: пройди '+AB_GOAL+' уровня в субботу с '+AB_FROM+':00 до '+AB_TO+':00 по Москве.';
   if(it.ex==='cup')return '🏆 Награда тройке лучших «Турнира недели» — по субботам в «Ивентах».';
+  if(it.ex==='cal')return '📅 Награда календаря за вход: забери 7 наград дня (у тебя '+Math.min(7,save.pg.cal.n)+' из 7). Дни можно пропускать — ничего не сгорает.';
   return 'Эксклюзив ивента.';
 }
 // снег над полем: лёгкие снежинки, сколько — по качеству графики
@@ -6819,6 +6881,7 @@ function tourFinished(){
   const best=save.evd.tb.w===w?Math.min(save.evd.tb.ms,ms):ms;
   save.evd.tb={w,ms:best};persist();
   tourEnd({ok:true,w,lv:TOUR.lv,ms,best,rec:best===ms});
+  pgAdd('tour');pgXp(20);pgFlush();
 }
 function tourSec(ms){return (ms/1000).toFixed(2).replace('.',',')+' с';}
 async function tourSubmit(res){
@@ -6896,12 +6959,15 @@ function mergeEvd(v){
   if(b.tb.w&&(b.tb.w>a.tb.w||(b.tb.w===a.tb.w&&b.tb.ms&&(!a.tb.ms||b.tb.ms<a.tb.ms))))a.tb=b.tb;
   if(b.pw>a.pw)a.pw=b.pw;
 }
-let evCloudT=0;
+let evCloudT=0,evCloudKey='';
 function evCloudSoon(){clearTimeout(evCloudT);evCloudT=setTimeout(evCloud,1500);}
+// ивенты и прогресс уходят в аккаунт одним запросом и только если что-то поменялось; false — не дошло
 async function evCloud(){
-  if(acct.kind==='claude'){persist();return;}
-  if(!NET_ON||!NET.user)return;
-  try{const tok=await netToken();if(tok)await netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body:JSON.stringify({data:{evd:save.evd}})});}catch(_){}
+  if(acct.kind==='claude'){persist();return true;}
+  if(!NET_ON||!NET.user)return true;
+  const body=JSON.stringify({data:{evd:save.evd,pg:save.pg}});
+  if(body===evCloudKey)return true;
+  try{const tok=await netToken();if(!tok)return false;await netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body});evCloudKey=body;return true;}catch(_){return false;}
 }
 
 // ---------- экран «Ивенты» ----------
@@ -6987,6 +7053,420 @@ function tourResHTML(){
 // время сервера — при запуске и раз в 10 минут; заодно призы прошлого турнира
 evSyncTime();
 setInterval(evSyncTime,600000);
+
+// ================= ПРОГРЕСС: уровень игрока, достижения, задания дня, календарь =================
+// Всё держится на счётчиках save.pg.st: игра прибавляет их (pgAdd), достижения и задания дня
+// сравнивают с ними. Хранится в браузере и в аккаунте (на сайте — user_metadata.pg, вместе с evd).
+// Нарочно нет: наград за время в игре или за то, что игра просто открыта, сгорающих серий входа,
+// рулеток и сундуков со случайной наградой, окон «не уходи» и напоминаний ночью.
+const PG_KEYS=['d','lv','boss','emp','dash','trip','clean','die','com','like','pub','race','rwin','tour','buy','of','ab','dq'];
+const PG_TITLES=[[1,'НОВИЧОК'],[5,'ФАЙЛ'],[10,'ПРОГРАММА'],[15,'СКРИПТ'],[20,'ВИРУС'],[25,'ХАКЕР'],[30,'АДМИН'],[40,'СУПЕРАДМИН'],[50,'СИНГУЛЯРНОСТЬ']];
+// награда достижения по ступени: биты и опыт
+const PG_TIER_BITS=[25,50,100,200],PG_TIER_XP=[25,50,100,200];
+// задания дня: за каждое — биты и опыт, за все три — бонус
+const PG_Q_BITS=40,PG_Q_XP=30,PG_QB_BITS=60,PG_QB_XP=50;
+// календарь за вход: 7 дней по кругу; пропуск дня ничего не сжигает
+const PG_CAL=[30,40,50,60,80,100,150];
+// «Молния»: уровень быстрее 20 секунд (шагов игры — 60 в секунду)
+const PG_FAST=1200;
+const PG_ACH=[];
+// код, значок, название, что сделать, счётчик, сколько, ступень награды, подсказка секретного
+function pgA(id,ic,name,text,k,n,t,hint){PG_ACH.push({id,ic,name,text,k,n,t,sec:!!hint,hint:hint||''});}
+pgA('u10','🚪','ПЕРВЫЕ ШАГИ','Пройди 10 уровней','u',10,0);
+pgA('u25','🗑','ПРОЧЬ ИЗ КОРЗИНЫ','Пройди 25 уровней','u',25,1);
+pgA('u50','☁','ВЫШЕ ОБЛАКОВ','Пройди 50 уровней','u',50,1);
+pgA('u100','🌐','СОТНЯ','Пройди 100 уровней','u',100,2);
+pgA('u200','🚀','ДВЕСТИ','Пройди 200 уровней','u',200,2);
+pgA('u300','🌋','ТРИСТА','Пройди 300 уровней','u',300,3);
+pgA('u499','✨','У ИСТОЧНИКА','Дойди до последнего уровня','u',LEVELS.length-1,3);
+pgA('win','🕊','СВОБОДНЫЙ КОД','Соверши побег — пройди всю игру','win',1,3);
+pgA('d100','💾','СБОРЩИК','Собери 100 данных','d',100,0);
+pgA('d1k','🗄','АРХИВАРИУС','Собери 1 000 данных','d',1000,1);
+pgA('d10k','🏦','ХРАНИЛИЩЕ','Собери 10 000 данных','d',10000,2);
+pgA('d50k','🌌','БОЛЬШИЕ ДАННЫЕ','Собери 50 000 данных','d',50000,3);
+pgA('cl1','🛡','БЕЗ ЦАРАПИНЫ','Пройди уровень, ни разу не получив урон','clean',1,0);
+pgA('cl10','🧤','АККУРАТИСТ','Пройди 10 уровней без урона','clean',10,1);
+pgA('cl50','💎','НЕУЛОВИМЫЙ','Пройди 50 уровней без урона','clean',50,2);
+pgA('b1','👾','ПЕРВЫЙ БОСС','Победи босса','boss',1,0);
+pgA('b10','⚔','ГРОЗА БОССОВ','Победи 10 боссов','boss',10,1);
+pgA('b25','👑','ОХОТНИК НА БОССОВ','Победи 25 боссов','boss',25,2);
+pgA('e10','⚡','ЭЛЕКТРИК','Взорви EMP 10 врагов','emp',10,0);
+pgA('e100','🌩','ГРОЗА','Взорви EMP 100 врагов','emp',100,1);
+pgA('e1k','💥','ЭЛЕКТРОСТАНЦИЯ','Взорви EMP 1 000 врагов','emp',1000,2);
+pgA('ds100','💨','РЫВОК','Сделай 100 рывков','dash',100,0);
+pgA('ds1k','🏃','СПРИНТЕР','Сделай 1 000 рывков','dash',1000,1);
+pgA('tr10','🦶','ПОДНОЖКА','Сбей подножкой 10 врагов','trip',10,0);
+pgA('tr100','🤸','МАСТЕР ПОДНОЖЕК','Сбей подножкой 100 врагов','trip',100,1);
+pgA('dd10','🔁','РЕЗЕРВНАЯ КОПИЯ','Не сдавайся после 10 неудач','die',10,0);
+pgA('dd100','🧱','ЖЕЛЕЗНАЯ ВОЛЯ','Не сдавайся после 100 неудач','die',100,1);
+pgA('cm1','🎮','ГОСТЬ','Пройди уровень игрока в «Сообществе»','com',1,0);
+pgA('cm10','🧭','ПУТЕШЕСТВЕННИК','Пройди 10 уровней игроков','com',10,1);
+pgA('lk1','❤','ДОБРОЕ СЕРДЦЕ','Поставь лайк уровню игрока','like',1,0);
+pgA('pb1','🛠','СОЗДАТЕЛЬ','Опубликуй свой уровень','pub',1,1);
+pgA('rc1','🏁','НА СТАРТ!','Сыграй гонку','race',1,0);
+pgA('rw1','🥇','ПЕРВАЯ ПОБЕДА','Выиграй гонку','rwin',1,1);
+pgA('rw10','🏎','ГОНЩИК','Выиграй 10 гонок','rwin',10,2);
+pgA('ab3','🤖','ДРУГ АДМИН-БОТА','Пройди 3 уровня в админ-абуз','ab',3,1);
+pgA('to1','🏆','ТУРНИРНЫЙ БОЕЦ','Пройди уровень турнира недели','tour',1,1);
+pgA('ex1','🎁','КОЛЛЕКЦИОНЕР','Получи эксклюзив','ex',1,0);
+pgA('ex5','🧿','РЕДКОСТИ','Собери 5 эксклюзивов','ex',5,2);
+pgA('ev50','❄','МОРОЗНЫЙ СБОРЩИК','Собери 50 снежинок и подарков','ev',50,1);
+pgA('by1','🛍','ОБНОВКА','Купи вещь в «Облике»','buy',1,0);
+pgA('by10','🕶','МОДНИК','Купи 10 вещей','buy',10,1);
+pgA('of1','👗','СТИЛИСТ','Сохрани наряд','of',1,0);
+pgA('bt1k','🐷','КОПИЛКА','Заработай 1 000 бит','bits',1000,0);
+pgA('bt10k','💰','БИТОВЫЙ МАГНАТ','Заработай 10 000 бит','bits',10000,2);
+pgA('dq10','🎯','ИСПОЛНИТЕЛЬНЫЙ','Выполни 10 заданий дня','dq',10,1);
+pgA('dq50','📋','НАДЁЖНЫЙ','Выполни 50 заданий дня','dq',50,2);
+pgA('dy7','📅','НЕДЕЛЯ В ИГРЕ','Забери 7 наград календаря','days',7,1);
+pgA('dy30','🗓','СВОЙ ЧЕЛОВЕК','Забери 30 наград календаря','days',30,3);
+pgA('pl10','⭐','ДЕСЯТКА','Достигни 10-го уровня игрока','pl',10,1);
+pgA('pl25','🌟','ВЕТЕРАН','Достигни 25-го уровня игрока','pl',25,3);
+// секретные: что сделать — не видно, пока не получишь; видна только загадка
+pgA('still','🗿','ПРИТВОРИЛСЯ ВЫКЛЮЧЕННЫМ','Простой 10 секунд на уровне рядом с врагами','sec',1,1,'Иногда лучше ничего не делать…');
+pgA('trip5','🎳','СТРАЙК','Сбей подножкой 5 врагов сразу','sec',1,1,'Чем их больше, тем громче падают');
+pgA('emp5','🎆','МЕГАВЗРЫВ','Взорви 5 врагов одним EMP','sec',1,1,'Один заряд — целая толпа');
+pgA('close','😅','НА ВОЛОСКЕ','Пройди уровень с последней жизнью','sec',1,1,'Последняя жизнь — ещё не конец');
+pgA('bossclean','🛸','НЕПРИКАСАЕМЫЙ','Победи босса, не получив урона на уровне','sec',1,1,'Босс так до тебя и не дотронулся');
+pgA('fast','⚡','МОЛНИЯ','Пройди уровень быстрее 20 секунд','sec',1,1,'Быстрее, ещё быстрее!');
+pgA('logo','🔍','ЛЮБОПЫТНЫЙ','Нажми 7 раз на название игры в меню','sec',1,1,'Название игры что-то скрывает');
+const PG_ID={},PG_BY={};
+for(const a of PG_ACH){PG_ID[a.id]=a;if(a.k!=='sec')(PG_BY[a.k]=PG_BY[a.k]||[]).push(a);}
+// пул заданий дня: каждый день — три разных (по разным счётчикам), одинаковые у всех, кому они доступны
+const PG_Q=[
+  {id:'d30',k:'d',n:30,t:'Собери 30 данных'},
+  {id:'d80',k:'d',n:80,t:'Собери 80 данных'},
+  {id:'lv3',k:'lv',n:3,t:'Пройди 3 уровня'},
+  {id:'lv5',k:'lv',n:5,t:'Пройди 5 уровней'},
+  {id:'clean',k:'clean',n:1,t:'Пройди уровень, ни разу не получив урон'},
+  {id:'boss',k:'boss',n:1,t:'Победи босса',ok:()=>save.unlocked>ACTS[0].end},
+  {id:'emp',k:'emp',n:8,t:'Взорви EMP 8 врагов'},
+  {id:'dash',k:'dash',n:25,t:'Сделай 25 рывков'},
+  {id:'trip',k:'trip',n:5,t:'Сбей подножкой 5 врагов'},
+  {id:'com',k:'com',n:1,t:'Пройди уровень игрока в «Сообществе»',ok:()=>NET_ON},
+  {id:'like',k:'like',n:1,t:'Поставь лайк уровню игрока, который понравился',ok:()=>NET_ON},
+  {id:'ev',k:'ev',n:6,t:()=>nyOn(evNow())?'Собери 6 подарков 🎁':'Собери 6 снежинок ❄',ok:()=>{const t=evNow();return winterOn(t)||nyOn(t);}},
+  {id:'ab',k:'ab',n:2,t:'Пройди 2 уровня в админ-абуз',ok:()=>{const t=evNow();return mskDay(abWindow(t).from)===mskDay(t);}}
+];
+function pgQ(id){return PG_Q.find(q=>q.id===id)||null;}
+function pgQText(q){return typeof q.t==='function'?q.t():q.t;}
+
+// опыт: с уровня L на L+1 нужно 100+50·(L−1)
+function pgNeed(L){return 100+50*(L-1);}
+function pgLevel(xp){let L=1;while(L<999&&xp>=pgNeed(L)){xp-=pgNeed(L);L++;}return{L,cur:xp,need:pgNeed(L)};}
+function pgTitle(L){let t=PG_TITLES[0][1];for(const x of PG_TITLES)if(L>=x[0])t=x[1];return t;}
+function pgLvBits(L){return Math.min(150,25+5*L);}
+function pgNum(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');}
+function pgDay(){return mskDay(evNow());}
+
+function parsePg(v){
+  const o=v&&typeof v==='object'?v:{},so=o.st&&typeof o.st==='object'?o.st:{},st={};
+  for(const k of PG_KEYS)st[k]=clampInt(so[k],0,1e9,0);
+  const ach=[];for(const id of Array.isArray(o.ach)?o.ach:[])if(typeof id==='string'&&PG_ID[id]&&ach.indexOf(id)<0)ach.push(id);
+  const dq0=o.dq&&typeof o.dq==='object'?o.dq:{},q=[];
+  for(const id of Array.isArray(dq0.q)?dq0.q:[])if(typeof id==='string'&&pgQ(id)&&q.indexOf(id)<0&&q.length<3)q.push(id);
+  const s0=dq0.s&&typeof dq0.s==='object'?dq0.s:{},s={};
+  for(const id of q){const k=pgQ(id).k;s[k]=clampInt(s0[k],0,1e9,0);}
+  const c=q.map((_,i)=>Array.isArray(dq0.c)&&dq0.c[i]?1:0);
+  const cal=o.cal&&typeof o.cal==='object'?o.cal:{},xp=clampInt(o.xp,0,1e9,0);
+  return{xp,lr:Math.min(clampInt(o.lr,1,999,1),pgLevel(xp).L),sv:clampInt(o.sv,0,LEVELS.length,0),st,ach,seen:clampInt(o.seen,0,999,0),
+    dq:{d:clampInt(dq0.d,0,1e6,0),q,s,c,b:dq0.b&&q.length&&c.every(x=>x)?1:0},cal:{n:clampInt(cal.n,0,1e6,0),d:clampInt(cal.d,0,1e6,0)}};
+}
+// из аккаунта: опыт и счётчики — по максимуму, достижения объединяются, задания дня — того, кто их уже брал
+function mergePg(v){
+  const a=save.pg,b=parsePg(v),old=Object.assign({},a.st);
+  a.xp=Math.max(a.xp,b.xp);a.lr=Math.max(a.lr,b.lr);a.sv=Math.max(a.sv,b.sv);a.seen=Math.max(a.seen,b.seen);
+  for(const k of PG_KEYS)a.st[k]=Math.max(a.st[k],b.st[k]);
+  for(const id of b.ach)if(a.ach.indexOf(id)<0)a.ach.push(id);
+  if(b.cal.n>a.cal.n||(b.cal.n===a.cal.n&&b.cal.d>a.cal.d))a.cal=b.cal;
+  const same=b.dq.d===a.dq.d&&b.dq.q.join()===a.dq.q.join();
+  if(b.dq.d>a.dq.d||(b.dq.d===a.dq.d&&!same&&b.dq.c.filter(x=>x).length>=a.dq.c.filter(x=>x).length))a.dq=b.dq;
+  else{
+    // свои задания дня остаются; если счётчик пришёл из аккаунта больше — их начало сдвигается вместе с ним
+    for(const k in a.dq.s){if(!(k in old)||b.st[k]<=old[k])continue;a.dq.s[k]=same&&k in b.dq.s?b.dq.s[k]:a.dq.s[k]+(b.st[k]-old[k]);}
+    if(same){a.dq.c=a.dq.c.map((x,i)=>x||b.dq.c[i]?1:0);a.dq.b=a.dq.b||b.dq.b?1:0;}
+  }
+}
+
+// ---------- счётчики, опыт, достижения ----------
+let pgQuiet=false,pgHush=false,pgHurt=0,pgLvXp=0,pgNewLv=[],pgUps=[],pgStillN=0,pgT=[],pgQN={},pgRetro=null,pgLogoN=0;
+function pgHas(id){return save.pg.ach.indexOf(id)>=0;}
+function pgVal(k){
+  const p=save.pg;
+  if(k==='u')return Math.max(0,save.unlocked-1);
+  if(k==='win')return save.wins||0;
+  if(k==='bits')return save.earned;
+  if(k==='ex')return save.evd.ex.length;
+  if(k==='ev')return save.evd.snow+save.evd.gifts;
+  if(k==='pl')return pgLevel(p.xp).L;
+  if(k==='days')return p.cal.n;
+  return p.st[k]||0;
+}
+function pgAdd(k,n){
+  n=n===undefined?1:n;
+  if(!(n>0))return;
+  pgDaily();
+  save.pg.st[k]=Math.min(1e9,(save.pg.st[k]||0)+n);
+  pgCheck(k);
+}
+function pgCheck(k){
+  const L=PG_BY[k];
+  if(L){const v=pgVal(k);for(const a of L)if(v>=a.n&&!pgHas(a.id))pgUnlock(a);}
+  pgQPing(k);
+}
+function pgUnlock(a){
+  if(pgHas(a.id))return;
+  save.pg.ach.push(a.id);
+  const b=PG_TIER_BITS[a.t];
+  save.earned=Math.min(1e8,save.earned+b);
+  pgNewLv.push(a);
+  if(!pgQuiet){pgToast('🏅 ДОСТИЖЕНИЕ «'+a.name+'» · ◈ +'+b,'#b45309');buzz(60);}
+  pgXp(PG_TIER_XP[a.t]);
+  pgCheck('bits');
+}
+function pgSecret(id){
+  const a=PG_ID[id];
+  if(!a||pgHas(id))return false;
+  pgUnlock(a);pgFlush();
+  return true;
+}
+function pgXp(n){
+  const p=save.pg;
+  p.xp=Math.min(1e9,p.xp+n);pgLvXp+=n;
+  const L=pgLevel(p.xp).L;
+  while(p.lr<L){
+    p.lr++;
+    // за прошлые заслуги (тихий пересчёт) уровни растут без бит — биты дают только за новые
+    if(pgQuiet)continue;
+    const b=pgLvBits(p.lr),nt=PG_TITLES.find(x=>x[0]===p.lr);
+    save.earned=Math.min(1e8,save.earned+b);
+    pgUps.push(p.lr);
+    pgToast('⬆ УРОВЕНЬ ИГРОКА '+p.lr+'! ◈ +'+b+(nt?' · звание «'+nt[1]+'»':''),'#a2a');buzz(80);
+  }
+  pgCheck('pl');
+}
+function pgGive(bits,xp){save.earned=Math.min(1e8,save.earned+bits);pgXp(xp);pgCheck('bits');}
+function pgFlush(){persist();evCloudSoon();}
+
+// ---------- задания дня ----------
+// три задания на московский день; начало счёта — значения счётчиков, когда задания выданы
+function pgDaily(){
+  const p=save.pg,day=pgDay();
+  if(p.dq.d!==day){
+    const pool=PG_Q.filter(q=>!q.ok||q.ok()).map(q=>({q,h:evHash(day+':'+q.id)})).sort((x,y)=>x.h-y.h),q=[],ks=[];
+    for(const x of pool){if(q.length>=3)break;if(ks.indexOf(x.q.k)>=0)continue;q.push(x.q.id);ks.push(x.q.k);}
+    const s={};for(const id of q){const k=pgQ(id).k;s[k]=pgVal(k);}
+    p.dq={d:day,q,s,c:q.map(()=>0),b:0};
+    persist();
+  }
+  return p.dq;
+}
+function pgQProg(i){const dq=save.pg.dq,q=pgQ(dq.q[i]);return q?Math.min(q.n,Math.max(0,pgVal(q.k)-(dq.s[q.k]||0))):0;}
+function pgQReady(i){const dq=save.pg.dq,q=pgQ(dq.q[i]);return !!q&&!dq.c[i]&&pgQProg(i)>=q.n;}
+function pgBonusReady(){const dq=save.pg.dq;return dq.q.length>0&&!dq.b&&dq.c.every(x=>x);}
+// сколько наград ждёт: выполненные задания, бонус и календарь
+function pgClaims(){const dq=pgDaily();let n=dq.q.filter((_,i)=>pgQReady(i)).length;if(pgBonusReady())n++;return n;}
+function pgQPing(k){
+  const dq=save.pg.dq;
+  if(pgQuiet||dq.d!==pgDay())return;
+  dq.q.forEach((id,i)=>{
+    const q=pgQ(id);
+    if(!q||q.k!==k||!pgQReady(i)||pgQN[dq.d+id])return;
+    pgQN[dq.d+id]=1;
+    pgToast('🎯 ЗАДАНИЕ ДНЯ ВЫПОЛНЕНО: '+pgQText(q)+' — награда ждёт в меню','#2a6');
+  });
+}
+function pgClaimQ(i){
+  if(!pgQReady(i))return;
+  save.pg.dq.c[i]=1;
+  pgGive(PG_Q_BITS,PG_Q_XP);pgAdd('dq');buzz(40);
+  msg('🎯 Задание выполнено: ◈ +'+PG_Q_BITS+' и +'+PG_Q_XP+' опыта'+(pgBonusReady()?'. Все три — забирай бонус!':''));
+  pgFlush();
+}
+function pgClaimBonus(){
+  if(!pgBonusReady())return;
+  save.pg.dq.b=1;
+  pgGive(PG_QB_BITS,PG_QB_XP);buzz(80);
+  msg('🎁 Бонус дня: ◈ +'+PG_QB_BITS+' и +'+PG_QB_XP+' опыта. Новые задания — завтра в 00:00 по Москве.');
+  pgFlush();
+}
+
+// ---------- календарь за вход ----------
+function pgCalReady(){return save.pg.cal.d<pgDay();}
+function pgCalClaim(){
+  const c=save.pg.cal;
+  if(!pgCalReady())return;
+  const i=c.n%7,b=PG_CAL[i];
+  c.n++;c.d=pgDay();
+  pgGive(b,20);buzz(60);
+  msg('📅 Награда дня '+(i+1)+' из 7: ◈ +'+b+' и +20 опыта');
+  // эксклюзив за первую полную неделю; его сообщение — поверх
+  if(c.n>=7)evGrant('c29');
+  pgCheck('days');pgFlush();
+}
+
+// ---------- в игре: уровень, босс, всплывающие плашки ----------
+function pgLvStart(){pgHurt=0;pgLvXp=0;pgNewLv=[];pgUps=[];pgStillN=0;pgRetro=null;}
+function pgBoss(){pgAdd('boss');pgXp(25);if(!pgHurt)pgSecret('bossclean');}
+// пройден официальный уровень (вызывается, когда уровни уже открыты)
+function pgCleared(){
+  pgHush=true;
+  try{
+    pgAdd('lv');
+    if(!pgHurt)pgAdd('clean');
+    if(lives===1&&maxLives()>1)pgSecret('close');
+    if(time<PG_FAST)pgSecret('fast');
+    if(abOn(evNow()))pgAdd('ab');
+    // опыт за первое прохождение уровня уже учтён — пересчёт «за прошлые заслуги» его не повторит
+    if(lvl>=save.pg.sv)save.pg.sv=Math.min(LEVELS.length,lvl+1);
+    pgXp(10+2*actOf(lvl));
+    pgCheck('u');pgCheck('win');pgCheck('bits');pgCheck('ex');
+  }finally{pgHush=false;}
+  pgFlush();
+  return pgNote();
+}
+function pgDied(){pgHush=true;try{pgAdd('die');}finally{pgHush=false;}pgFlush();}
+function pgStep(ix,iy){
+  if(pgT.length&&--pgT[0].life<=0)pgT.shift();
+  if(intro>0||ix||iy||!enemies.length||TOUR||RACE_DIFF){pgStillN=0;return;}
+  if(++pgStillN===600)pgSecret('still');
+}
+// плашка на поле во время уровня; в меню — строкой сообщений, по очереди, чтобы не перебивать друг друга
+let pgMQ=[],pgMT=0;
+function pgToast(s,col){
+  if(pgHush)return;
+  if(phase==='game'){pgT.push({s,col,life:210});if(pgT.length>4)pgT.shift();return;}
+  pgMQ.push(s);
+  if(!pgMT)pgMT=setTimeout(pgMsgNext,msgEl.textContent?2200:0);
+}
+function pgMsgNext(){pgMT=0;const s=pgMQ.shift();if(!s)return;msg(s,5000);pgMT=setTimeout(pgMsgNext,2800);}
+function pgDraw(){
+  const t=pgT[0];
+  if(!t)return;
+  ctx.font='bold 13px Courier New, monospace';ctx.textAlign='center';
+  // сверху, под табличкой админ-абуза: внизу поля — таймер очистки и надписи уровня
+  const w=Math.min(W-20,ctx.measureText(t.s).width+24),y=62;
+  ctx.globalAlpha=Math.min(1,t.life/25);
+  ctx.fillStyle='rgba(255,255,255,0.94)';ctx.fillRect(W/2-w/2,y,w,26);
+  ctx.strokeStyle=t.col;ctx.lineWidth=2;ctx.strokeRect(W/2-w/2,y,w,26);
+  ctx.fillStyle=t.col;ctx.fillText(t.s,W/2,y+17,w-12);
+  ctx.globalAlpha=1;
+}
+// после уровня: опыт, новые достижения и задания дня
+function pgNote(){
+  const p=save.pg,lv=pgLevel(p.xp);
+  let h='<div class="pg-note"><p><b>+'+pgLvXp+' опыта</b> · уровень игрока '+lv.L+' · '+pgTitle(lv.L)+'</p>'+pgBar(lv.cur,lv.need);
+  for(const L of pgUps)h+='<p class="good">⬆ Новый уровень игрока: '+L+'! ◈ +'+pgLvBits(L)+'</p>';
+  for(const a of pgNewLv)h+='<p class="good">🏅 Достижение «'+escHTML(a.name)+'» · ◈ +'+PG_TIER_BITS[a.t]+'</p>';
+  const dq=p.dq;
+  if(dq.d===pgDay()&&dq.q.length){
+    const done=dq.q.filter((_,i)=>dq.c[i]||pgQProg(i)>=pgQ(dq.q[i]).n).length,ready=pgClaims();
+    let near='';
+    if(!ready&&done<dq.q.length){const i=dq.q.findIndex((_,j)=>!dq.c[j]&&pgQProg(j)<pgQ(dq.q[j]).n),q=pgQ(dq.q[i]);near=' · '+pgQText(q)+': '+pgQProg(i)+' из '+q.n;}
+    h+='<p>🎯 Задания дня: '+done+' из '+dq.q.length+(ready?' — <b>награда ждёт в меню!</b>':near)+'</p>';
+  }
+  return h+'</div>';
+}
+function pgBar(v,n){return '<span class="pg-bar"><i style="width:'+Math.max(0,Math.min(100,Math.round(v/n*100)))+'%"></i></span>';}
+
+// ---------- пересчёт: после загрузки и после слияния с аккаунтом ----------
+function pgSync(){
+  const p=save.pg;
+  // опыт за уровни, пройденные до этого обновления (или на устройстве со старой игрой)
+  const u=Math.max(0,save.unlocked-1);
+  if(p.sv<u){let x=0;for(let i=p.sv;i<u;i++)x+=10+2*actOf(i);p.sv=u;p.xp=Math.min(1e9,p.xp+x);}
+  p.lr=Math.max(p.lr,pgLevel(p.xp).L);
+  // прежние счётчики игры
+  p.st.race=Math.max(p.st.race,save.mpRaces||0);p.st.rwin=Math.max(p.st.rwin,save.mpWins||0);
+  p.st.buy=Math.max(p.st.buy,save.own.length);p.st.of=Math.max(p.st.of,save.outfits.length);
+  // достижения за прошлые заслуги — тихо, одной строкой в меню
+  const n0=p.ach.length,b0=save.earned;
+  pgQuiet=true;
+  try{for(const k in PG_BY)pgCheck(k);}finally{pgQuiet=false;}
+  pgNewLv=[];
+  if(p.ach.length>n0){
+    pgRetro={n:p.ach.length-n0+(pgRetro?pgRetro.n:0),b:save.earned-b0+(pgRetro?pgRetro.b:0)};
+    pgFlush();
+    if(phase==='menu'&&menuScreen==='main'&&!menuEl.hidden)showMenu('main');
+  }
+}
+
+// ---------- меню и экраны ----------
+function pgCard(){
+  const lv=pgLevel(save.pg.xp);
+  return '<button type="button" class="pg-card" data-act="quests"><span class="pg-lv" aria-label="Уровень игрока">'+lv.L+'</span><span class="pg-mid"><b>'+pgTitle(lv.L)+'</b>'+pgBar(lv.cur,lv.need)+
+    '<small>опыт '+pgNum(lv.cur)+' / '+pgNum(lv.need)+' до уровня '+(lv.L+1)+'</small></span></button>';
+}
+function pgDot(n){return n>0?' <span class="dot">'+n+'</span>':'';}
+function pgMenuHTML(){
+  const p=save.pg,dq=pgDaily(),done=dq.q.filter((_,i)=>dq.c[i]).length;
+  let h=pgCard();
+  if(pgRetro)h+='<p class="good">🏅 За прошлые заслуги: достижений — '+pgRetro.n+', ◈ +'+pgNum(pgRetro.b)+'. Загляни в «Достижения»!</p>';
+  if(pgCalReady())h+=mb('quests','📅 Награда дня ждёт — день '+(p.cal.n%7+1)+' из 7!','pg-hot');
+  h+='<div class="mrow2">'+mb('quests','🎯 Задания '+done+'/'+dq.q.length+pgDot(pgClaims()))+mb('ach','🏅 Достижения '+p.ach.length+'/'+PG_ACH.length+pgDot(p.ach.length-p.seen))+'</div>';
+  const nx=pgNext();
+  if(nx)h+='<p class="pg-next">'+nx+'</p>';
+  return h;
+}
+// «что дальше»: достижение, до которого ближе всего
+function pgNext(){
+  let best=null,bf=0;
+  // у нового игрока — первая цель списка; уровень игрока и так виден на карточке
+  for(const a of PG_ACH){if(a.sec||a.k==='pl'||pgHas(a.id))continue;const f=pgVal(a.k)/a.n;if(f<1&&(!best||f>bf)){bf=f;best=a;}}
+  if(!best)return '';
+  return '🏁 Ближе всего: <b>«'+best.name+'»</b> — '+best.text.charAt(0).toLowerCase()+best.text.slice(1)+' ('+pgNum(Math.min(best.n,pgVal(best.k)))+' из '+pgNum(best.n)+')';
+}
+function pgQuestsHTML(){
+  const p=save.pg,dq=pgDaily(),lv=pgLevel(p.xp),nt=PG_TITLES.find(x=>x[0]>lv.L),t=evNow();
+  let h='<h2>ЗАДАНИЯ И НАГРАДЫ</h2>'+pgCard()+
+    '<p>'+(nt?'Следующее звание — «'+nt[1]+'» с '+nt[0]+'-го уровня.':'У тебя высшее звание!')+' За каждый новый уровень игрока — биты. Опыт дают данные, уровни, боссы, гонки, задания и достижения.</p>';
+  // календарь
+  const ready=pgCalReady(),cur=p.cal.n%7,shown=!ready&&p.cal.n>0&&cur===0?7:cur;
+  h+='<div class="ev-card"><p class="lbl2">📅 НАГРАДА ЗА ВХОД · НЕДЕЛЯ '+(Math.floor((p.cal.n-(ready?0:1))/7)+1)+'</p><div class="pg-cal">'+
+    PG_CAL.map((b,i)=>'<div class="'+(i<shown?'got':(ready&&i===cur?'now':''))+'"><small>день '+(i+1)+'</small><b>'+(i<shown?'✓':(i===6?'🎁':'◈'))+'</b><span>'+b+'</span></div>').join('')+'</div>'+
+    (ready?mb('calclaim','Забрать награду дня: ◈ '+PG_CAL[cur]+(cur===6&&!exOwned('c29')?' и цвет «ВЕРНОСТЬ»':''),'primary')
+      :'<p>Сегодняшняя награда получена. Следующая — через '+evLeft((pgDay()+1)*DAY-MSK-t)+'.</p>')+
+    '<p class="foot">Пропустил день — не страшно: календарь не сгорает, продолжишь с того же дня. На 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ».</p></div>';
+  // задания дня
+  h+='<div class="ev-card"><p class="lbl2">🎯 ЗАДАНИЯ ДНЯ · НОВЫЕ ЧЕРЕЗ '+evLeft((pgDay()+1)*DAY-MSK-t).toUpperCase()+'</p>'+
+    dq.q.map((id,i)=>{
+      const q=pgQ(id),v=pgQProg(i),got=!!dq.c[i];
+      return '<div class="pg-q'+(got?' got':'')+'"><div><b>'+pgQText(q)+'</b>'+pgBar(v,q.n)+'<small>'+v+' из '+q.n+' · ◈ '+PG_Q_BITS+' и '+PG_Q_XP+' опыта</small></div>'+
+        (got?'<span class="pg-ok" aria-label="Получено">✓</span>':(v>=q.n?mb('qclaim:'+i,'Забрать','sm primary'):''))+'</div>';
+    }).join('')+
+    (dq.b?'<p class="good">🎁 Бонус за все три задания получен. До завтра!</p>'
+      :(pgBonusReady()?mb('qbonus','🎁 Бонус за все три: ◈ '+PG_QB_BITS+' и '+PG_QB_XP+' опыта','primary')
+        :'<p class="foot">Выполни все три — получишь бонус: ◈ '+PG_QB_BITS+' и '+PG_QB_XP+' опыта.</p>'))+'</div>';
+  return h+'<div class="mrow2">'+mb('ach','🏅 Достижения'+pgDot(p.ach.length-p.seen))+mb('main','Назад')+'</div>';
+}
+function pgAchHTML(){
+  const p=save.pg;
+  if(p.seen!==p.ach.length){p.seen=p.ach.length;pgFlush();}
+  pgRetro=null;
+  // сначала открытые, потом остальные — ближние к получению выше
+  const list=PG_ACH.slice().sort((a,b)=>{
+    const ha=pgHas(a.id),hb=pgHas(b.id);
+    if(ha!==hb)return ha?-1:1;
+    if(a.sec!==b.sec)return a.sec?1:-1;
+    return ha?0:Math.min(1,pgVal(b.k)/b.n)-Math.min(1,pgVal(a.k)/a.n);
+  });
+  return '<h2>ДОСТИЖЕНИЯ</h2><p>Получено <b>'+p.ach.length+' из '+PG_ACH.length+'</b>. За каждое — биты и опыт. Секретные откроются, когда сделаешь что-то необычное: подсказка — загадка под знаком вопроса.</p>'+
+    '<div class="pg-ach">'+list.map(a=>{
+      const has=pgHas(a.id),hid=a.sec&&!has,v=Math.min(a.n,pgVal(a.k));
+      return '<div class="pg-a'+(has?' got':'')+'"><span class="pg-ic">'+(hid?'❓':a.ic)+'</span><div><b>'+(hid?'СЕКРЕТНОЕ':a.name)+'</b><small>'+(hid?a.hint:a.text)+'</small>'+
+        (has||a.sec?'':pgBar(v,a.n)+'<small>'+pgNum(v)+' из '+pgNum(a.n)+'</small>')+'</div><span class="pg-rw">'+(has?'✓':'◈ '+PG_TIER_BITS[a.t])+'</span></div>';
+    }).join('')+'</div>'+
+    '<div class="mrow2">'+mb('quests','🎯 Задания дня'+pgDot(pgClaims()))+mb('main','Назад','primary')+'</div>';
+}
+// секрет «Любопытный»: семь нажатий на название игры в главном меню
+panelEl.addEventListener('click',e=>{
+  if(menuScreen!=='main'||!e.target.closest('h2'))return;
+  if(++pgLogoN>=7&&pgSecret('logo'))showMenu('main');
+});
+// свернули игру — счётчики сохраняются сразу
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&save.pg)persist();});
+save.pg=parsePg(save.pg);
+pgSync();
 
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
 function snapshot(){
@@ -7118,14 +7598,16 @@ function mergeCloud(d){
   save.hat=clampInt(d.hat,0,HATS.length-1,save.hat);
   if(d.outfits)mergeOutfits(d.outfits);
   if(d.evd)mergeEvd(d.evd);
+  if(d.pg)mergePg(d.pg);
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
+  pgSync();
 }
 // одна запись за раз и только если прогресс поменялся
 async function syncCloud(){
   if(acct.kind==='net')return netSync();
   if(!acct.db||acct.state==='readonly')return;
   if(acct.busy){acct.again=true;return;}
-  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0,outfits:save.outfits,evd:save.evd},lookBody());
+  const body=Object.assign({unlocked:save.unlocked,best:save.best,wins:save.wins||0,outfits:save.outfits,evd:save.evd,pg:save.pg},lookBody());
   const key=JSON.stringify(body),sk=save.best+'|'+save.unlocked+'|'+(save.wins||0);
   const needSave=key!==acct.cloudKey,needScore=save.best>0&&sk!==acct.scoreKey;
   if(!needSave&&!needScore){if(acct.state!=='synced')setAcctState('synced');return;}
@@ -7440,6 +7922,8 @@ async function netLoadUser(){
     {const had=JSON.stringify(save.outfits);mergeOutfits((NET.user.user_metadata||{}).outfits);try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
      if(JSON.stringify(parseOutfits((NET.user.user_metadata||{}).outfits))!==JSON.stringify(save.outfits)&&had!=='[]')outfitsCloud();}
     acct.id=NET.user.id;
+    evCloudKey='';
+    {const um=NET.user.user_metadata||{};mergePg(um.pg);try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}if(JSON.stringify(save.pg)!==JSON.stringify(parsePg(um.pg)))evCloudSoon();}
     {const had=JSON.stringify(save.evd);mergeEvd((NET.user.user_metadata||{}).evd);if(JSON.stringify(save.evd)!==JSON.stringify(parseEvd((NET.user.user_metadata||{}).evd))&&had!==JSON.stringify(parseEvd({})))evCloudSoon();}
     const rows=await netFetch('/rest/v1/progress?user_id=eq.'+encodeURIComponent(NET.user.id)+'&select=*',{headers:netHeaders(tok)});
     if(Array.isArray(rows)&&rows[0]){
@@ -7449,6 +7933,7 @@ async function netLoadUser(){
       save.bio=typeof rows[0].bio==='string'?rows[0].bio.slice(0,200):'';
       NET.hidden=rows[0].hidden===true;
     }
+    pgSync();
     // администратор ли этот игрок — решает база (таблица admins); от этого только видна кнопка панели
     try{NET.admin=(await netFetch('/rest/v1/rpc/is_admin',{method:'POST',headers:netHeaders(tok),body:'{}'}))===true;}catch(_){NET.admin=false;}
     await netSync();
@@ -7463,14 +7948,16 @@ async function netLoadUser(){
 }
 async function netLogout(){
   clearTimeout(acct.tm);
-  if(NET.user)await netSync();
-  const kept=acct.state==='synced';
+  // ивенты и прогресс тоже досылаются: на этом устройстве потом может войти другой игрок
+  let evOk=true;
+  if(NET.user){await netSync();clearTimeout(evCloudT);evOk=await evCloud();}
+  const kept=acct.state==='synced'&&evOk;
   const tok=NET.sess&&NET.sess.access_token;
   saveSess(null);NET.user=null;acct.id=null;acct.cloudKey='';NET.err='';NET.sup=false;NET.admin=false;NET.hidden=false;
   // прогресс, имя в рекордах и облик принадлежат аккаунту и уже лежат в нём; настройки устройства остаются.
   // Если сохранить не удалось (нет связи), прогресс не стираем — он досохранится при следующем входе
   save.nick='';save.bio='';
-  if(kept)Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0,outfits:[]});
+  if(kept){Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0,outfits:[],evd:parseEvd({}),pg:parsePg({})});pgRetro=null;evCloudKey='';}
   persist();
   setAcctState('netout');
   showMenu('gate');
