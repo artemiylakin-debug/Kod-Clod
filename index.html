@@ -1402,7 +1402,11 @@ const SKIN_COLORS=[
   // костюм исследователя Зоны: ремни, подсумки, потёртости и нашивка (drawSuit)
   {name:'ЗОНА',suit:true,main:'#56683a',dark:'#1d2418',ring:'#6b7b44',trail:'#34d399',price:1200,sw:'linear-gradient(135deg,#56683a,#3d4a2c 55%,#2b2f2c)'},
   // эксклюзивы ивентов (ex): не продаются, их дают ивенты (см. ИВЕНТЫ)
-  {name:'ИНЕЙ',ex:'w26',main:'#e0f2fe',dark:'#1e3a5f',ring:'#7dd3fc',trail:'#bae6fd',sw:'linear-gradient(135deg,#ffffff,#bae6fd,#7dd3fc)'}
+  {name:'ИНЕЙ',ex:'w26',main:'#e0f2fe',dark:'#1e3a5f',ring:'#7dd3fc',trail:'#bae6fd',sw:'linear-gradient(135deg,#ffffff,#bae6fd,#7dd3fc)'},
+  // эксклюзивы суббот (wk — неделя админ-абуза) и Нового года (ny)
+  {name:'АДМИН-НЕОН',ex:'wk',wk:'2026-W46',d:'14.11',neon:280,main:'#a855f7',dark:'#2e1065',ring:'#c084fc',trail:'#d8b4fe',sw:'linear-gradient(135deg,#7c3aed,#c084fc,#7c3aed)'},
+  {name:'ГЛИТЧ',ex:'wk',wk:'2026-W49',d:'05.12',main:'#22d3ee',dark:'#3b0764',ring:'#e879f9',trail:'#f0abfc',alt:{main:'#e879f9',dark:'#083344',ring:'#22d3ee',trail:'#67e8f9'},sw:'linear-gradient(90deg,#22d3ee 50%,#e879f9 50%)'},
+  {name:'ЁЛКА',ex:'ny',main:'#15803d',dark:'#052e16',ring:'#facc15',trail:'#4ade80',sw:'linear-gradient(135deg,#15803d,#22c55e,#facc15)'}
 ];
 const SKIN_SHAPES=[
   {name:'ГЕКСАГОН'},{name:'ЯДРО'},{name:'РОМБ'},
@@ -1413,7 +1417,9 @@ const TRAILS=[
   {name:'ОБЫЧНЫЙ'},{name:'ПИКСЕЛИ',price:200},{name:'ИСКРЫ',price:350},{name:'ОГОНЬ',price:500},
   {name:'ДВОИЧНЫЙ',price:700},{name:'РАДУГА',price:1000},{name:'КОМЕТА',act:1,price:400},{name:'ЗОЛОТАЯ ПЫЛЬ',sup:true,price:2000},
   {name:'СОЗВЕЗДИЕ',act:9,price:1200},{name:'СЕРДЕЧКИ',sup:true,price:2000},{name:'ПУЗЫРИ',price:900},{name:'ХВОСТ ЧЁРТА',price:666},
-  {name:'АНОМАЛИЯ',price:1300},{name:'СНЕГОПАД',ex:'w26'}
+  {name:'АНОМАЛИЯ',price:1300},{name:'СНЕГОПАД',ex:'w26'},
+  {name:'ОШИБКА 404',ex:'wk',wk:'2026-W47',d:'21.11'},{name:'МОЛНИИ',ex:'wk',wk:'2026-W50',d:'12.12'},{name:'КОНФЕТТИ',ex:'wk',wk:'2026-W53',d:'02.01'},
+  {name:'ГИРЛЯНДА',ex:'ny'},{name:'ФЕЙЕРВЕРК',ex:'nyn'}
 ];
 const HATS=[
   {name:'БЕЗ НИЧЕГО'},{name:'АНТЕННА',price:150},{name:'КЕПКА',price:300},{name:'НАУШНИКИ',price:400},
@@ -1426,10 +1432,12 @@ const HATS=[
   // капюшон, противогаз с тёмными линзами, перчатки и укороченный автомат
   {name:'СНАРЯЖЕНИЕ ЗОНЫ',price:1500},
   // эксклюзивы ивентов: зимняя шапка, корона админа, кубок турнира
-  {name:'ЗИМНЯЯ ШАПКА',ex:'w26'},{name:'КОРОНА АДМИНА',ex:'ab'},{name:'КУБОК ТУРНИРА',ex:'cup'}
+  {name:'ЗИМНЯЯ ШАПКА',ex:'w26'},{name:'КОРОНА АДМИНА',ex:'ab'},{name:'КУБОК ТУРНИРА',ex:'cup'},
+  {name:'БАН-МОЛОТ',ex:'wk',wk:'2026-W48',d:'28.11'},{name:'ЛАЗЕРНЫЕ ОЧКИ',ex:'wk',wk:'2026-W51',d:'19.12'},{name:'РОГА ОЛЕНЯ',ex:'wk',wk:'2026-W52',d:'26.12'},
+  {name:'КОЛПАК ДЕДА МОРОЗА',ex:'ny'}
 ];
 // аксессуары на уровне глаз: над ними сердечки не нужно поднимать
-const EYE_HATS=[4,14,20,25];
+const EYE_HATS=[4,14,20,25,30];
 const CATS=[
   {id:'c',name:'ЦВЕТ',list:SKIN_COLORS,key:'color'},
   {id:'s',name:'ФОРМА',list:SKIN_SHAPES,key:'shape'},
@@ -1468,7 +1476,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:''},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:''},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[]};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1560,7 +1568,9 @@ const OUTFIT_IDEAS=[
   {n:'ГОЛОГРАММА',c:5,s:7,t:2,h:17},{n:'ПУТЕШЕСТВЕННИК',c:20,s:2,t:6,h:2},{n:'СВЕТИЛО',c:21,s:5,t:3,h:16},{n:'ЗАГРУЗКА',c:0,s:4,t:1,h:21},
   {n:'ЧАСОВЩИК',c:22,s:6,t:2,h:24},{n:'ZONE GUARDIAN',c:24,s:0,t:12,h:25},
   // зимний эксклюзив: собрать за снежинки ивента «Первый снег»
-  {n:'СНЕГОВИК',c:25,s:1,t:13,h:26}
+  {n:'СНЕГОВИК',c:25,s:1,t:13,h:26},
+  // эксклюзивы админ-абузов и Нового года
+  {n:'АДМИН',c:26,s:4,t:14,h:27},{n:'ЁЛОЧКА',c:28,s:5,t:17,h:32}
 ];
 function outfitName(v){return typeof v==='string'?v.replace(/[\u0000-\u001f\u007f<>&"'`\\]/g,'').replace(/\s+/g,' ').trim().slice(0,16):'';}
 function parseOutfits(v){
@@ -1653,9 +1663,12 @@ function hslHex(h,s,l){
   const f=n=>Math.round(255*(l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1)))).toString(16).padStart(2,'0');
   return '#'+f(0)+f(8)+f(4);
 }
-const RAINBOW={main:'',dark:'',ring:'',trail:''},SHIMMER={main:'',dark:'',ring:'',trail:''};
+const RAINBOW={main:'',dark:'',ring:'',trail:''},SHIMMER={main:'',dark:'',ring:'',trail:''},NEON={main:'',dark:'',ring:'',trail:''};
 function colOf(i,t){
   const k=SKIN_COLORS[i]||SKIN_COLORS[0];
+  // неон: яркость пульсирует (7 ступеней — свечение кэшируется); глитч: изредка на миг меняет цвета местами
+  if(k.neon){const l=0.5+Math.round(3*(1-Math.cos(t*0.06)))*0.03;NEON.main=hslHex(k.neon,0.95,l);NEON.dark=hslHex(k.neon,0.7,0.2);NEON.ring=hslHex(k.neon,1,l+0.1);NEON.trail=hslHex(k.neon,1,0.78);return NEON;}
+  if(k.alt&&t%47<5)return k.alt;
   if(k.shimmer){
     // алмаз: оттенок плавно ходит от голубого к сиреневому и обратно (8 шагов — свечение кэшируется)
     const h=190+Math.round(4*(1-Math.cos(t*0.03)))*8;
@@ -1853,10 +1866,10 @@ function keepIn(e){
   if(solids.length)pushOut(e,e.r);
 }
 // бонусы: подпись над появившимся предметом и цвет его значка
-const PICK={emp:{label:'EMP',color:'#39c'},hp:{label:'АПТЕЧКА',color:'#e02444'},boost:{label:'РАЗГОН',color:'#fa0'},snow:{label:'СНЕЖИНКА',color:'#0ea5e9'}};
+const PICK={emp:{label:'EMP',color:'#39c'},hp:{label:'АПТЕЧКА',color:'#e02444'},boost:{label:'РАЗГОН',color:'#fa0'},snow:{label:'СНЕЖИНКА',color:'#0ea5e9'},gift:{label:'ПОДАРОК',color:'#dc2626'}};
 // бонус появляется в стороне: под игроком он подбирался бы в тот же кадр;
 // одинаковых на поле не больше PICK_MAX — иначе нетронутые аптечки и заряды заваливали поле
-const PICK_MAX={emp:3,hp:2,boost:1,snow:1};
+const PICK_MAX={emp:3,hp:2,boost:1,snow:1,gift:1};
 function dropPickup(type){
   let n=0;for(const q of pickups)if(q.type===type)n++;
   if(n>=PICK_MAX[type])return;
@@ -2593,6 +2606,7 @@ function step(){
         return false;
       }
       if(p.type==='snow'){evSnowGot(p);return false;}
+      if(p.type==='gift'){evGiftGot(p);return false;}
       burst(p.x,p.y,'#fa0',14);
       if(p.type==='emp'){emp++;popup(p.x,p.y,'EMP +1','#39c');msg('EMP-ЗАРЯД (Q)');}
       else{boost=240;popup(p.x,p.y,'РАЗГОН!','#fa0');msg('РАЗГОН: скорость x2!');}
@@ -3192,6 +3206,37 @@ function drawHat(c,h,rr,sk,t,f){
     c.fillRect(-1,4,2,3);c.fillRect(-4,7,8,2);
     c.fillStyle='#fff';c.globalAlpha=0.7;c.fillRect(-4,-5,2,5);c.globalAlpha=1;
     c.restore();
+  }else if(h===29){
+    // бан-молот админа покачивается над головой
+    c.save();c.translate(0,-rr-6);c.rotate(Math.sin(t*0.08)*0.35);
+    c.fillStyle='#92400e';c.fillRect(-1.2,-12,2.4,12);
+    c.fillStyle='#64748b';c.fillRect(-8,-18,16,7);c.strokeStyle='#1e293b';c.lineWidth=1;c.strokeRect(-8,-18,16,7);
+    c.fillStyle='#dc2626';c.font='bold 5px Courier New, monospace';c.textAlign='center';c.fillText('BAN',0,-13);
+    c.restore();
+  }else if(h===30){
+    // лазерные пиксельные очки; изредка из глаз бьют короткие красные лучи
+    const ex=Math.cos(f)*4,ey=Math.sin(f)*4,e1x=ex-4+ey*0.5,e1y=ey-ex*0.5,e2x=ex+4+ey*0.5,e2y=ey+ex*0.5;
+    c.fillStyle='#0f172a';
+    for(const [x,y] of [[e1x,e1y],[e2x,e2y]]){c.fillRect(x-4,y-2.5,8,5);c.fillRect(x-3,y+2.5,6,1.5);}
+    c.fillRect(Math.min(e1x,e2x),(e1y+e2y)/2-1.5,Math.abs(e2x-e1x),1.5);
+    c.fillStyle='#fff';for(const [x,y] of [[e1x,e1y],[e2x,e2y]])c.fillRect(x-3,y-1.8,2,1.2);
+    if(t%150<12){c.strokeStyle='#ef4444';c.lineWidth=1.6;c.globalAlpha=0.85;c.beginPath();
+      for(const [x,y] of [[e1x,e1y],[e2x,e2y]]){c.moveTo(x,y);c.lineTo(x+Math.cos(f)*26,y+Math.sin(f)*26);}c.stroke();c.globalAlpha=1;}
+  }else if(h===31){
+    // рога оленя и красный нос
+    c.strokeStyle='#7c4a1e';c.lineWidth=2;c.lineCap='round';
+    for(const d of [-1,1]){c.beginPath();c.moveTo(d*5,-rr+3);c.lineTo(d*9,-rr-9);c.moveTo(d*7,-rr-4);c.lineTo(d*13,-rr-6);c.moveTo(d*8.2,-rr-7);c.lineTo(d*6,-rr-13);c.stroke();}
+    c.lineCap='butt';
+    const nx=Math.cos(f)*rr*0.75,ny=Math.sin(f)*rr*0.75+2;
+    c.fillStyle=t%60<30?'#ef4444':'#f87171';c.beginPath();c.arc(nx,ny,3.2,0,TAU);c.fill();
+    c.fillStyle='#fff';c.globalAlpha=0.7;c.beginPath();c.arc(nx-1,ny-1,1,0,TAU);c.fill();c.globalAlpha=1;
+  }else if(h===32){
+    // колпак Деда Мороза: длинный, свисает набок, с белой опушкой и помпоном
+    const sw=Math.sin(t*0.06)*2;
+    c.fillStyle='#dc2626';c.beginPath();c.moveTo(-11,-rr+3);c.quadraticCurveTo(-4,-rr-16,10+sw,-rr-8);c.quadraticCurveTo(6,-rr-4,11,-rr+3);c.closePath();c.fill();
+    c.fillStyle='#fff';c.fillRect(-12,-rr+1,24,4.5);
+    c.beginPath();c.arc(11+sw,-rr-7,3.6,0,TAU);c.fill();
+    c.strokeStyle='#e5e7eb';c.lineWidth=1;c.stroke();
   }else if(h===25){
     // снаряжение Зоны: капюшон, противогаз с тёмными линзами и фильтром, руки в перчатках с автоматом
     c.lineCap='round';
@@ -3229,6 +3274,7 @@ function drawTrail(c,pts,L,sk,max,t){
   const st=L.t;
   if(st===11){drawTail(c,pts,sk,t);return;}
   if(st===12){drawAnomaly(c,pts,max,t);return;}
+  if(st>=14&&st<=18){drawExTrail(c,pts,sk,max,t,st);return;}
   if(st===13){
     // снегопад: снежинки кружатся и гаснут, рывок — голубые искры
     c.strokeStyle='#7fb8e6';c.lineWidth=1.2;
@@ -3271,6 +3317,41 @@ function drawTrail(c,pts,L,sk,max,t){
     else{c.fillStyle=q.hot===1?sk.main:sk.trail;c.beginPath();c.arc(q.x,q.y,3+6*a,0,TAU);c.fill();}
   }
   c.globalAlpha=1;c.lineCap='butt';
+}
+// следы-эксклюзивы: 404, молнии, конфетти, гирлянда, фейерверк
+function drawExTrail(c,pts,sk,max,t,st){
+  const n=pts.length;
+  if(st===15&&n>3){
+    // молнии: ломаная от точки к точке с белой сердцевиной, вспыхивает
+    for(const [w,col,al] of [[4,'#facc15',0.55],[1.5,'#fff',0.9]]){
+      c.strokeStyle=col;c.lineWidth=w;c.globalAlpha=al*(0.6+0.4*Math.abs(Math.sin(t*0.4)));c.beginPath();
+      for(let i=0;i<n;i+=2){const q=pts[i],j=(i*13+Math.floor(t/3))%7-3;if(i===0)c.moveTo(q.x,q.y);else c.lineTo(q.x+j,q.y-j);}
+      c.stroke();
+    }
+    c.globalAlpha=1;return;
+  }
+  if(st===17&&n>3){
+    // гирлянда: провод и мигающие лампочки
+    c.strokeStyle='#14532d';c.lineWidth=1.2;c.globalAlpha=0.7;c.beginPath();
+    for(let i=0;i<n;i++){const q=pts[i];if(i===0)c.moveTo(q.x,q.y);else c.lineTo(q.x,q.y+Math.sin(i*0.8)*3);}
+    c.stroke();
+  }
+  for(let i=0;i<n;i++){
+    const q=pts[i],a=Math.min(1,q.life/max);
+    c.globalAlpha=a;
+    if(st===14){
+      if(i%5===0){c.fillStyle=(i+Math.floor(t/6))%3?'#dc2626':'#111';c.font='bold '+Math.round(6+5*a)+'px Courier New, monospace';c.textAlign='center';
+        c.fillText(i%10?'404':'ERR',q.x+((i*7+t)%5-2),q.y+3);}
+    }else if(st===16){
+      if(i%2===0){c.save();c.translate(q.x+Math.sin(i*2.1)*6,q.y+(1-a)*10);c.rotate(i+t*0.1);c.fillStyle=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7','#ec4899'][i%6];c.fillRect(-2.5,-1.2,5,2.4);c.restore();}
+    }else if(st===17){
+      if(i%3===0){const on=(Math.floor(t/12)+i)%2;c.fillStyle=['#ef4444','#facc15','#22c55e','#3b82f6'][(i/3)%4];c.globalAlpha=a*(on?1:0.35);c.beginPath();c.arc(q.x,q.y+Math.sin(i*0.8)*3+3,2+2*a,0,TAU);c.fill();}
+    }else if(st===18){
+      if(i%6===0){const r=3+10*(1-a),col=['#f43f5e','#facc15','#22d3ee','#a3e635'][(i/6)%4];c.strokeStyle=col;c.lineWidth=1.4;c.beginPath();
+        for(let k=0;k<8;k++){const an=k*TAU/8;c.moveTo(q.x+Math.cos(an)*r*0.4,q.y+Math.sin(an)*r*0.4);c.lineTo(q.x+Math.cos(an)*r,q.y+Math.sin(an)*r);}c.stroke();}
+    }
+  }
+  c.globalAlpha=1;
 }
 // аномалия: полупрозрачный изумрудный шлейф, искры уплывают в стороны и гаснут, изредка — цифровые
 // помехи; рывок оставляет расходящиеся вспышки. Без shadowBlur: свечение — второй круг пошире и бледнее
@@ -3689,6 +3770,7 @@ function render(opaque){
     if(p.type==='hp'){ctx.fillRect(p.x-6,y-2,12,4);ctx.fillRect(p.x-2,y-6,4,12);}
     else if(p.type==='emp'){ctx.font='bold 8px Courier New, monospace';ctx.fillText('EMP',p.x,y+1);}
     else if(p.type==='snow'){ctx.lineWidth=1.6;evDrawFlake(ctx,p.x,y,7,p.t*0.03);ctx.lineWidth=2;}
+    else if(p.type==='gift')evDrawGift(ctx,p.x,y,6);
     else{ctx.font='bold 13px Courier New, monospace';ctx.fillText('»',p.x,y+1);}
     ctx.globalAlpha=1;
   }
@@ -4241,7 +4323,7 @@ function panelHTML(s){
       '<li><b>Океан.</b> Чёрные дыры тянут к себе всех, тёмное ядро ранит. Рывок вытаскивает.</li>'+
       '<li><b>Звёзды.</b> Удар с орбиты: под тобой появляется метка, через секунду с небольшим — взрыв. Он задевает и врагов.</li>'+
       '<li><b>Зазеркалье.</b> В розовых кругах инверсии управление наоборот.</li>'+
-      '<li><b>Ивенты.</b> Каждую субботу с 11:00 до 21:00 по Москве — <b>админ-абуз</b>: все биты ×2, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила у всех сразу (заморозка врагов, неуязвимость, турбо, магнит и другое). Пройди 3 уровня в админ-абуз — получишь «Корону админа». В те же часы — <b>турнир недели</b>: один уровень на всех, побеждает самое быстрое прохождение, тройке — «Кубок турнира». В ноябре — зимний ивент «Первый снег»: собирай снежинки за зимние эксклюзивы.</li>'+
+      '<li><b>Ивенты.</b> Каждую субботу с 11:00 до 21:00 по Москве — <b>админ-абуз</b>: все биты ×2, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила у всех сразу (заморозка врагов, неуязвимость, турбо, магнит и другое). Пройди 3 уровня в админ-абуз — получишь эксклюзив этой субботы. В те же часы — <b>турнир недели</b>: один уровень на всех, побеждает самое быстрое прохождение, тройке — «Кубок турнира». У каждой субботы свой эксклюзив — только в эту субботу. В ноябре — зимний ивент «Первый снег» (снежинки), с 1 декабря по 11 января — «Новый год» (подарки), а в новогоднюю ночь — биты ×3 и след «Фейерверк».</li>'+
       '<li><b>Гонка.</b> Вдвоём проходите один и тот же уровень, каждый со своими врагами; соперника видно полупрозрачным двойником. Побеждает тот, кто раньше дойдёт до портала. Погибнешь — начнёшь уровень сначала, а часы гонки идут дальше. Соперник находится сам («Случайный соперник») или по коду комнаты от друга. Гонки — на сайте игры, с аккаунтом.</li>'+
       '<li><b>Весь экран на телефоне.</b> На Android — кнопка «ВЕСЬ ЭКРАН» или «Установить игру» в меню. На iPhone Safari не убирает свою строку и вкладки, но игра, добавленная на экран «Домой» («Поделиться» → «На экран „Домой“»), открывается как приложение — на весь экран.</li>'+
       '<li><b>Музыка.</b> На сайте у каждого акта три записанных трека — уровни берут их по очереди, — и свой трек для боя с боссом. Если трек не загрузился (или игра открыта не с сайта), у каждого уровня играет своя синтезированная мелодия. Громкость и выключение — в настройках.</li>'+
@@ -4358,7 +4440,7 @@ function goMenu(){
 // подпись предмета: цена, акт, звезда поддержки или галочка у надетого
 function itemChip(cat,i,cur){
   const it=cat.list[i],own=owned(cat.id,i);
-  const tag=own?(save[cat.key]===i?'✓':''):(it.ex?{w26:'❄',ab:'⚡',cup:'🏆'}[it.ex]:(it.price?'◈ '+it.price:(it.act?'акт '+it.act:'★')));
+  const tag=own?(save[cat.key]===i?'✓':''):(it.ex?EX_TAG[it.ex]:(it.price?'◈ '+it.price:(it.act?'акт '+it.act:'★')));
   const sw=cat.id==='c'?'<span class="sw" style="background:'+it.main+(it.rainbow?';background:conic-gradient(#f33,#fd2,#3d5,#2cf,#55f,#e3e,#f33)':(it.sw?';background:'+it.sw:''))+'"></span>':'';
   return '<button type="button" class="chip'+(own?'':' lock')+'" data-act="item:'+cat.id+':'+i+'" aria-pressed="'+(i===cur)+'">'+sw+it.name+(tag?'<small>'+tag+'</small>':'')+'</button>';
 }
@@ -4458,6 +4540,7 @@ function act(a){
   else if(k==='mylevels')showMenu('mylevels');
   else if(k==='events'){if(needLogin()&&NET_ON)showMenu('gate');else showMenu('events');}
   else if(k==='tourplay')tourStart();
+  else if(k==='extry'){const code=a.slice(6),it=exItem(code);if(it){shopTab=code[0];tryOn={cat:code[0],i:Number(code.slice(1))};tryLook=null;tryOutfit=null;showMenu('skins');}}
   else if(k==='tourdel'){if(NET.admin){if(sure)tourDel(a.slice(8));else armBtn(a,'точно?');}}
   else if(k==='race'){if(needLogin())showMenu('gate');else showMenu('race');}
   else if(k.slice(0,2)==='mp')mpAct(k,arg,n);
@@ -6493,6 +6576,15 @@ const AB_DAY=6,AB_FROM=11,AB_TO=21,AB_SLOT=240000,AB_LEN=60000,AB_GOAL=3;
 const WINTER={name:'ПЕРВЫЙ СНЕГ',from:Date.UTC(2026,10,1)-MSK,to:Date.UTC(2026,11,1)-MSK};
 // зимние эксклюзивы: сколько снежинок нужно
 const WINTER_REWARDS=[{code:'c25',need:25},{code:'t13',need:60},{code:'h26',need:120}];
+// Новый год: с 1 декабря по 11 января — подарки на уровнях; в новогоднюю ночь (31.12 20:00 – 1.01 03:00 МСК)
+// биты ×3, салют и эксклюзивный след «Фейерверк» за пройденный уровень
+const NY={name:'НОВЫЙ ГОД',from:Date.UTC(2026,11,1)-MSK,to:Date.UTC(2027,0,12)-MSK};
+const NYN={from:Date.UTC(2026,11,31,17),to:Date.UTC(2027,0,1,0)};
+const NY_REWARDS=[{code:'c28',need:30},{code:'t17',need:80},{code:'h32',need:150}];
+// эксклюзив каждой субботы: у вещи в таблице облика — неделя wk; 7 ноября — «Корона админа»
+const AB_WEEKLY={'2026-W45':'h27'};
+for(const cat of CATS)cat.list.forEach((it,i)=>{if(it.ex==='wk')AB_WEEKLY[it.wk]=cat.id+i;});
+const EX_TAG={w26:'❄',ab:'⚡',cup:'🏆',wk:'⚡',ny:'🎄',nyn:'🎆'};
 const ABUSES=[
   {id:'bits',name:'БИТОПАД',text:'Все биты ×3 целую минуту!',color:'#d97706'},
   {id:'freeze',name:'ЗАМОРОЗКА',text:'Админ заморозил врагов!',color:'#0284c7'},
@@ -6501,7 +6593,8 @@ const ABUSES=[
   {id:'turbo',name:'ТУРБО',text:'Скорость ×2 на минуту!',color:'#ea580c'},
   {id:'magnet',name:'МАГНИТ',text:'Данные сами летят к тебе!',color:'#16a34a'},
   {id:'rainbow',name:'РАДУГА',text:'Все стали радужными!',color:'#c026d3'},
-  {id:'snow',name:'МЕТЕЛЬ',text:'Снежинки сыплются вдвое чаще!',color:'#0ea5e9',winter:true}
+  {id:'snow',name:'МЕТЕЛЬ',text:'Снежинки сыплются вдвое чаще!',color:'#0ea5e9',season:'w'},
+  {id:'gifts',name:'ПОДАРКОПАД',text:'Подарки сыплются вдвое чаще!',color:'#dc2626',season:'ny'}
 ];
 let evOff=0,evAt=0,evAb=null,evShown='',evFlash=0;
 function evNow(){return Date.now()+evOff;}
@@ -6525,6 +6618,9 @@ function abWindow(t){
 }
 function abOn(t){const w=abWindow(t);return t>=w.from&&t<w.to;}
 function winterOn(t){return t>=WINTER.from&&t<WINTER.to;}
+function nyOn(t){return t>=NY.from&&t<NY.to;}
+function nynOn(t){return t>=NYN.from&&t<NYN.to;}
+function seasonOk(a,t){return !a.season||(a.season==='w'?winterOn(t):nyOn(t));}
 // неделя турнира — ISO-неделя субботы по Москве, вида 2026-W45 (в базе её так же считает to_char … 'IYYY-"W"IW')
 function weekKey(t){
   const w=abWindow(t),d=new Date(w.from+MSK),day=(d.getUTCDay()+6)%7;
@@ -6538,7 +6634,7 @@ function abuseAt(t){
   if(!abOn(t))return null;
   const w=abWindow(t),slot=Math.floor((t-w.from)/AB_SLOT);
   if(t-w.from-slot*AB_SLOT>=AB_LEN)return null;
-  const list=ABUSES.filter(a=>!a.winter||winterOn(t));
+  const list=ABUSES.filter(a=>seasonOk(a,t));
   const pick=s=>evHash(w.from+':'+s)%list.length;
   let i=pick(slot);
   if(slot>0&&i===pick(slot-1))i=(i+1)%list.length;
@@ -6552,7 +6648,7 @@ function evAbuse(){
   return evAb;
 }
 function evIs(id){const x=evAbuse();return !!x&&x.a.id===id;}
-function evBitsMul(){if(TOUR||!abOn(evNow()))return 1;return evIs('bits')?3:2;}
+function evBitsMul(){if(TOUR)return 1;const t=evNow();if(nynOn(t))return 3;if(!abOn(t))return 1;return evIs('bits')?3:2;}
 function addBits(n){n*=evBitsMul();runBits+=n;lvBits+=n;}
 // каждый шаг игры: начало абуза — объявление, дальше — его действие
 function evStep(){
@@ -6566,6 +6662,7 @@ function evStep(){
     }
   }
   if(evFlash>0)evFlash--;
+  if(time%40===0&&nynOn(evNow())&&!TOUR)burst(60+Math.random()*(W-120),40+Math.random()*(H/2),['#f43f5e','#facc15','#22d3ee','#a3e635','#c084fc'][Math.floor(Math.random()*5)],26,4);
   if(!x)return;
   const id2=x.a.id;
   if(id2==='freeze')for(const e of enemies)if(TRIPPABLE[e.type]&&!(e.trip>30)){e.trip=60;e.tripRot=e.tripRot||0;e.vx=0;e.vy=0;}
@@ -6576,9 +6673,22 @@ function evStep(){
 function evLook(L){return evIs('rainbow')?Object.assign({},L,{c:12}):L;}
 
 // ---------- зима: снег и снежинки ----------
-function snowNow(){return winterOn(evNow())&&!TOUR&&!RACE_DIFF;}
-// каждые 4 данных — снежинка на поле (в «Метель» — каждые 2)
-function evData(){if(snowNow()&&got%(evIs('snow')?2:4)===0)dropPickup('snow');}
+function snowNow(){const t=evNow();return (winterOn(t)||nyOn(t))&&!TOUR&&!RACE_DIFF;}
+// каждые 4 данных — снежинка на поле (в ноябре) или подарок (в Новый год); в «Метель» и «Подаркопад» — каждые 2
+function evData(){if(snowNow()&&got%(evIs('snow')||evIs('gifts')?2:4)===0)dropPickup(nyOn(evNow())?'gift':'snow');}
+function evGiftGot(p){
+  save.evd.gifts=Math.min(1e6,save.evd.gifts+1);
+  burst(p.x,p.y,'#dc2626',10);burst(p.x,p.y,'#facc15',8);popup(p.x,p.y,'🎁 +1','#dc2626');buzz(20);
+  for(const r of NY_REWARDS)if(save.evd.gifts>=r.need)evGrant(r.code);
+  persist();evCloudSoon();
+}
+// коробка с лентой (подарок на поле)
+function evDrawGift(c,x,y,s){
+  c.fillStyle='#dc2626';c.fillRect(x-s,y-s*0.7,s*2,s*1.7);
+  c.fillStyle='#b91c1c';c.fillRect(x-s*1.15,y-s,s*2.3,s*0.5);
+  c.fillStyle='#facc15';c.fillRect(x-s*0.2,y-s,s*0.4,s*2);c.fillRect(x-s,y+s*0.1,s*2,s*0.35);
+  c.beginPath();c.ellipse(x-s*0.45,y-s*1.15,s*0.45,s*0.25,-0.5,0,TAU);c.ellipse(x+s*0.45,y-s*1.15,s*0.45,s*0.25,0.5,0,TAU);c.fill();
+}
 function evSnowGot(p){
   const add=1;
   save.evd.snow=Math.min(1e6,save.evd.snow+add);
@@ -6596,6 +6706,11 @@ function evGrant(code){
 function exOwned(code){return save.evd.ex.indexOf(code)>=0;}
 // как получить эксклюзив (для магазина и нарядов)
 function exHow(it,code){
+  if(it.ex==='wk'){const past=weekKey(evNow())>it.wk||(weekKey(evNow())===it.wk&&evNow()>=abWindow(evNow()).to);
+    return past?'⚡ Эксклюзив админ-абуза '+it.d+' — та суббота прошла.':'⚡ Эксклюзив админ-абуза '+it.d+': пройди '+AB_GOAL+' уровня в субботу '+it.d+' с '+AB_FROM+':00 до '+AB_TO+':00 (МСК).';}
+  if(it.ex==='ny'){const r=NY_REWARDS.find(x=>x.code===code)||{need:0},t=evNow();
+    return t>=NY.to?'🎄 Эксклюзив ивента «Новый год» — ивент закончился.':'🎄 Эксклюзив ивента «Новый год» (1 декабря – 11 января): собери '+r.need+' подарков на уровнях (у тебя '+save.evd.gifts+').';}
+  if(it.ex==='nyn')return evNow()>=NYN.to?'🎆 Эксклюзив новогодней ночи — она прошла.':'🎆 Пройди уровень в новогоднюю ночь — 31 декабря с 20:00 до 03:00 (МСК).';
   if(it.ex==='w26'){const r=WINTER_REWARDS.find(x=>x.code===code)||{need:0};
     return winterOn(evNow())?'❄ Эксклюзив ивента «'+WINTER.name+'»: собери '+r.need+' снежинок на уровнях (у тебя '+save.evd.snow+'). Только до 30 ноября!':'❄ Эксклюзив ивента «'+WINTER.name+'» (ноябрь 2026) — ивент закончился.';}
   if(it.ex==='ab')return '⚡ Эксклюзив админ-абуза: пройди '+AB_GOAL+' уровня в субботу с '+AB_FROM+':00 до '+AB_TO+':00 по Москве.';
@@ -6623,6 +6738,14 @@ function evDrawFlake(c,x,y,r,rot){
 // поверх поля: снег, вспышка-объявление абуза и табличка с оставшимся временем
 function evDraw(){
   if(snowNow()&&Q.fx>0.3)evDrawSnow();
+  if(snowNow()&&nyOn(evNow())){
+    const cols=['#ef4444','#facc15','#22c55e','#3b82f6'],ph=Math.floor(evNow()/400);
+    ctx.strokeStyle='#14532d';ctx.lineWidth=1.5;ctx.beginPath();
+    for(let x=0;x<=W;x+=20)ctx.lineTo(x,5+Math.sin(x*0.08)*3);
+    ctx.stroke();
+    for(let x=10,i=0;x<W;x+=40,i++){ctx.globalAlpha=(i+ph)%3?1:0.35;ctx.fillStyle=cols[i%4];ctx.beginPath();ctx.arc(x,9+Math.sin(x*0.08)*3,3.5,0,TAU);ctx.fill();}
+    ctx.globalAlpha=1;
+  }
   const x=evAbuse();
   if(!x)return;
   const left=Math.max(0,Math.ceil((x.end-evNow())/1000)),s='⚡ '+x.a.name+' · 0:'+String(left).padStart(2,'0');
@@ -6653,13 +6776,18 @@ function evDrawBot(c,x,y,s){
 }
 
 // ---------- админ-абуз: корона за уровни ----------
+// вещь этой субботы; если её нет (или уже есть) — «Корона админа»
+function abItem(wk){const c=AB_WEEKLY[wk];return c&&!exOwned(c)?c:(exOwned('h27')?c||'':'h27');}
 function evCleared(){
-  if(CUSTOM||RACE_DIFF||TOUR||!abOn(evNow()))return '';
-  const wk=weekKey(evNow());
+  if(CUSTOM||RACE_DIFF||TOUR)return '';
+  let h='';
+  if(nynOn(evNow())&&evGrant('t18'))h+='<p class="good">🎆 Новогодняя ночь! След «Фейерверк» — твой!</p>';
+  if(!abOn(evNow()))return h;
+  const wk=weekKey(evNow()),code=abItem(wk);
   if(save.evd.ab.w!==wk)save.evd.ab={w:wk,n:0};
   save.evd.ab.n++;persist();evCloudSoon();
-  if(save.evd.ab.n>=AB_GOAL&&evGrant('h27'))return '<p class="good">⚡ «Корона админа» — твоя!</p>';
-  return '<p class="good">⚡ Админ-абуз: биты ×2'+(exOwned('h27')?'':' · уровней к «Короне админа»: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL)+'</p>';
+  if(code&&save.evd.ab.n>=AB_GOAL&&evGrant(code))return h+'<p class="good">⚡ «'+exItem(code).name+'» — твой эксклюзив этой субботы!</p>';
+  return h+'<p class="good">⚡ Админ-абуз: биты ×2'+(code&&!exOwned(code)?' · уровней к «'+exItem(code).name+'»: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL:'')+'</p>';
 }
 let evClearNote='';
 
@@ -6757,13 +6885,13 @@ function parseEvd(v){
   const o=v&&typeof v==='object'?v:{},wk=x=>typeof x==='string'&&/^\d{4}-W\d{2}$/.test(x)?x:'';
   const ex=[];for(const c of Array.isArray(o.ex)?o.ex:[])if(typeof c==='string'&&/^[csth]\d{1,2}$/.test(c)&&exItem(c)&&ex.indexOf(c)<0)ex.push(c);
   const ab=o.ab&&typeof o.ab==='object'?o.ab:{},tb=o.tb&&typeof o.tb==='object'?o.tb:{};
-  return{ex,snow:clampInt(o.snow,0,1e6,0),ab:{w:wk(ab.w),n:clampInt(ab.n,0,99,0)},tb:{w:wk(tb.w),ms:clampInt(tb.ms,0,36e5,0)},pw:wk(o.pw)};
+  return{ex,snow:clampInt(o.snow,0,1e6,0),gifts:clampInt(o.gifts,0,1e6,0),ab:{w:wk(ab.w),n:clampInt(ab.n,0,99,0)},tb:{w:wk(tb.w),ms:clampInt(tb.ms,0,36e5,0)},pw:wk(o.pw)};
 }
 // из аккаунта: эксклюзивы объединяются, снежинок — больше из двух
 function mergeEvd(v){
   const a=save.evd,b=parseEvd(v);
   for(const c of b.ex)if(a.ex.indexOf(c)<0)a.ex.push(c);
-  a.snow=Math.max(a.snow,b.snow);
+  a.snow=Math.max(a.snow,b.snow);a.gifts=Math.max(a.gifts,b.gifts);
   if(b.ab.w&&(b.ab.w>a.ab.w||(b.ab.w===a.ab.w&&b.ab.n>a.ab.n)))a.ab=b.ab;
   if(b.tb.w&&(b.tb.w>a.tb.w||(b.tb.w===a.tb.w&&b.tb.ms&&(!a.tb.ms||b.tb.ms<a.tb.ms))))a.tb=b.tb;
   if(b.pw>a.pw)a.pw=b.pw;
@@ -6786,6 +6914,8 @@ function evMenuBanner(){
   let h='';
   if(abOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">⚡ АДМИН-АБУЗ ИДЁТ! Биты ×2 · ещё '+evLeft(w.to-t)+'</button>';
   if(winterOn(t))h+='<p class="ev-note">❄ Ивент «'+WINTER.name+'»: снежинок <b>'+save.evd.snow+'</b> · до конца '+evLeft(WINTER.to-t)+'</p>';
+  if(nynOn(t))h+='<button type="button" class="mbtn ev-hot" data-act="events">🎆 НОВОГОДНЯЯ НОЧЬ! Биты ×3 · ещё '+evLeft(NYN.to-t)+'</button>';
+  else if(nyOn(t))h+='<p class="ev-note">🎄 Ивент «'+NY.name+'»: подарков <b>'+save.evd.gifts+'</b> · до 11 января</p>';
   return h;
 }
 function evHTML(){
@@ -6796,7 +6926,17 @@ function evHTML(){
     (on?'<p class="good"><b>Идёт сейчас!</b> До конца — '+evLeft(w.to-t)+'.'+(x?' Сейчас: <b>'+x.a.name+'</b> — '+x.a.text:' Следующий абуз — через '+evLeft(AB_SLOT-((t-w.from)%AB_SLOT))+'.')+'</p>'
       :'<p>Следующий — через <b>'+evLeft(w.from-t)+'</b>.</p>')+
     '<p>Весь день все биты <b>×2</b>, а каждые 4 минуты АДМИН-БОТ на минуту ломает правила — сразу у всех игроков: '+ABUSES.filter(a=>!a.winter||winterOn(t)).map(a=>'<b>'+a.name+'</b>').join(', ')+'.</p>'+
-    '<p>🎁 Эксклюзив: <b>«Корона админа»</b> — пройди '+AB_GOAL+' уровня во время админ-абуза. '+(exOwned('h27')?'<span class="good">Уже твоя!</span>':(save.evd.ab.w===wk?'Пройдено: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL+'.':''))+'</p></div>';
+    evWeekHTML(t,wk)+'</div>';
+  // Новый год
+  if(nyOn(t)||save.evd.gifts||(t>=NY.from-7*DAY&&t<NY.from)){
+    h+='<div class="ev-card"><p class="lbl2">🎄 '+NY.name+' · 1 ДЕКАБРЯ – 11 ЯНВАРЯ</p>'+
+      (t<NY.from?'<p>Начнётся через <b>'+evLeft(NY.from-t)+'</b>: снег, гирлянды и подарки на уровнях.</p>':'')+
+      (nyOn(t)?'<p>На уровнях появляются <b>подарки</b> 🎁 — собирай их! До конца ивента — '+evLeft(NY.to-t)+'.</p>':'')+
+      '<p>Собрано подарков: <b>'+save.evd.gifts+'</b></p><ul class="ev-list">'+
+      NY_REWARDS.map(r=>{const it=exItem(r.code),own=exOwned(r.code);return '<li>'+(own?'✅':'🎁')+' <b>'+it.name+'</b> ('+catOf(r.code[0]).name.toLowerCase()+') — '+(own?'получено':r.need+' подарков')+'</li>';}).join('')+
+      '</ul><p>🎆 <b>Новогодняя ночь</b> — 31 декабря с 20:00 до 03:00 (МСК): биты ×3, салют, а за пройденный уровень — эксклюзивный след <b>«Фейерверк»</b>'+(exOwned('t18')?' <span class="good">(уже твой)</span>':'')+'.</p>'+
+      '<p class="foot">Собери всё — получится наряд «ЁЛОЧКА». После 11 января новогодние эксклюзивы останутся только у тех, кто успел.</p></div>';
+  }
   // зима
   if(winterOn(t)||save.evd.snow){
     h+='<div class="ev-card"><p class="lbl2">❄ '+WINTER.name+(winterOn(t)?' · ДО 30 НОЯБРЯ':' · ЗАКОНЧИЛСЯ')+'</p>'+
@@ -6824,6 +6964,16 @@ function evHTML(){
   }
   h+='</div>';
   return h+mb('main','Назад');
+}
+// эксклюзив этой и следующей субботы: что дают, сколько пройдено, кнопка «Примерить»
+function evWeekHTML(t,wk){
+  const code=abItem(wk),it=code&&exItem(code),nx=weekKey(abWindow(t).from+WEEK),ncode=AB_WEEKLY[nx],nit=ncode&&exItem(ncode);
+  let h='';
+  if(it)h+='<p>🎁 Эксклюзив '+(abOn(t)?'этой':'ближайшей')+' субботы: <b>«'+it.name+'»</b> ('+catOf(code[0]).name.toLowerCase()+') — пройди '+AB_GOAL+' уровня во время админ-абуза. '+
+    (save.evd.ab.w===wk?'Пройдено: '+Math.min(AB_GOAL,save.evd.ab.n)+' из '+AB_GOAL+'. ':'')+'</p>'+mb('extry:'+code,'Примерить «'+it.name+'»','sm');
+  else h+='<p>🎁 Все эксклюзивы админ-абуза уже твои — в эти субботы биты всё равно ×2!</p>';
+  if(nit&&ncode!==code)h+='<p class="foot">Через неделю — «'+nit.name+'» ('+catOf(ncode[0]).name.toLowerCase()+').</p>';
+  return h;
 }
 function tourResHTML(){
   const r=tourRes;
