@@ -27,6 +27,8 @@
 <title>DATA.OUT v6.0</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
+  :where(button){transition:transform .08s ease-out,box-shadow .08s ease-out,filter .15s}
+  :where(button:not(:disabled)):active{transform:translateY(2px) scale(.97)}
   /* шрифт меню и кнопок — Rubik (SIL OFL 1.1, fonts/OFL.txt), лежит рядом с игрой */
   @font-face{font-family:'Rubik';font-style:normal;font-weight:400 900;font-display:swap;src:url(fonts/rubik-cyrillic.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
   @font-face{font-family:'Rubik';font-style:normal;font-weight:400 900;font-display:swap;src:url(fonts/rubik-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
@@ -48,16 +50,17 @@
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden}
   /* у min/max/clamp есть запасные значения для старых браузеров */
   #app{box-sizing:border-box;height:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:8px;padding-bottom:8px;padding-left:16px;padding-right:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  #app>h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   h1{margin:0;font-size:20px;font-size:clamp(15px,3.4vw,22px);letter-spacing:2px;letter-spacing:clamp(1px,.5vw,4px);text-align:center;text-wrap:balance}
   #ui{display:flex;gap:8px 10px;align-items:stretch;flex-wrap:wrap;justify-content:center}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 12px;display:flex;align-items:center;gap:8px}
+  .stat{background:var(--panel);border:0;border-radius:999px;padding:4px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 1px 4px rgba(11,37,69,.16)}
   .stat .lbl{font-size:10px;color:var(--muted);letter-spacing:.5px}
   .stat .val{font-weight:bold;font-variant-numeric:tabular-nums}
   #hearts{color:var(--heart);font-size:16px}
   #dataVal,#scoreVal{color:var(--score);font-size:16px}
   #levelVal{color:var(--level);font-size:16px}
   #emp{color:var(--emp)}
-  #keys{background:var(--keys-bg);border:1px dashed var(--keys-line);border-radius:6px;padding:4px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;color:var(--keys-ink);font-size:12px}
+  #keys{background:none;border:0;border-radius:6px;padding:0 14px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;color:var(--keys-ink);font-size:12px}
   kbd{background:var(--panel);border:1px solid var(--kbd-line);border-radius:4px;padding:0 6px;font-family:var(--mono)}
   #stage{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
   #screen{position:relative}
@@ -73,7 +76,7 @@
   /* меню поверх поля */
   #menu{position:absolute;top:0;right:0;bottom:0;left:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;background:var(--veil);border-radius:8px}
   #menu[hidden]{display:none}
-  .panel{box-sizing:border-box;width:100%;max-width:560px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--panel);border:2px solid var(--ink);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 24px var(--shadow);color:var(--ink)}
+  .panel{box-sizing:border-box;width:100%;max-width:560px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--panel);border:2px solid var(--b-out);border-radius:22px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(11,37,69,.18);color:var(--ink)}
   .panel h2{margin:0;font-size:24px;font-size:clamp(20px,4vw,28px);letter-spacing:3px;text-align:center;text-wrap:balance}
   .panel h2.bad{color:var(--danger)}
   .panel h2.good{color:var(--win)}
@@ -115,7 +118,7 @@
   .acct b{display:block;font-size:14px}
   .acct small{display:block;font-size:11px;color:var(--muted)}
   .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-  .stats div{border:1px solid var(--line);border-radius:6px;padding:6px;text-align:center}
+  .stats div{border:2px solid var(--b-out);border-radius:14px;padding:8px 4px 6px;text-align:center;background:#fff;box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);margin-bottom:6px}
   .stats b{display:block;font-size:18px;color:var(--level);font-variant-numeric:tabular-nums}
   .stats span{font-size:10px;color:var(--muted)}
   .top{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
@@ -148,6 +151,7 @@
     .pal{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   .tbtn2{display:flex;align-items:center;gap:6px;font:bold 11px var(--font);color:var(--ink);background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:4px 6px;cursor:pointer;text-align:left;touch-action:manipulation;min-width:0}
+  .tbtn2:active:not(:disabled){transform:translateY(2px);border-color:var(--ink)}
   .tbtn2[aria-pressed="true"]{border-color:var(--ink);background:var(--keys-bg)}
   .tbtn2:focus-visible{outline:3px solid var(--level);outline-offset:1px}
   .tsw{width:20px;height:20px;flex:none;box-sizing:border-box;border:2px solid;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1}
@@ -158,7 +162,7 @@
   .ed-val{align-self:center;min-width:44px;text-align:center;font-size:15px;color:var(--level)}
   .panel .ed-note{color:var(--ink)}
   .lcards{display:flex;flex-direction:column;gap:8px}
-  .lcard{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;text-align:left}
+  .lcard{border:2px solid var(--b-out);border-radius:14px;padding:10px 12px;box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);margin-bottom:6px;background:#fff;display:flex;flex-direction:column;gap:4px;text-align:left}
   .lcard b{font-size:14px;overflow-wrap:anywhere}
   .lcard small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
   .prof-body{display:flex;flex-direction:column;gap:10px}
@@ -167,7 +171,7 @@
   .lacts{display:flex;flex-wrap:wrap;gap:6px}
   .copyrow{display:flex;gap:6px;align-items:center}
   .ev-note{font-size:13px;text-align:center;margin:4px 0}
-  .ev-card{border:2px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;text-align:left}
+  .ev-card{border:2px solid var(--b-out);border-radius:16px;padding:10px 14px;margin:8px 0 14px;text-align:left;background:#fff;box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out)}
   .ev-card p{margin:6px 0}
   .ev-list{margin:6px 0;padding-left:20px;font-size:14px}
   .ev-top{margin:6px 0;padding-left:0;list-style:none}
@@ -199,7 +203,7 @@
   .pg-q.got b{text-decoration:line-through;opacity:.6}
   .pg-ok{color:var(--win);font-weight:bold;font-size:18px;flex:none}
   .pg-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin:8px 0}
-  .pg-a{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;text-align:left}
+  .pg-a{display:flex;align-items:center;gap:8px;border:2px solid var(--b-out);border-radius:12px;padding:6px 8px;text-align:left;background:#fff;box-shadow:0 3px 0 #b6c3d1,0 3px 0 2px var(--b-out);margin-bottom:4px}
   .pg-a.got{border:2px solid var(--win);background:#2a611}
   .pg-a>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .pg-a b{font-size:12px}
@@ -249,7 +253,7 @@
   @keyframes btnglow{50%{filter:brightness(1.1) drop-shadow(0 0 7px var(--g))}}
   @media (prefers-reduced-motion:reduce){.mbtn.ev-hot,.mbtn.pg-hot{animation:none}.mbtn,.chip{transition:none}}
   .dot{box-shadow:0 0 0 2px #fff}
-  .lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px 8px}
+  .lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px 8px}
   .mbtn.lvbtn{--f:#fff;--e:#b6c3d1;--t:#0b3954;--d:4px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 10px 6px;text-align:left;font-size:12px;font-weight:700;border-radius:12px;text-shadow:none}
   .lvbtn b{font-size:16px;font-weight:900;color:#0284c7}
   .lvbtn small{font-weight:500;font-size:10px;color:var(--muted)}
@@ -270,6 +274,41 @@
   .chip.lock{border-style:dashed;--f:#f6f8fb}
   .chip.lock[aria-pressed="true"]{--f:#38bdf8;--e:#0369a1;--t:#fff}
   .panel .coins{font-size:15px;color:var(--ink)}
+  /* главное меню: аккаунт и биты сверху, плитки разделов */
+  .m-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
+  .m-top .acct{justify-content:flex-start;min-width:0}
+  .m-top .acct b,.m-top .acct small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+  .coin-pill{flex:none;font:800 14px var(--font);background:#fff7d6;border:2px solid var(--b-out);border-radius:999px;padding:4px 12px 3px;color:#5b3a00;box-shadow:0 3px 0 #c28a04,0 3px 0 2px var(--b-out);white-space:nowrap;margin-bottom:5px}
+  .panel h2.logo{font-size:32px;font-weight:900;letter-spacing:5px;color:var(--b-out);margin-top:4px}
+  .mbtn.big{font-size:18px;padding:14px 16px 13px}
+  .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px;margin:4px 0 6px}
+  @media (min-width:600px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:86px;padding:10px 4px 8px;border:2px solid var(--b-out);border-radius:16px;background:#fff;
+    box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);cursor:pointer;font:800 12px/1.15 var(--font);color:#0b3954;transition:transform .07s,box-shadow .07s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  .tile .ti{font-size:28px;line-height:1}
+  .tile small{font-size:10px;font-weight:700;color:var(--muted)}
+  .tile:active{transform:translateY(3px);box-shadow:0 1px 0 #b6c3d1,0 1px 0 2px var(--b-out)}
+  .tile:focus-visible{outline:3px solid #facc15;outline-offset:3px}
+  .tile:hover{background:#f6fbff}
+  .tile .dot{position:absolute;top:-9px;right:-7px}
+  .tile.hot{background:#f5edff;box-shadow:0 4px 0 #7e22ce,0 4px 0 2px var(--b-out);--g:#a855f7;animation:btnglow 1.4s ease-in-out infinite}
+  .tile.donate{background:#fff1f3;box-shadow:0 4px 0 #f9a8b8,0 4px 0 2px var(--b-out)}
+  @media (prefers-reduced-motion:reduce){.tile.hot{animation:none}}
+  /* после уровня: «пилюли» с итогами и карточка следующего уровня */
+  .pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .pills span{font:700 14px var(--font);background:#eef4fa;border-radius:999px;padding:6px 14px;color:var(--b-out)}
+  .pills span.gold{background:#fff3c4;color:#5b3a00}
+  .pills span.hp{color:var(--heart);letter-spacing:1px}
+  .next-card{display:flex;flex-direction:column;gap:2px;border:2px solid var(--b-out);border-radius:16px;padding:10px 14px;background:#f6fbff;box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);margin-bottom:6px;text-align:left}
+  .next-card small{font-size:10px;letter-spacing:1px;color:var(--muted);font-weight:700}
+  .next-card b{font-size:16px;color:var(--b-out)}
+  .next-card span{font-size:12px;color:var(--muted);line-height:1.4}
+  /* акты в «Уровнях» — карточки ряда */
+  .card.act{width:118px;min-height:96px;justify-content:center}
+  .card.act .an{font:900 24px var(--font);color:#0284c7;line-height:1}
+  .card.act .nm{white-space:normal;text-align:center;line-height:1.15;min-height:2.3em;display:flex;align-items:center}
+  .card:disabled{cursor:default;background:#f1f4f8;color:#8796a6;box-shadow:0 4px 0 #d3dbe4,0 4px 0 2px #8796a6;border-color:#8796a6}
+  .card:disabled .an{color:#a9b4c0}
   /* магазин облика: сцена с примеркой, вкладки, ряды карточек вбок */
   /* панель меню — колонка с прокруткой: без этого ряды с прокруткой вбок сжимались бы по высоте */
   .shop-hero,.shop-tabs,.shop-sec,.shop-row,.panel .copyrow{flex-shrink:0}
@@ -4379,23 +4418,31 @@ function actGift(n){
 function panelHTML(s){
   const c=cfgNow();
   if(s==='main'){
-    const cont=save.unlocked>1;
-    return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
+    // минимализм, как в магазине: сверху аккаунт и биты, карточка уровня игрока, одна большая кнопка игры,
+    // все разделы — плитками со значком; метки на плитках — где ждёт награда
+    const cont=save.unlocked>1,dq=pgDaily(),done=dq.q.filter((_,i)=>dq.c[i]).length,t=evNow();
+    const tile=(act,ic,label,extra,cls)=>'<button type="button" class="tile'+(cls?' '+cls:'')+'" data-act="'+act+'"><span class="ti" aria-hidden="true">'+ic+'</span><span class="tl">'+label+'</span>'+(extra||'')+'</button>';
+    return '<div class="m-top">'+ACCT_ROW+'<span class="coin-pill" title="Биты">◈ <b>'+pgNum(coins())+'</b></span></div>'+
+      '<h2 class="logo">DATA.OUT</h2><p class="sub">ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
       (updReady?mb('upd','🔄 Вышла новая версия игры — обновить','primary'):'')+
-      ACCT_ROW+pgMenuHTML()+
-      '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</p>'+
+      pgMenuHTML()+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       (hsTipOn()?'<div class="hs-tip"><b>📲 Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
       (installEv?mb('install','📲 Установить игру — на весь экран'):'')+
-      '<div class="mcol">'+(cont?mb('play','Продолжить: уровень '+save.unlocked,'primary'):mb('new','Играть','primary'))+'</div>'+
-      '<div class="mrow">'+mb('levels','Уровни')+mb('top','Рекорды')+mb('skins','Облик')+mb('acct','Аккаунт')+mb('help','Как играть')+mb('settings','Настройки')+'</div>'+
+      '<div class="mcol">'+(cont?mb('play','▶ Играть · уровень '+save.unlocked,'primary big'):mb('new','▶ Играть','primary big'))+'</div>'+
       evMenuBanner()+
-      mb('events','⚡ Ивенты · админ-абуз и турнир')+
-      mb('race','Гонка · мультиплеер')+
-      mb('community','Сообщество · уровни игроков')+
-      (NET.admin?mb('admin','Админ-панель'):'')+
-      (CAN_DONATE?mb('donate','♥ Поддержать игру','donate'):'')+
-      '<p class="foot">Рекорд: '+save.best+' · ◈ '+coins()+' бит · открыто уровней: '+save.unlocked+' из '+LEVELS.length+' · сложность: '+D().name.toLowerCase()+' (меняется в настройках)</p>'+COPYRIGHT;
+      '<div class="tiles">'+
+        tile('levels','🗺️','Уровни')+tile('skins','🎨','Облик')+
+        tile('quests','🎯','Задания','<small>'+done+'/'+dq.q.length+'</small>'+pgDot(pgClaims()))+
+        tile('ach','🏅','Достижения','<small>'+save.pg.ach.length+'/'+PG_ACH.length+'</small>'+pgDot(save.pg.ach.length-save.pg.seen))+
+        tile('events','⚡','Ивенты','',abOn(t)||nynOn(t)?'hot':'')+tile('race','🏁','Гонка')+
+        tile('community','🧩','Сообщество')+tile('top','🏆','Рекорды')+tile('acct','👤','Аккаунт')+
+        tile('settings','⚙️','Настройки')+tile('help','❓','Как играть')+
+        (CAN_DONATE?tile('donate','❤️','Поддержать','','donate'):'')+
+        (NET.admin?tile('admin','🛠️','Админ'):'')+
+      '</div>'+
+      pgNextHTML()+
+      '<p class="foot">Рекорд '+save.best+' · уровней '+save.unlocked+' из '+LEVELS.length+' · сложность «'+D().name.toLowerCase()+'» · v6.0</p>'+COPYRIGHT;
   }
   if(s==='levels'){
     const lv=(l,i)=>{
@@ -4403,11 +4450,14 @@ function panelHTML(s){
       return '<button type="button" class="mbtn lvbtn" data-act="lv:'+i+'"'+(locked?' disabled':'')+'><b>'+(i+1)+'</b><span>'+l.name+'</span><small>'+(locked?'закрыт':features(l)||'без сюрпризов')+'</small></button>';
     };
     const a=lvAct,from=actStart(a);
-    return '<h2>УРОВНИ</h2><p>Следующий уровень открывается, когда пройден предыдущий.</p>'+
-      '<div class="chips">'+ACTS.map((x,i)=>{
-        const open=actStart(i)<save.unlocked;
-        return '<button type="button" class="chip" data-act="lvact:'+i+'" aria-pressed="'+(i===a)+'"'+(open?'':' disabled')+'>'+(i+1)+' · '+x.name+'</button>';
-      }).join('')+'</div>'+
+    return '<h2>УРОВНИ</h2>'+
+      '<section class="shop-sec"><h3><span>🗺️ Акты <small>'+ACTS.filter((x,i)=>save.unlocked>x.end+1).length+' из '+ACTS.length+' пройдено</small></span>'+
+      '<span class="arrs"><button type="button" class="arr" data-act="row:acts:-1" aria-label="Листать влево">‹</button><button type="button" class="arr" data-act="row:acts:1" aria-label="Листать вправо">›</button></span></h3>'+
+      '<div class="shop-row" data-row="acts">'+ACTS.map((x,i)=>{
+        const st=actStart(i),open=st<save.unlocked,tot=x.end+1-st,got=Math.max(0,Math.min(tot,save.unlocked-1-st)),fin=got>=tot;
+        return '<button type="button" class="card act'+(fin?' worn':'')+'" data-act="lvact:'+i+'" aria-pressed="'+(i===a)+'"'+(open?'':' disabled')+'><span class="an">'+(i+1)+'</span><span class="nm">'+x.name+'</span>'+
+          '<span class="tag'+(fin?' own':'')+'">'+(open?(fin?'✓ пройден':got+' / '+tot):'🔒 закрыт')+'</span></button>';
+      }).join('')+'</div></section>'+
       '<p class="lbl2">АКТ '+(a+1)+' · '+ACTS[a].name+' · УРОВНИ '+(from+1)+'–'+(ACTS[a].end+1)+'</p>'+
       '<div class="lvgrid">'+LEVELS.slice(from,ACTS[a].end+1).map((l,i)=>lv(l,i+from)).join('')+'</div>'+
       mb('main','Назад');
@@ -4538,6 +4588,7 @@ function panelHTML(s){
   }
   if(s==='help'){
     return '<h2>КАК ИГРАТЬ</h2><ul class="help">'+
+      '<li><b>История.</b> Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</li>'+
       '<li><b>Цель.</b> Собирай ♦ данные. Набрал норму уровня — открывается портал. На уровнях с боссом сначала разбей его зарядами EMP.</li>'+
       '<li><b>Клавиатура.</b> WASD или стрелки — движение, SPACE — рывок, E — подножка, Q — EMP, P или Esc — пауза.</li>'+
       '<li><b>Телефон.</b> Палец на левой половине поля — джойстик, справа кнопки РЫВОК, ПОДНОЖКА и EMP.</li>'+
@@ -4583,7 +4634,7 @@ function panelHTML(s){
   }
   if(s==='pause'){
     return '<h2>ПАУЗА</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p>'+
-      '<div class="mcol">'+mb('resume','Продолжить','primary')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu',CUSTOM?'Выйти с уровня':'Главное меню')+'</div>'+
+      '<div class="mcol">'+mb('resume','▶ Продолжить','primary big')+mb('settings','Настройки')+mb('restart','Начать уровень заново')+mb('menu',CUSTOM?'Выйти с уровня':'Главное меню')+'</div>'+
       '<p class="foot">P или Esc — продолжить</p>';
   }
   if(s==='clear'){
@@ -4593,14 +4644,14 @@ function panelHTML(s){
     const head=lvl===ACTS[a].end&&story
       ?'<h2 class="good">АКТ '+(a+1)+' ПРОЙДЕН</h2><div class="story">'+story.map(t=>'<p>'+t+'</p>').join('')+'</div>'+actGift(a+1)
       :'<h2>УРОВЕНЬ '+(lvl+1)+' ПРОЙДЕН</h2>';
-    return head+'<p>'+c.name+' позади. Очки: <b>'+score+'</b> · биты: <b>+'+lvBits+'</b> (всего ◈ '+coins()+')</p>'+evClearNote+
-      '<p class="hp">'+heartsStr(Math.min(maxLives(),lives+D().heal))+'</p>'+
-      (lives<maxLives()?'<p>'+(lives+D().heal>=maxLives()?'Жизни восстановлены.':'Восстановлена '+(D().heal>1?D().heal+' жизни':'одна жизнь')+'.')+'</p>':'')+
-      '<p>Дальше: <b>'+(lvl+2)+' · '+n.name+'</b><br>'+objective(n)+(f?'<br>'+f:'')+'</p>'+
-      '<div class="mcol">'+mb('next','Дальше','primary')+mb('menu','Главное меню')+'</div>';
+    const hp=Math.min(maxLives(),lives+D().heal);
+    return head+'<div class="pills"><span>Очки <b>'+score+'</b></span><span class="gold">◈ <b>+'+lvBits+'</b></span><span class="hp" title="'+(lives<maxLives()?'Жизни подлечены':'Жизни целы')+'">'+heartsStr(hp)+'</span></div>'+evClearNote+
+      '<div class="next-card"><small>ДАЛЬШЕ</small><b>'+(lvl+2)+' · '+n.name+'</b><span>'+objective(n)+(f?'<br>'+f:'')+'</span></div>'+
+      '<div class="mcol">'+mb('next','▶ Дальше','primary big')+mb('menu','Главное меню')+'</div>';
   }
   if(s==='dead'){
-    return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+' · данных спасено: <b>'+score+'</b>'+(lvBits&&!CUSTOM?' · биты: <b>+'+lvBits+'</b>':'')+'</p>'+
+    return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+'</p>'+
+      '<div class="pills"><span>Данных <b>'+score+'</b></span>'+(lvBits&&!CUSTOM?'<span class="gold">◈ <b>+'+lvBits+'</b></span>':'')+'</div>'+
       pgNote()+'<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu',CUSTOM?'Назад':'Главное меню')+'</div>'+
       '<p class="foot">R — запустить резервную копию</p>';
   }
@@ -4645,7 +4696,7 @@ function showMenu(s,focusAct){
   screenEl.classList.add('menu-open');
   panelEl.scrollTop=keep;
   panelEl.querySelectorAll('[data-row]').forEach(r=>{if(rows[r.dataset.row])r.scrollLeft=rows[r.dataset.row];});
-  if(s==='skins')shopShowSel();
+  if(s==='skins'||s==='levels')shopShowSel();
   if(kbUser){
     const b=(focusAct&&panelEl.querySelector('[data-act="'+focusAct+'"]'))||((s==='signin'||s==='signup')&&$id('lg-login'))||panelEl.querySelector('.primary')||panelEl.querySelector('button:not([disabled])');
     if(b)b.focus({preventScroll:true});
@@ -4838,6 +4889,7 @@ function act(a){
   }
   else showMenu(k);
 }
+document.addEventListener('touchstart',()=>{},{passive:true});
 panelEl.addEventListener('click',e=>{
   const b=e.target.closest('button[data-act]');
   if(b&&!b.disabled)act(b.dataset.act);
@@ -7638,15 +7690,13 @@ function pgCard(){
 }
 function pgDot(n){return n>0?' <span class="dot">'+n+'</span>':'';}
 function pgMenuHTML(){
-  const p=save.pg,dq=pgDaily(),done=dq.q.filter((_,i)=>dq.c[i]).length;
+  const p=save.pg;
   let h=pgCard();
   if(pgRetro)h+='<p class="good">🏅 За прошлые заслуги: достижений — '+pgRetro.n+', ◈ +'+pgNum(pgRetro.b)+'. Загляни в «Достижения»!</p>';
   if(pgCalReady())h+=mb('quests','📅 Награда дня ждёт — день '+(p.cal.n%7+1)+' из 7!','pg-hot');
-  h+='<div class="mrow2">'+mb('quests','🎯 Задания '+done+'/'+dq.q.length+pgDot(pgClaims()))+mb('ach','🏅 Достижения '+p.ach.length+'/'+PG_ACH.length+pgDot(p.ach.length-p.seen))+'</div>';
-  const nx=pgNext();
-  if(nx)h+='<p class="pg-next">'+nx+'</p>';
   return h;
 }
+function pgNextHTML(){const nx=pgNext();return nx?'<p class="pg-next">'+nx+'</p>':'';}
 // «что дальше»: достижение, до которого ближе всего
 function pgNext(){
   let best=null,bf=0;
