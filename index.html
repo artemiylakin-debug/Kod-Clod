@@ -4381,6 +4381,7 @@ function panelHTML(s){
   if(s==='main'){
     const cont=save.unlocked>1;
     return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
+      (updReady?mb('upd','🔄 Вышла новая версия игры — обновить','primary'):'')+
       ACCT_ROW+pgMenuHTML()+
       '<p class="intro">Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</p>'+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
@@ -4730,6 +4731,7 @@ function act(a){
   else if(k==='untry'){tryOn=null;tryLook=null;tryOutfit=null;showMenu('skins');}
   else if(k==='item')pickItem(a.split(':')[1],Number(a.split(':')[2]));
   else if(k==='buy')buyItem();
+  else if(k==='upd')updGo();
   else if(k==='qclaim'){pgClaimQ(n);showMenu('quests');}
   else if(k==='qbonus'){pgClaimBonus();showMenu('quests');}
   else if(k==='calclaim'){pgCalClaim();showMenu('quests');}
@@ -7257,6 +7259,39 @@ function tourResHTML(){
 // время сервера — при запуске и раз в 10 минут; заодно призы прошлого турнира
 evSyncTime();
 setInterval(evSyncTime,600000);
+
+// ---------- обновление игры ----------
+// GitHub Pages разрешает браузеру держать страницу 10 минут, а игра со значка на экране «Домой» на iPhone не
+// перезагружается вовсе, пока её не закрыть. Поэтому игра сама спрашивает сайт, когда страница менялась
+// (Last-Modified), и сравнивает со своей. На главном экране новая версия ставится сама, в остальных местах —
+// кнопка в меню. Прогресс от перезагрузки не теряется: он записан в браузере и в аккаунте
+let updReady=0,updAt=0;
+const PAGE_AT=Date.parse(document.lastModified)||0;
+function updOn(){return !IN_CLAUDE&&/^https?:$/.test(location.protocol)&&PAGE_AT>0;}
+async function updCheck(auto){
+  if(!updOn()||Date.now()-updAt<30000)return;
+  updAt=Date.now();
+  try{
+    const r=await fetch(location.pathname+'?v='+Date.now(),{method:'HEAD',cache:'no-store'});
+    const lm=Date.parse(r.headers.get('last-modified')||'');
+    if(!r.ok||!lm||lm<=PAGE_AT+1000)return;
+    updReady=lm;
+    // сама — только на главном экране и не больше раза за версию (если кэш упрямо отдаёт старое — останется кнопка)
+    let tried='';try{tried=sessionStorage.getItem('dataout-upd')||'';}catch(_){}
+    if(auto&&phase==='menu'&&(menuScreen==='main'||menuScreen==='gate')&&tried!==String(lm)){updGo();return;}
+    if(phase==='menu'&&menuScreen==='main')showMenu('main');
+  }catch(_){}
+}
+function updGo(){
+  try{sessionStorage.setItem('dataout-upd',String(updReady));}catch(_){}
+  persist();
+  // новый адрес — мимо кэша; лишний ?v= из адреса потом убирается
+  location.replace(location.pathname+'?v='+(updReady||Date.now())+location.hash);
+}
+if(updOn()&&/^\?v=\d+$/.test(location.search))history.replaceState(null,'',location.pathname+location.hash);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)updCheck(true);});
+setInterval(()=>updCheck(false),600000);
+setTimeout(()=>updCheck(true),3000);
 
 // ================= ПРОГРЕСС: уровень игрока, достижения, задания дня, календарь =================
 // Всё держится на счётчиках save.pg.st: игра прибавляет их (pgAdd), достижения и задания дня
