@@ -1,0 +1,15 @@
+{
+  "name": "data-out",
+  "description": "Плагины игры DATA.OUT для Claude Code",
+  "owner": {
+    "name": "artemiylakin-debug",
+    "url": "https://artemiylakin-debug.github.io/Kod-Clod/"
+  },
+  "plugins": [
+    {
+      "name": "data-out",
+      "source": "./claude-plugin",
+      "description": "Делай уровни DATA.OUT вместе с Claude: сервер игры (MCP) и навыки конструктора карт"
+    }
+  ]
+}

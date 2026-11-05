@@ -1,0 +1,21 @@
+{
+  "name": "data-out",
+  "displayName": "DATA.OUT",
+  "version": "1.0.0",
+  "description": "Claude делает уровни для игры DATA.OUT: читает формат карты, смотрит уровни сообщества и рекорды, проверяет карту и кладёт черновик в аккаунт игрока («Мои уровни» → «От ИИ»).",
+  "author": {
+    "name": "artemiylakin-debug",
+    "url": "https://artemiylakin-debug.github.io/Kod-Clod/"
+  },
+  "homepage": "https://artemiylakin-debug.github.io/Kod-Clod/",
+  "repository": "https://github.com/artemiylakin-debug/Kod-Clod",
+  "keywords": ["data-out", "game", "level-editor", "mcp"],
+  "userConfig": {
+    "mcp_key": {
+      "type": "string",
+      "title": "Ключ ИИ из игры DATA.OUT",
+      "description": "Ключ dok_… — в игре: «Сообщество» или «Аккаунт» → «Подключить ИИ» → «Создать ключ». С ключом Claude складывает уровни тебе в «Мои уровни» → «От ИИ»; без ключа — только смотрит уровни и рекорды.",
+      "sensitive": true
+    }
+  }
+}

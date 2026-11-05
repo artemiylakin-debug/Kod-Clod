@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "data-out": {
+      "type": "http",
+      "url": "https://lnkekrusqjdroomcufen.supabase.co/functions/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.mcp_key}"
+      }
+    }
+  }
+}

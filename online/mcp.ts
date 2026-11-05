@@ -3,7 +3,7 @@
 //
 // Адрес: https://<проект>.supabase.co/functions/v1/mcp
 // Без ключа ИИ может читать: формат карт, уровни сообщества, рекорды, профили, проверку карты.
-// С ключом игрока (создаётся в игре: «Аккаунт» → «ИИ через MCP») — ещё и складывать черновики
+// С ключом игрока (создаётся в игре: «Сообщество» или «Аккаунт» → «Подключить ИИ») — ещё и складывать черновики
 // уровней в «Мои уровни» этого игрока. Публикует уровень сам игрок, пройдя его в редакторе:
 // так в сообществе не бывает непроходимых уровней.
 // Ключ передаётся заголовком «Authorization: Bearer dok_…» или параметром адреса ?key=dok_…
@@ -186,6 +186,8 @@ const levelRow = (l: any, nm: Record<string, string>) => ({ id: l.id, назва
 
 // ---------- инструменты ----------
 type Ctx = { user: string | null; keyGiven: boolean };
+// инструменты, которые меняют данные игрока (только его черновики от ИИ); значение — может ли стереть или заменить
+const WRITES: Record<string, boolean> = { save_draft: false, update_draft: true, delete_draft: true };
 type Tool = { name: string; title: string; description: string; inputSchema: any; key?: boolean; run: (a: any, c: Ctx) => Promise<any> };
 const levelSchema = { type: 'object', description: 'уровень в формате level_format', additionalProperties: true };
 const TOOLS: Tool[] = [
@@ -297,12 +299,14 @@ async function handle(m: any, ctx: Ctx) {
       instructions: INSTRUCTIONS + (ctx.user ? '\nКлюч игрока подключён: доступны черновики.' : ctx.keyGiven ? '\nКлюч не найден или отозван: доступно только чтение.' : '\nКлюча нет: доступно только чтение.') });
   }
   if (m.method === 'ping') return ok({});
-  if (m.method === 'tools/list') return ok({ tools: TOOLS.map(t => ({ name: t.name, title: t.title, description: t.description + (t.key ? ' Нужен ключ игрока.' : ''), inputSchema: t.inputSchema })) });
+  if (m.method === 'tools/list') return ok({ tools: TOOLS.map(t => ({ name: t.name, title: t.title, description: t.description + (t.key ? ' Нужен ключ игрока.' : ''), inputSchema: t.inputSchema,
+    // пометки для клиентов (ChatGPT требует их у каждого инструмента): читает или меняет, может ли стереть, выходит ли за пределы игры
+    annotations: { title: t.title, readOnlyHint: !(t.name in WRITES), destructiveHint: !!WRITES[t.name], idempotentHint: t.name !== 'save_draft', openWorldHint: false } })) });
   if (m.method === 'tools/call') {
     const t = TOOLS.find(x => x.name === p.name);
     if (!t) return fail(-32602, `нет такого инструмента: ${p.name}`);
     const text = (s: string, isError = false) => ok({ content: [{ type: 'text', text: s }], isError });
-    if (t.key && !ctx.user) return text(ctx.keyGiven ? 'Ключ не найден или отозван. Создай новый в игре: «Аккаунт» → «ИИ через MCP».' : 'Нужен ключ игрока: создай его в игре («Аккаунт» → «ИИ через MCP») и подключи сервер по адресу с ключом.', true);
+    if (t.key && !ctx.user) return text(ctx.keyGiven ? 'Ключ не найден или отозван. Создай новый в игре: «Сообщество» → «Подключить ИИ» → «Создать ключ».' : 'Нужен ключ игрока: создай его в игре («Сообщество» → «Подключить ИИ» → «Создать ключ») и подключи сервер с этим ключом.', true);
     try {
       const r = await t.run(p.arguments || {}, ctx);
       return text(typeof r === 'string' ? r : JSON.stringify(r, null, 1));
