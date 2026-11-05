@@ -1874,9 +1874,13 @@ let runBits=0,lvBits=0;
 function bankBits(){if(CUSTOM||RACE_DIFF||TOUR){runBits=0;return;}if(runBits>0){save.earned=Math.min(1e8,save.earned+runBits);runBits=0;persist();pgCheck('bits');}}
 
 let Q=QUALITY.high,resScale=1,perfT=0,perfFrames=0;
+function ulSupported(){
+  try{const g=document.createElement('canvas').getContext('2d');g.globalCompositeOperation='multiply';return g.globalCompositeOperation==='multiply';}catch(_){return false;}
+}
 function computeQuality(){
   const t=save.q==='auto'?save.autoTier:save.q;
-  Q=QUALITY[t];
+  Q=QUALITY[t]||QUALITY.high;
+  if(Q.ultra&&!ulSupported())Q=QUALITY.high;
   resScale=Math.min(window.devicePixelRatio||1,Q.res)*(save.q==='auto'&&t==='low'?save.autoRes:1);
   perfT=0;perfFrames=0;
 }
@@ -3758,7 +3762,7 @@ function buildBg(){
 // Случайность здесь — своя (ulRand): Math.random в гонке и турнире на старте уровня идёт из общего зерна.
 const UL={M:16,S:0.5,R:240};
 let ulLight=null,ulLx=null,ulPl=null,ulPx=null,ulVig=null,ulAmb=null,ulShadowSpr=null,ulSmokeSpr=null,ulWarned=false;
-const ulGlowCache={},ulSmoke=[];
+let ulGlowCache={},ulGlowN=0;const ulSmoke=[];
 function ulRand(seed){let s=(seed>>>0)||1;return()=>(s=(Math.imul(s,1664525)+1013904223)>>>0)/4294967296;}
 const ulR=ulRand(20261105);
 function ulCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
@@ -3792,6 +3796,7 @@ function ulInit(){
 // свечение цвета col: яркий центр и мягкий край; кладётся сложением ('lighter')
 function ulGlow(col){
   let c=ulGlowCache[col];if(c)return c;
+  if(++ulGlowN>96){ulGlowCache={};ulGlowN=1;}
   c=ulCanvas(64,64);const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);
   gr.addColorStop(0,ulA(col,1));gr.addColorStop(0.22,ulA(col,0.6));gr.addColorStop(0.55,ulA(col,0.18));gr.addColorStop(1,ulA(col,0));
   g.fillStyle=gr;g.fillRect(0,0,64,64);
@@ -5188,6 +5193,11 @@ function showMenu(s,focusAct){
   if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
 }
 function shopShowSel(){
+  const t=panelEl.querySelector('.shop-tabs .chip[aria-pressed="true"]');
+  if(t){
+    const r=t.parentElement,x=t.getBoundingClientRect().left-r.getBoundingClientRect().left+r.scrollLeft;
+    if(x<r.scrollLeft||x+t.offsetWidth>r.scrollLeft+r.clientWidth)r.scrollLeft=Math.max(0,x-(r.clientWidth-t.offsetWidth)/2);
+  }
   for(const c of panelEl.querySelectorAll('.shop-row .card[aria-pressed="true"]')){
     const r=c.closest('.shop-row');
     if(c.offsetLeft<r.scrollLeft||c.offsetLeft+c.offsetWidth>r.scrollLeft+r.clientWidth)r.scrollLeft=Math.max(0,c.offsetLeft-r.clientWidth/2+c.offsetWidth/2);
