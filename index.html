@@ -76,7 +76,7 @@
   /* меню поверх поля */
   #menu{position:absolute;top:0;right:0;bottom:0;left:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;background:var(--veil);border-radius:8px}
   #menu[hidden]{display:none}
-  .panel{box-sizing:border-box;width:100%;max-width:560px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--panel);border:2px solid var(--b-out);border-radius:22px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(11,37,69,.18);color:var(--ink)}
+  .panel{box-sizing:border-box;width:100%;max-width:560px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--panel);border:2px solid var(--b-out);border-radius:22px;padding:18px 20px;--pb:18px;--px:20px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(11,37,69,.18);color:var(--ink)}
   .panel h2{margin:0;font-size:24px;font-size:clamp(20px,4vw,28px);letter-spacing:3px;text-align:center;text-wrap:balance}
   .panel h2.bad{color:var(--danger)}
   .panel h2.good{color:var(--win)}
@@ -141,6 +141,20 @@
   #menu{container-type:size}
   .panel.wide{max-width:none;height:100%;overflow:hidden}
   .edwrap{display:flex;flex-direction:column;gap:8px;height:100%;min-height:0}
+  @container (max-height:480px){
+    .panel>.m-top{order:-3}
+    .panel>h2.logo{order:-2;font-size:20px;letter-spacing:4px}
+    .panel>h2.logo+.sub{display:none}
+    .panel>.mplay{order:-1}
+  }
+  /* «Облик» на низком широком поле: примерка слева, вкладки и вещи справа, у каждой колонки своя прокрутка */
+  .shopwrap,.shop-l,.shop-r{display:contents}
+  @container (min-aspect-ratio:3/2) and (max-height:520px){
+    .panel.shop{max-width:min(100%,1000px);height:100%;overflow:hidden}
+    .panel.shop .shopwrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:14px;height:100%;min-height:0}
+    .panel.shop .shop-l,.panel.shop .shop-r{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 2px 6px}
+    .panel.shop .shop-l h2{font-size:20px}
+  }
   .edmain{flex:none;display:flex;flex-direction:column;gap:4px;min-width:0}
   .edside{flex:1;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px;padding-right:2px}
   .panel .edside h2{font-size:18px;letter-spacing:2px}
@@ -334,6 +348,13 @@
   @media (prefers-reduced-motion:reduce){.tile.hot{animation:none}}
   /* после уровня: «пилюли» с итогами и карточка следующего уровня */
   .pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  /* кнопки экранов с результатом (уровень пройден, файл удалён) всегда на виду: на низком экране — телефон боком —
+     они прилипают к низу панели, а остальное листается под ними */
+  .panel>.mcol.stick{position:sticky;bottom:calc(-1 * var(--pb));z-index:3;margin:0 calc(-1 * var(--px)) calc(-1 * var(--pb));
+    padding:8px var(--px) var(--pb);background:var(--panel);box-shadow:0 -14px 12px -8px var(--panel)}
+  button.next-card{font:inherit;color:inherit;width:100%;cursor:pointer}
+  button.next-card:active{transform:translateY(3px);box-shadow:0 1px 0 #b6c3d1,0 1px 0 2px var(--b-out)}
+  .next-card .go{font-size:11px;color:#0284c7;font-weight:700}
   .pills span{font:700 14px var(--font);background:#eef4fa;border-radius:999px;padding:6px 14px;color:var(--b-out)}
   .pills span.gold{background:#fff3c4;color:#5b3a00}
   .pills span.hp{color:var(--heart);letter-spacing:1px}
@@ -388,6 +409,16 @@
   .panel .coins b{color:var(--coin)}
   .panel p.good{color:var(--win)}
   .help{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
+  .help-sec{flex-shrink:0;border:2px solid var(--b-out);border-radius:14px;background:#fff;box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out);text-align:left}
+  .help-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 12px;font:800 15px var(--font);color:var(--b-out)}
+  .help-sec>summary::-webkit-details-marker{display:none}
+  .help-sec>summary .ic{width:22px;height:22px;flex:none}
+  .help-sec>summary small{margin-left:auto;font:600 12px var(--font);color:var(--muted)}
+  .help-sec>summary::after{content:'';width:9px;height:9px;border-right:3px solid var(--b-out);border-bottom:3px solid var(--b-out);transform:rotate(45deg);margin:-4px 4px 0 6px;transition:transform .15s}
+  .help-sec[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+  .help-sec>.help{padding:0 12px 12px}
+  .ach-near{display:flex;flex-direction:column;gap:6px}
+  .pg-a .near{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:#fde68a;color:#92400e;font-size:10px;font-weight:800;vertical-align:1px}
   .help .r b{color:var(--c-chaser)}
   .help .y b{color:var(--c-sniper)}
   .help .p b{color:var(--c-heavy)}
@@ -437,7 +468,7 @@
     #bEmp{grid-area:2/1;width:64px;height:64px;margin-bottom:44px;--f:168,85,247;--e:#7e22ce}
     #rot{display:block;position:absolute;left:0;right:0;top:calc(var(--cvs-top,0px) - 26px);text-align:center;font-size:12px;color:var(--muted);pointer-events:none}
     #screen.menu-open #ui,#screen.menu-open .pbtns,#screen.menu-open #stick,#screen.menu-open #msg,#screen.menu-open #rot{visibility:hidden}
-    .panel{padding:12px 14px;gap:8px}
+    .panel{padding:12px 14px;gap:8px;--pb:12px;--px:14px}
     .mbtn{padding:10px 10px 9px;font-size:14px}
   }
   @media (pointer:coarse) and (orientation:portrait){.panel .rotp{display:block}}
@@ -671,7 +702,8 @@ window.appBack=function(){
   if(phase==='game'){pause();return true;}
   if(phase==='pause'){onPress('Escape');return true;}
   if(phase==='menu'){
-    if(menuEl.hidden||menuScreen==='main'||menuScreen==='gate'||menuScreen==='terms')return false;
+    if(menuEl.hidden||menuScreen==='main'||menuScreen==='terms')return false;
+    if(menuScreen==='gate'&&!gateWhy&&!guestOk(save.unlocked-1))return false;
     onPress('Escape');return true;
   }
   // после уровня — в главное меню; в гонке и турнире у этих экранов свой порядок
@@ -1676,7 +1708,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,apkHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,apkHide:false,sfx:2,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1700,6 +1732,7 @@ try{
     save.apkHide=s.apkHide===true;
     save.evd=parseEvd(s.evd);
     save.mus=clampInt(s.mus,0,3,2);
+    save.sfx=clampInt(s.sfx,0,3,2);
     save.mpRaces=clampInt(s.mpRaces,0,1e6,0);
     save.mpWins=Math.min(save.mpRaces,clampInt(s.mpWins,0,1e6,0));
     save.wins=clampInt(s.wins,0,1e6,0);
@@ -2183,7 +2216,7 @@ function spawnBoss(){
 }
 function spawnPortal(){
   const s=freeSpot(220,70,34);
-  portal={x:s.x,y:s.y,r:26,t:0};
+  portal={x:s.x,y:s.y,r:26,t:0};sfx('portal');
 }
 let bossVolley=false,thinN=0,dropAcc=0;
 function shoot(x,y,a,sp,r,life){
@@ -2197,7 +2230,7 @@ function hitPlayer(){
   if(phase!=='game'||player.cool>0||evIs('god'))return;
   burst(player.x,player.y,'#e33',20);
   if(skBlock())return;
-  lives--;shake=10;pgHurt=1;
+  lives--;shake=10;pgHurt=1;sfx(lives<=0?'dead':'hit');
   buzz(lives<=0?200:70);
   player.cool=D().cool;
   player.vx=(Math.random()-0.5)*14;
@@ -2212,6 +2245,7 @@ function hitPlayer(){
   }
 }
 function levelClear(){
+  sfx('clear');
   if(TOUR){tourFinished();return;}
   if(RACE_DIFF){mpFinished();return;}
   if(CUSTOM){customClear();return;}
@@ -2305,7 +2339,7 @@ function step(){
       if(d>0.5){dx=player.vx/d;dy=player.vy/d;}
       else{dx=Math.cos(player.face);dy=Math.sin(player.face);}
       player.vx=dx*16;player.vy=dy*16;
-      player.dashT=14;player.dashCd=Math.round(70*skDash());pgAdd('dash');
+      player.dashT=14;player.dashCd=Math.round(70*skDash());pgAdd('dash');sfx('dash');
       burst(player.x,player.y,sk.trail,12);
     }else pressed.dash--;
   }
@@ -2315,7 +2349,7 @@ function step(){
   if(pressed.trip>0){
     if(player.tripCd===0){
       pressed.trip=0;
-      player.tripCd=tripCdMax();
+      player.tripCd=tripCdMax();sfx('trip');
       tripFx={x:player.x,y:player.y,t:0};
       let n=0;
       for(const e of enemies){
@@ -2372,7 +2406,7 @@ function step(){
   if(pressed.emp){
     pressed.emp=false;
     if(emp>0&&player.empCd===0){
-      emp--;player.empCd=25;shake=12;
+      emp--;player.empCd=25;shake=12;sfx('emp');
       buzz(30);
       burst(player.x,player.y,'#39c',26,4);
       let gained=0,kills=0;
@@ -2793,7 +2827,7 @@ function step(){
   for(let i=data.length-1;i>=0;i--){
     const dt=data[i];dt.t++;
     if(Math.hypot(dt.x-player.x,dt.y-player.y)<player.r+dt.r+5){
-      burst(dt.x,dt.y,'#0a5',12);
+      burst(dt.x,dt.y,'#0a5',12);sfx('data');
       popup(dt.x,dt.y,'+1','#0a5');
       data.splice(i,1);spawnData();
       score++;got++;addBits(1);evData();pgAdd('d');pgXp(1);
@@ -2820,9 +2854,10 @@ function step(){
       if(p.type==='hp'){
         if(lives>=maxLives())return true;
         lives++;
-        burst(p.x,p.y,'#e33',14);popup(p.x,p.y,'+♥','#e02444');msg('АПТЕЧКА: +1 жизнь');buzz(40);
+        burst(p.x,p.y,'#e33',14);sfx('pick');popup(p.x,p.y,'+♥','#e02444');msg('АПТЕЧКА: +1 жизнь');buzz(40);
         return false;
       }
+      sfx('pick');
       if(p.type==='snow'){evSnowGot(p);return false;}
       if(p.type==='gift'){evGiftGot(p);return false;}
       burst(p.x,p.y,'#fa0',14);
@@ -4916,9 +4951,10 @@ function panelHTML(s){
       pgMenuHTML()+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       (hsTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
+      (needLogin()?'<div class="hs-tip"><b>'+ico('user')+' Ты играешь без аккаунта</b> — открыт первый акт, прогресс пока только на этом устройстве. Создай аккаунт — всё пройденное сохранится, а дальше откроются все '+LEVELS.length+' уровней, гонка и рекорды.<div class="hs-btns">'+mb('signup','Создать аккаунт','sm')+mb('signin','Войти','sm')+'</div></div>':'')+
       (apkTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Приложение для Android</b> — на весь экран, без верхней шторки; аккаунт и прогресс те же.<div class="hs-btns">'+mb('apk','Скачать и установить','sm')+mb('apkhide','Скрыть','sm')+'</div></div>':'')+
       (installEv&&!APK_TIP?mb('install',''+ico('phone')+' Установить игру — на весь экран'):'')+
-      '<div class="mcol">'+(cont?mb('play',''+ico('play')+' Играть · уровень '+save.unlocked,'primary big'):mb('new',''+ico('play')+' Играть','primary big'))+'</div>'+
+      '<div class="mcol mplay">'+(cont?mb('play',''+ico('play')+' Играть · уровень '+save.unlocked,'primary big'):mb('new',''+ico('play')+' Играть','primary big'))+'</div>'+
       evMenuBanner()+
       '<div class="tiles">'+
         tile('levels','map','Уровни')+tile('skins','palette','Облик')+
@@ -5003,9 +5039,12 @@ function panelHTML(s){
   // экран входа на сайте: без аккаунта играть нельзя — его видит каждый, кто ещё не вошёл
   if(s==='gate'){
     return '<h2>DATA.OUT</h2><p class="sub">v6.0 · ПОБЕГ ИЗ КОРЗИНЫ</p>'+(OFFICIAL?'':COPY_NOTE)+
-      '<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>'+
+      (gateWhy==='more'?'<p class="good"><b>Первый акт пройден!</b></p><p>Чтобы играть дальше, войди или создай аккаунт: пройденные уровни, биты и облик перейдут в него, а рекорд попадёт в общую таблицу.</p>'
+       :gateWhy==='online'?'<p>Гонка, ивенты, сообщество и рекорды — для игроков с аккаунтом. Войди или создай его: всё, что ты прошёл без аккаунта, перейдёт в него.</p>'
+       :'<p>Чтобы играть, войди или создай аккаунт. Уровни, рекорд, биты и облик сохранятся в нём и откроются на любом устройстве, а рекорд попадёт в общую таблицу.</p>')+
       (HS_TIP?'<div class="hs-tip"><b>'+ico('phone')+' На iPhone сначала поставь игру на экран «Домой»</b> — она будет открываться на весь экран, без полосок Safari. Войти лучше уже в ней: у значка свой вход, отдельный от Safari.<div class="hs-btns">'+mb('hsguide','Как поставить — с картинками','sm')+'</div></div>':'')+
       '<p class="err" hidden></p>'+loginBtns()+
+      (gateWhy?mb('guest','Назад'):(guestOk(save.unlocked-1)?mb('guest',''+ico('play')+' Играть без аккаунта — первый акт','primary'):''))+
       '<p class="foot">Аккаунт на сайте — это только логин и пароль: почта и телефон не нужны.</p>';
   }
   if(s==='signin'||s==='signup'){
@@ -5067,14 +5106,14 @@ function panelHTML(s){
     return '<h2 class="good">УРОВЕНЬ ПРОЙДЕН</h2><p><b>'+escHTML(cc.name||'')+'</b>'+(cc.by?' · автор: '+escHTML(cc.by):'')+'</p>'+
       '<p>Очки: <b>'+score+'</b>. Уровни игроков не влияют на рекорд, уровни и биты.</p>'+
       (cc.src==='ed'?'<p class="good">Проверка пройдена — теперь уровень можно опубликовать.</p>':'')+
-      (cc.src==='ed'?'':pgNote())+'<div class="mcol">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
+      (cc.src==='ed'?'':pgNote())+'<div class="mcol stick">'+like+mb('retry','Пройти ещё раз')+mb('menu',cc.src==='ed'?'Вернуться в редактор':'Назад','primary')+'</div>';
   }
   if(s==='skins'){
-    return '<h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит · '+ico('gem')+' <b>'+crystals()+'</b> кристаллов</p>'+shopHero()+
-      '<div class="shop-tabs" role="tablist">'+SHOP_TABS.map(x=>chip('tab:'+x[0],ico(x[1])+' '+x[2]+(x[0]==='o'?'':'<small>'+shopOwnCount(x[0])+'/'+catOf(x[0]).list.length+'</small>'),x[0]===shopTab)).join('')+'</div>'+
+    return '<div class="shopwrap"><div class="shop-l"><h2>ОБЛИК</h2><p class="coins">◈ <b>'+coins()+'</b> бит · '+ico('gem')+' <b>'+crystals()+'</b> кристаллов</p>'+shopHero()+
+      '</div><div class="shop-r" data-keep="shop"><div class="shop-tabs" role="tablist">'+SHOP_TABS.map(x=>chip('tab:'+x[0],ico(x[1])+' '+x[2]+(x[0]==='o'?'':'<small>'+shopOwnCount(x[0])+'/'+catOf(x[0]).list.length+'</small>'),x[0]===shopTab)).join('')+'</div>'+
       (shopTab==='o'?shopOutfits():shopRows())+
       '<p class="foot">Листай ряды вбок. Нажми на карточку — примеришь, своё надевается сразу. На клавиатуре: ← → вещь, ↑ ↓ раздел.</p>'+
-      mb('main','Готово','primary');
+      mb('main','Готово','primary')+'</div></div>';
   }
   if(s==='help'){
     return '<h2>КАК ИГРАТЬ</h2><ul class="help">'+
@@ -5115,6 +5154,7 @@ function panelHTML(s){
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы. Уровни идут от самых лёгких к самым трудным: каждый следующий чуть сложнее предыдущего.</li>'+
       '<li><b>Кристаллы и способности.</b> Кристаллы дают за админ-абуз: '+CR_AB+' штук раз в субботу за '+AB_GOAL+' уровня. В «Облике» ими прокачивают цвет (скин) до 3-го уровня — и он даёт способность: магнит для данных, щит от ударов, турбо-рывок, заряд EMP, удачу (больше бит), холод (враги рядом медленнее), лечение или супер-подножку. Какая — видно на карточке цвета. Цена прокачки — по силе способности: от 10 кристаллов (удача) до 1000 (щит на 3-м уровне). В гонке и турнире способности выключены.</li>'+
       (IN_APP?'':'<li><b>Приложение для Android.</b> Официальная версия на весь экран, без верхней шторки: открой сайт игры на телефоне — на главном экране или в «Настройках» будет кнопка «Приложение для Android». Аккаунт тот же.</li>')+
+      '<li><b>Звуки.</b> Короткие звуки событий — данные, удар, рывок, EMP, подножка, бонус, босс, портал. Громкость — в «Настройках», отдельно от музыки.</li>'+
       '<li><b>Прогресс.</b> За данные, уровни, боссов, гонки, задания и достижения копится <b>опыт</b>: растёт уровень игрока и звание — от «Новичка» до «Сингулярности», за каждый новый уровень — биты. <b>Задания дня</b> — три новых каждый день в 00:00 по Москве, за все три — бонус. <b>Награда за вход</b> — каждый день, когда заходишь в игру; пропущенный день ничего не сжигает, а на 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ». <b>Достижения</b> — '+PG_ACH.length+', из них '+PG_ACH.filter(a=>a.sec).length+' секретных.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
@@ -5138,13 +5178,13 @@ function panelHTML(s){
       :'<h2>УРОВЕНЬ '+(lvl+1)+' ПРОЙДЕН</h2>';
     const hp=Math.min(maxLives(),lives+D().heal);
     return head+'<div class="pills"><span>Очки <b>'+score+'</b></span><span class="gold">◈ <b>+'+lvBits+'</b></span><span class="hp" title="'+(lives<maxLives()?'Жизни подлечены':'Жизни целы')+'">'+heartsStr(hp)+'</span></div>'+evClearNote+
-      '<div class="next-card"><small>ДАЛЬШЕ</small><b>'+(lvl+2)+' · '+n.name+'</b><span>'+objective(n)+(f?'<br>'+f:'')+'</span></div>'+
-      '<div class="mcol">'+mb('next',''+ico('play')+' Дальше','primary big')+mb('menu','Главное меню')+'</div>';
+      '<button type="button" class="next-card" data-act="next"><small>ДАЛЬШЕ <span class="go">· нажми, чтобы начать</span></small><b>'+(lvl+2)+' · '+n.name+'</b><span>'+objective(n)+(f?'<br>'+f:'')+'</span></button>'+
+      '<div class="mcol stick">'+mb('next',''+ico('play')+' Дальше','primary big')+mb('menu','Главное меню')+'</div>';
   }
   if(s==='dead'){
     return '<h2 class="bad">ФАЙЛ УДАЛЁН</h2><p>'+(CUSTOM?'Уровень игрока':'Уровень '+(lvl+1))+' · '+escHTML(c.name)+'</p>'+
       '<div class="pills"><span>Данных <b>'+score+'</b></span>'+(lvBits&&!CUSTOM?'<span class="gold">◈ <b>+'+lvBits+'</b></span>':'')+'</div>'+
-      pgNote()+'<div class="mcol">'+mb('retry','Повторить уровень','primary')+mb('menu',CUSTOM?'Назад':'Главное меню')+'</div>'+
+      pgNote()+'<div class="mcol stick">'+mb('retry','Повторить уровень','primary')+mb('menu',CUSTOM?'Назад':'Главное меню')+'</div>'+
       '<p class="foot">R — запустить резервную копию</p>';
   }
   if(s==='win'){
@@ -5168,6 +5208,7 @@ function panelHTML(s){
       (HS_TIP?'<p class="lbl2">ВЕСЬ ЭКРАН</p>'+mb('homescr','Как играть на iPhone без строки Safari'):'')+
       (APK_TIP?'<p class="lbl2">ВЕСЬ ЭКРАН</p>'+mb('apk',''+ico('phone')+' Приложение для Android — без шторки'):'')+
       '<p class="lbl2">МУЗЫКА НА УРОВНЯХ</p><div class="chips">'+chip('mus:0','Выкл',save.mus===0)+chip('mus:1','Тихо',save.mus===1)+chip('mus:2','Средне',save.mus===2)+chip('mus:3','Громко',save.mus===3)+'</div>'+
+      '<p class="lbl2">ЗВУКИ</p><div class="chips">'+chip('sfx:0','Выкл',save.sfx===0)+chip('sfx:1','Тихо',save.sfx===1)+chip('sfx:2','Средне',save.sfx===2)+chip('sfx:3','Громко',save.sfx===3)+'</div>'+
       (canVibrate?'<p class="lbl2">ВИБРАЦИЯ</p><div class="chips">'+chip('vib:1','Вкл',save.vib)+chip('vib:0','Выкл',!save.vib)+'</div>':'')+
       mb(settingsBack,'Назад','primary');
   }
@@ -5179,16 +5220,20 @@ function showMenu(s,focusAct){
   // новый ключ MCP показывается один раз — уходим с экрана, и он больше не виден
   if(s!=='mcp')mcpNewKey='';
   // перерисовка того же экрана (выбор вкладки, правка в редакторе) не сбрасывает прокрутку
-  const keep=s===menuScreen&&!menuEl.hidden?panelEl.scrollTop:0,rows={};
+  const keep=s===menuScreen&&!menuEl.hidden?panelEl.scrollTop:0,rows={},cols={};
   if(keep||s===menuScreen)panelEl.querySelectorAll('[data-row]').forEach(r=>{rows[r.dataset.row]=r.scrollLeft;});
+  if(s===menuScreen&&!menuEl.hidden)panelEl.querySelectorAll('[data-keep]').forEach(r=>{cols[r.dataset.keep]=r.scrollTop;});
   menuScreen=s;
   // конструктору карт нужна вся ширина
   panelEl.classList.toggle('wide',s==='editor');
+  panelEl.classList.toggle('shop',s==='skins');
   panelEl.innerHTML=panelHTML(s);
   menuEl.hidden=false;
   screenEl.classList.add('menu-open');
   panelEl.scrollTop=keep;
   panelEl.querySelectorAll('[data-row]').forEach(r=>{if(rows[r.dataset.row])r.scrollLeft=rows[r.dataset.row];});
+  panelEl.querySelectorAll('[data-keep]').forEach(r=>{if(cols[r.dataset.keep])r.scrollTop=cols[r.dataset.keep];});
+  if(s==='help')helpGroup();
   if(s==='skins'||s==='levels')shopShowSel();
   if(kbUser){
     const b=(focusAct&&panelEl.querySelector('[data-act="'+focusAct+'"]'))||((s==='signin'||s==='signup')&&$id('lg-login'))||panelEl.querySelector('.primary')||panelEl.querySelector('button:not([disabled])');
@@ -5211,6 +5256,38 @@ function showMenu(s,focusAct){
   if(s==='skins'){const inp=$id('of-name');if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveOutfit();showMenu('skins','ofsave');}});}
   if(s==='acct'){const bi=$id('bio');if(bi)bi.value=save.bio||'';}
 }
+// «Как играть»: пункты списка раскладываются по разделам-гармошкам по заголовку пункта (тексты — в panelHTML)
+const HELP_SECS=[
+  ['Основы','play',['История','Цель','Клавиатура','Телефон','Подножка','Рывок','Бонусы','Сложность']],
+  ['Враги','boss',[]],
+  ['Акты и опасности','map',['Облако','За Сингулярностью','Боссы','Темнота','Интернет','Орбита','Глубокая сеть','Город','Океан','Звёзды','Зазеркалье']],
+  ['Прогресс и награды','medal',['Прогресс','Кристаллы','Ивенты']],
+  ['Вместе с другими','flag',['Гонка','Сообщество']],
+  ['Телефон, приложение, музыка','phone',['Весь экран','Приложение','Музыка','Звуки']]
+];
+let helpOpen=0;
+function helpGroup(){
+  const ul=panelEl.querySelector('ul.help');
+  if(!ul)return;
+  const secs=HELP_SECS.map(()=>[]);
+  for(const li of [...ul.children]){
+    const t=(li.querySelector('b')||li).textContent.replace(/^[^А-Яа-яЁёA-Za-z]+/,'');
+    let k=li.className&&li.className!=='g'?1:-1;
+    if(k<0)k=HELP_SECS.findIndex((s,i)=>i!==1&&s[2].some(w=>t.indexOf(w)===0));
+    secs[k<0?0:k].push(li);
+  }
+  const frag=document.createDocumentFragment();
+  HELP_SECS.forEach((s,i)=>{
+    if(!secs[i].length)return;
+    const d=document.createElement('details');d.className='help-sec';if(i===helpOpen)d.open=true;
+    d.innerHTML='<summary>'+ico(ICONS[s[1]]?s[1]:'help')+' '+s[0]+'<small>'+secs[i].length+'</small></summary><ul class="help"></ul>';
+    secs[i].forEach(li=>d.lastChild.appendChild(li));
+    // открыт один раздел за раз — так проще найти нужное
+    d.addEventListener('toggle',()=>{if(d.open&&d.isConnected){helpOpen=i;for(const o of panelEl.querySelectorAll('.help-sec'))if(o!==d)o.open=false;}});
+    frag.appendChild(d);
+  });
+  ul.replaceWith(frag);
+}
 function shopShowSel(){
   const t=panelEl.querySelector('.shop-tabs .chip[aria-pressed="true"]');
   if(t){
@@ -5218,8 +5295,8 @@ function shopShowSel(){
     if(x<r.scrollLeft||x+t.offsetWidth>r.scrollLeft+r.clientWidth)r.scrollLeft=Math.max(0,x-(r.clientWidth-t.offsetWidth)/2);
   }
   for(const c of panelEl.querySelectorAll('.shop-row .card[aria-pressed="true"]')){
-    const r=c.closest('.shop-row');
-    if(c.offsetLeft<r.scrollLeft||c.offsetLeft+c.offsetWidth>r.scrollLeft+r.clientWidth)r.scrollLeft=Math.max(0,c.offsetLeft-r.clientWidth/2+c.offsetWidth/2);
+    const r=c.closest('.shop-row'),x=c.getBoundingClientRect().left-r.getBoundingClientRect().left+r.scrollLeft;
+    if(x<r.scrollLeft||x+c.offsetWidth>r.scrollLeft+r.clientWidth)r.scrollLeft=Math.max(0,x-r.clientWidth/2+c.offsetWidth/2);
   }
 }
 function hideMenu(){
@@ -5262,7 +5339,10 @@ function act(a){
   const k=a.split(':')[0],arg=a.split(':')[1]||'',n=Number(arg);
   // удаление и очистка — вторым нажатием на ту же кнопку
   const sure=armed===a;armed='';
-  if((k==='play'||k==='new'||k==='again'||k==='lv')&&needLogin()){showMenu('gate');return;}
+  if((k==='play'||k==='new'||k==='again'||k==='lv'||k==='next')&&needLogin()){
+    const want=k==='play'?save.unlocked-1:(k==='lv'?n:(k==='next'?lvl+1:0));
+    if(!CUSTOM&&!guestOk(want)){gateFor('more');return;}
+  }
   if(k==='play')newRun(save.unlocked-1);
   else if(k==='new'||k==='again')newRun(0);
   else if(k==='lv'){if(n<save.unlocked)newRun(n);}
@@ -5304,6 +5384,8 @@ function act(a){
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
   else if(k==='homescr')hsOpen();
+  else if(k==='guest'){gateWhy='';showMenu('main');}
+  else if(k==='achtab'){if(['all','got','left','sec'].indexOf(arg)>=0){achTab=arg;showMenu('ach',a);}}
   else if(k==='apk')apkOpen();
   else if(k==='apkdl')apkDownload();
   else if(k==='apkhide'){save.apkHide=true;persist();showMenu('main');msg('Подсказка скрыта. Приложение можно скачать в «Настройках».',6000);}
@@ -5311,8 +5393,9 @@ function act(a){
   else if(k==='hshide'){save.hsHide=true;persist();showMenu('main');msg('Подсказка скрыта. Инструкция есть в «Настройках» и на кнопке «ВЕСЬ ЭКРАН».',6000);}
   else if(k==='install')installGame();
   else if(k==='mus'){if(n>=0&&n<=3){save.mus=n;persist();musUnlock();musVolume();showMenu('settings',a);}}
+  else if(k==='sfx'){if(n>=0&&n<=3){save.sfx=n;persist();sfxUnlock();setTimeout(()=>sfx('pick'),60);showMenu('settings',a);}}
   else if(k==='login')netLogin(a.split(':')[1]);
-  else if(k==='signin'||k==='signup'){if(menuScreen==='gate'||menuScreen==='acct')loginBack=menuScreen;showMenu(k);}
+  else if(k==='signin'||k==='signup'){if(menuScreen==='gate'||menuScreen==='acct'||menuScreen==='main')loginBack=menuScreen;showMenu(k);}
   else if(k==='logout')netLogout();
   else if(k==='termstext'){if(menuScreen!=='termstext')termsBack=menuScreen;showMenu('termstext');}
   else if(k==='termsok')acceptTerms();
@@ -5324,7 +5407,7 @@ function act(a){
     const id=arg==='me'?NET.user&&NET.user.id:arg;
     if(isUuid(id))openProfile(id,menuScreen==='profile'?profBack:(['top','community','admin','acct'].indexOf(menuScreen)>=0?menuScreen:'main'));
   }
-  else if(k==='community'){if(needLogin()){showMenu('gate');return;}showMenu('community');}
+  else if(k==='community'){if(needLogin()){gateFor('online');return;}showMenu('community');}
   else if(k==='ctab'){comTab=['new','top','mine'].indexOf(arg)>=0?arg:'new';showMenu('community',a);}
   else if(k==='cplay'){if(n>0)comPlay(n);}
   else if(k==='clike'){if(n>0)comLike(n);}
@@ -5340,7 +5423,7 @@ function act(a){
   else if(k==='abitadd'||k==='abitsub'){const v=admInput('adm-bits');if(v>0)admAdjust(arg,null,k==='abitadd'?v:-v);else msg('Укажи, сколько бит.');}
   else if(k==='aedit'){if(isUuid(arg)){admScroll=true;openProfile(arg,menuScreen==='admin'?'admin':'main');}}
   else if(k==='areset'){if(sure)admAct(k,arg);else armBtn(a,'Точно обнулить?');}
-  else if(k==='ednew'){if(needLogin()){showMenu('gate');return;}edBrush='#';edSym='none';edTab='map';edOpen(edBlank(),null,'');}
+  else if(k==='ednew'){if(needLogin()){gateFor('online');return;}edBrush='#';edSym='none';edTab='map';edOpen(edBlank(),null,'');}
   else if(k==='edopen'){const d=draftsLoad().find(x=>x.id===arg);if(d)edOpen(edFromData(d.lv),{id:d.id,pub:Number(d.pub)||null},typeof d.ok==='string'?d.ok:'');}
   else if(k==='eddel'){
     if(!sure){armBtn(a,'Точно удалить?');return;}
@@ -5349,11 +5432,11 @@ function act(a){
     showMenu('mylevels');
   }
   else if(k==='mylevels')showMenu('mylevels');
-  else if(k==='events'){if(needLogin()&&NET_ON)showMenu('gate');else showMenu('events');}
+  else if(k==='events'){if(needLogin()&&NET_ON)gateFor('online');else showMenu('events');}
   else if(k==='tourplay')tourStart();
   else if(k==='extry'){const code=a.slice(6),it=exItem(code);if(it){shopTab=code[0];tryOn={cat:code[0],i:Number(code.slice(1))};tryLook=null;tryOutfit=null;showMenu('skins');}}
   else if(k==='tourdel'){if(NET.admin){if(sure)tourDel(a.slice(8));else armBtn(a,'точно?');}}
-  else if(k==='race'){if(needLogin())showMenu('gate');else showMenu('race');}
+  else if(k==='race'){if(needLogin())gateFor('online');else showMenu('race');}
   else if(k.slice(0,2)==='mp')mpAct(k,arg,n);
   else if(k==='mcpnew'){if(NET.user)mcpCreate();}
   else if(k==='mcpdel'){if(n>0){if(sure)mcpRevoke(n);else armBtn(a,'Точно отозвать?');}}
@@ -5432,7 +5515,7 @@ function acceptTerms(){
   if(!cb||!cb.checked)return;
   save.terms=TERMS_VER;save.termsAt=Date.now();persist();
   // на сайте без входа дальше — экран входа; с сохранённой сессией — сразу меню
-  if(needLogin())showMenu('gate');
+  if(needLogin()&&!guestOk(save.unlocked-1))showMenu('gate');
   else if(NET.thanks&&NET.user){showMenu('donate');supPoll(1);}
   else showMenu('main');
 }
@@ -5473,6 +5556,7 @@ function onPress(code){
     }
   }
   // экран входа Esc не пропускает: выбрать надо явно — войти или играть гостем
+  if(phase==='menu'&&code==='Escape'&&menuScreen==='gate'&&(gateWhy||guestOk(save.unlocked-1))){gateWhy='';showMenu('main');return;}
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='gate'||menuScreen==='terms'))return;
   if(phase==='menu'&&code==='Escape'&&menuScreen==='termstext'){showMenu(termsBack);return;}
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
@@ -7471,6 +7555,48 @@ function musNoise(t,dur,type,hz,vol){
 }
 function musSnare(t){musNoise(t,0.13,'bandpass',1800,0.32);musTone(t,190,0.09,'triangle',0.12,2000,false);}
 function musHat(t,v){musNoise(t,0.035,'highpass',7000,v);}
+// ================= ЗВУКИ =================
+// короткие звуки событий — синтез в Web Audio (общий контекст с музыкой), без файлов; громкость — save.sfx (0…3),
+// отдельно от музыки. Звук только «украшение»: на игру не влияет, в быстрых циклах (тесты, боты) время не идёт —
+// повтор одного звука чаще раза в 40 мс глушится
+const SFX_VOL=[0,0.18,0.32,0.5];
+const SFX={out:null,last:{}};
+function sfxUnlock(){if(!save.sfx||!musInit())return;if(MUS.ctx.state==='suspended')MUS.ctx.resume().catch(()=>{});}
+function sfxTone(c,t,type,f0,f1,dur,vol,out){
+  const o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(f0,t);if(f1!==f0)o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g);g.connect(out);o.start(t);o.stop(t+dur+0.03);
+}
+function sfxNoise(c,t,dur,vol,f0,f1,out){
+  const s=c.createBufferSource(),bq=c.createBiquadFilter(),g=c.createGain();
+  s.buffer=MUS.noise;bq.type='bandpass';bq.Q.value=0.9;
+  bq.frequency.setValueAtTime(f0,t);if(f1!==f0)bq.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(bq);bq.connect(g);g.connect(out);s.start(t,Math.random()*0.5);s.stop(t+dur+0.03);
+}
+function sfx(k){
+  if(!save.sfx||!MUS.ctx||MUS.ctx.state!=='running')return;
+  const c=MUS.ctx,t=c.currentTime;
+  if(SFX.last[k]>t-0.04)return;
+  SFX.last[k]=t;
+  if(!SFX.out){SFX.out=c.createGain();SFX.out.connect(c.destination);}
+  const o=SFX.out;o.gain.value=SFX_VOL[save.sfx]||0;
+  try{
+    if(k==='data')sfxTone(c,t,'sine',880,1320,0.08,0.5,o);
+    else if(k==='pick'){sfxTone(c,t,'triangle',660,660,0.09,0.45,o);sfxTone(c,t+0.07,'triangle',990,990,0.13,0.45,o);}
+    else if(k==='hit'){sfxNoise(c,t,0.18,0.7,900,200,o);sfxTone(c,t,'square',220,90,0.2,0.22,o);}
+    else if(k==='dash')sfxNoise(c,t,0.16,0.45,2600,600,o);
+    else if(k==='emp'){sfxTone(c,t,'sawtooth',180,1400,0.25,0.2,o);sfxNoise(c,t,0.3,0.45,3000,400,o);}
+    else if(k==='trip')sfxTone(c,t,'sine',170,60,0.15,0.6,o);
+    else if(k==='boss'){sfxNoise(c,t,0.6,0.8,1200,80,o);sfxTone(c,t,'sine',110,40,0.6,0.5,o);}
+    else if(k==='portal')[523,659,784,1047].forEach((f,i)=>sfxTone(c,t+i*0.07,'sine',f,f,0.18,0.35,o));
+    else if(k==='clear')[659,784,1047].forEach((f,i)=>sfxTone(c,t+i*0.1,'triangle',f,f,0.2,0.4,o));
+    else if(k==='dead')[440,330,220].forEach((f,i)=>sfxTone(c,t+i*0.13,'square',f,f*0.97,0.18,0.16,o));
+  }catch(_){}
+}
+addEventListener('pointerdown',sfxUnlock,true);
+addEventListener('keydown',sfxUnlock,true);
 addEventListener('pointerdown',musUnlock,true);
 addEventListener('keydown',musUnlock,true);
 
@@ -8200,7 +8326,7 @@ function pgCalClaim(){
 
 // ---------- в игре: уровень, босс, всплывающие плашки ----------
 function pgLvStart(){pgHurt=0;pgLvXp=0;pgNewLv=[];pgUps=[];pgStillN=0;pgRetro=null;}
-function pgBoss(){pgAdd('boss');pgXp(25);if(!pgHurt)pgSecret('bossclean');}
+function pgBoss(){sfx('boss');pgAdd('boss');pgXp(25);if(!pgHurt)pgSecret('bossclean');}
 // пройден официальный уровень (вызывается, когда уровни уже открыты)
 function pgCleared(){
   pgHush=true;
@@ -8330,6 +8456,7 @@ function pgQuestsHTML(){
         :'<p class="foot">Выполни все три — получишь бонус: ◈ '+PG_QB_BITS+' и '+PG_QB_XP+' опыта.</p>'))+'</div>';
   return h+'<div class="mrow2">'+mb('ach',''+ico('medal')+' Достижения'+pgDot(p.ach.length-p.seen))+mb('main','Назад')+'</div>';
 }
+let achTab='all';
 function pgAchHTML(){
   const p=save.pg;
   if(p.seen!==p.ach.length){p.seen=p.ach.length;pgFlush();}
@@ -8341,12 +8468,19 @@ function pgAchHTML(){
     if(a.sec!==b.sec)return a.sec?1:-1;
     return ha?0:Math.min(1,pgVal(b.k)/b.n)-Math.min(1,pgVal(a.k)/a.n);
   });
+  const card=(a,near)=>{
+    const has=pgHas(a.id),hid=a.sec&&!has,v=Math.min(a.n,pgVal(a.k));
+    return '<div class="pg-a'+(has?' got':'')+'"><span class="pg-ic t'+a.t+'">'+ico(hid?'help':a.ic)+'</span><div><b>'+(hid?'СЕКРЕТНОЕ':a.name)+(near?'<span class="near">почти</span>':'')+'</b><small>'+(hid?a.hint:a.text)+'</small>'+
+      (has||a.sec?'':pgBar(v,a.n)+'<small>'+pgNum(v)+' из '+pgNum(a.n)+'</small>')+'</div><span class="pg-rw">'+(has?'✓':'◈ '+PG_TIER_BITS[a.t])+'</span></div>';
+  };
+  // ближе всего к получению: не секретные, уже начатые — до трёх
+  const near=PG_ACH.filter(a=>!pgHas(a.id)&&!a.sec&&pgVal(a.k)>0).sort((a,b)=>pgVal(b.k)/b.n-pgVal(a.k)/a.n).slice(0,3);
+  const tabs=[['all','Все',PG_ACH.length],['got','Получено',p.ach.length],['left','Впереди',PG_ACH.filter(a=>!pgHas(a.id)&&!a.sec).length],['sec','Секретные',PG_ACH.filter(a=>a.sec).length]];
+  const shown=list.filter(a=>achTab==='got'?pgHas(a.id):achTab==='left'?!pgHas(a.id)&&!a.sec:achTab==='sec'?a.sec:true);
   return '<h2>ДОСТИЖЕНИЯ</h2><p>Получено <b>'+p.ach.length+' из '+PG_ACH.length+'</b>. За каждое — биты и опыт. Секретные откроются, когда сделаешь что-то необычное: подсказка — загадка под знаком вопроса.</p>'+
-    '<div class="pg-ach">'+list.map(a=>{
-      const has=pgHas(a.id),hid=a.sec&&!has,v=Math.min(a.n,pgVal(a.k));
-      return '<div class="pg-a'+(has?' got':'')+'"><span class="pg-ic t'+a.t+'">'+ico(hid?'help':a.ic)+'</span><div><b>'+(hid?'СЕКРЕТНОЕ':a.name)+'</b><small>'+(hid?a.hint:a.text)+'</small>'+
-        (has||a.sec?'':pgBar(v,a.n)+'<small>'+pgNum(v)+' из '+pgNum(a.n)+'</small>')+'</div><span class="pg-rw">'+(has?'✓':'◈ '+PG_TIER_BITS[a.t])+'</span></div>';
-    }).join('')+'</div>'+
+    (near.length?'<p class="lbl2">ПОЧТИ ПОЛУЧЕНО</p><div class="ach-near">'+near.map(a=>card(a,true)).join('')+'</div>':'')+
+    '<div class="chips">'+tabs.map(t=>chip('achtab:'+t[0],t[1]+' '+t[2],achTab===t[0])).join('')+'</div>'+
+    '<div class="pg-ach">'+(shown.length?shown.map(a=>card(a,false)).join(''):'<p class="foot">Пока пусто — всё впереди.</p>')+'</div>'+
     '<div class="mrow2">'+mb('quests',''+ico('target')+' Задания дня'+pgDot(pgClaims()))+mb('main','Назад','primary')+'</div>';
 }
 // секрет «Любопытный»: семь нажатий на название игры в главном меню
@@ -8579,10 +8713,19 @@ const SESS_KEY='dataout-session',FLOW_KEY='dataout-login';
 // на сайте с базой играть можно только с аккаунтом. Сохранённая сессия тоже считается входом:
 // если сервер временно недоступен, вошедший раньше игрок играет дальше, а прогресс досохранится потом
 function needLogin(){return NET_ON&&!NET.sess;}
+// без аккаунта на сайте открыт первый акт (уровни 1…11): игра видна сразу, а дальше — вход или регистрация,
+// и всё пройденное (уровни, биты, облик, достижения) сливается в аккаунт, как с любого другого устройства
+const GUEST_LAST=ACTS[0].end;
+function guestOk(i){return i<=GUEST_LAST;}
+// зачем показан экран входа: '' — просто вход, more — гость прошёл первый акт, online — гонка, ивенты, сообщество
+let gateWhy='';
+function gateFor(why){if(phase!=='menu')goMenu();gateWhy=why;showMenu('gate');}
 function maybeGate(){
   if(NET.user||phase!=='menu'||menuEl.hidden||!termsOk())return;
+  // гость с прогрессом в пределах первого акта играет дальше без экрана входа
+  if(guestOk(save.unlocked-1)&&menuScreen!=='gate')return;
   if(menuScreen==='terms'||menuScreen==='termstext'||menuScreen==='signin'||menuScreen==='signup')return;
-  showMenu('gate');
+  gateWhy='';showMenu('gate');
 }
 const RETURN_URL=location.origin+location.pathname.replace(/index\.html$/,'');
 const PROVIDERS=[
@@ -8882,7 +9025,7 @@ async function netLogout(){
   if(kept){Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,admAck:0,admBits:0,own:[],color:0,shape:0,trail:0,hat:0,outfits:[],evd:parseEvd({}),pg:parsePg({})});pgRetro=null;evCloudKey='';}
   persist();
   setAcctState('netout');
-  showMenu('gate');
+  gateWhy='';showMenu('gate');
   // выход на сервере — по возможности; локально сессия уже стёрта
   if(tok)try{await netFetch('/auth/v1/logout',{method:'POST',headers:netHeaders(tok)});}catch(_){}
 }
