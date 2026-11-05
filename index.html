@@ -665,6 +665,20 @@ addEventListener('keyup',e=>{keys[e.code]=false;});
 addEventListener('pointerdown',()=>{kbUser=false;},true);
 // при потере фокуса keyup не приходит — без сброса клавиши «залипали»
 addEventListener('blur',()=>{releaseAll();pause();});
+// приложение для Android: кнопка «назад» телефона (true — игра обработала её сама; false — приложение свернётся)
+// и сворачивание приложения (пауза). Зовёт MainActivity
+window.appBack=function(){
+  if(phase==='game'){pause();return true;}
+  if(phase==='pause'){onPress('Escape');return true;}
+  if(phase==='menu'){
+    if(menuEl.hidden||menuScreen==='main'||menuScreen==='gate'||menuScreen==='terms')return false;
+    onPress('Escape');return true;
+  }
+  // после уровня — в главное меню; в гонке и турнире у этих экранов свой порядок
+  if(RACE_DIFF||TOUR)return true;
+  act('menu');return true;
+};
+window.appPause=function(){releaseAll();if(phase==='game')pause();};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){releaseAll();pause();}});
 
 // ================= УРОВНИ =================
@@ -1662,7 +1676,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,apkHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1683,6 +1697,7 @@ try{
     save.fps=s.fps===true;
     save.vib=s.vib!==false;
     save.hsHide=s.hsHide===true;
+    save.apkHide=s.apkHide===true;
     save.evd=parseEvd(s.evd);
     save.mus=clampInt(s.mus,0,3,2);
     save.mpRaces=clampInt(s.mpRaces,0,1e6,0);
@@ -4901,7 +4916,8 @@ function panelHTML(s){
       pgMenuHTML()+
       '<p class="rotp">↻ Поверни телефон боком — так поле крупнее</p>'+
       (hsTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
-      (installEv?mb('install',''+ico('phone')+' Установить игру — на весь экран'):'')+
+      (apkTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Приложение для Android</b> — на весь экран, без верхней шторки; аккаунт и прогресс те же.<div class="hs-btns">'+mb('apk','Скачать и установить','sm')+mb('apkhide','Скрыть','sm')+'</div></div>':'')+
+      (installEv&&!APK_TIP?mb('install',''+ico('phone')+' Установить игру — на весь экран'):'')+
       '<div class="mcol">'+(cont?mb('play',''+ico('play')+' Играть · уровень '+save.unlocked,'primary big'):mb('new',''+ico('play')+' Играть','primary big'))+'</div>'+
       evMenuBanner()+
       '<div class="tiles">'+
@@ -5038,6 +5054,7 @@ function panelHTML(s){
   if(s==='profile')return profHTML();
   if(s==='race')return mpHTML();
   if(s==='homescr')return hsHTML();
+  if(s==='apk')return apkHTML();
   if(s==='events')return evHTML();
   if(s==='quests')return pgQuestsHTML();
   if(s==='ach')return pgAchHTML();
@@ -5097,6 +5114,7 @@ function panelHTML(s){
       '<li><b>Сообщество.</b> В конструкторе карт рисуешь уровень по клеткам — стены, барьеры, потоки, дыры, роутеры, турели и мины, с зеркальной симметрией, — выбираешь врагов и босса, проходишь сам и публикуешь. Уровни игроков не влияют на рекорд, уровни и биты. Делать карты может и ИИ-помощник: «Аккаунт» → «ИИ через MCP».</li>'+
       '<li><b>Сложность</b> меняется в настройках: «Лёгкая» — 5 жизней, враги и пули заметно медленнее, данных нужно меньше, боссы слабые; «Средняя» — 4 жизни; «Высокая» — 3 жизни, враги быстрее и злее. Уровни сообщества идут с прежним балансом — так их проходили авторы. Уровни идут от самых лёгких к самым трудным: каждый следующий чуть сложнее предыдущего.</li>'+
       '<li><b>Кристаллы и способности.</b> Кристаллы дают за админ-абуз: '+CR_AB+' штук раз в субботу за '+AB_GOAL+' уровня. В «Облике» ими прокачивают цвет (скин) до 3-го уровня — и он даёт способность: магнит для данных, щит от ударов, турбо-рывок, заряд EMP, удачу (больше бит), холод (враги рядом медленнее), лечение или супер-подножку. Какая — видно на карточке цвета. Цена прокачки — по силе способности: от 10 кристаллов (удача) до 1000 (щит на 3-м уровне). В гонке и турнире способности выключены.</li>'+
+      (IN_APP?'':'<li><b>Приложение для Android.</b> Официальная версия на весь экран, без верхней шторки: открой сайт игры на телефоне — на главном экране или в «Настройках» будет кнопка «Приложение для Android». Аккаунт тот же.</li>')+
       '<li><b>Прогресс.</b> За данные, уровни, боссов, гонки, задания и достижения копится <b>опыт</b>: растёт уровень игрока и звание — от «Новичка» до «Сингулярности», за каждый новый уровень — биты. <b>Задания дня</b> — три новых каждый день в 00:00 по Москве, за все три — бонус. <b>Награда за вход</b> — каждый день, когда заходишь в игру; пропущенный день ничего не сжигает, а на 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ». <b>Достижения</b> — '+PG_ACH.length+', из них '+PG_ACH.filter(a=>a.sec).length+' секретных.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
@@ -5148,6 +5166,7 @@ function panelHTML(s){
       '<p>'+(save.q==='auto'?'Сейчас: <b>'+cur.name.toLowerCase()+(save.autoRes<1?', разрешение '+Math.round(save.autoRes*100)+'%':'')+'</b>. Если игра не успевает, «Авто» само снизит графику и запомнит это для устройства.':cur.hint)+'</p>'+
       '<p class="lbl2">СЧЁТЧИК КАДРОВ</p><div class="chips">'+chip('fps:1','Показывать',save.fps)+chip('fps:0','Скрыть',!save.fps)+'</div>'+
       (HS_TIP?'<p class="lbl2">ВЕСЬ ЭКРАН</p>'+mb('homescr','Как играть на iPhone без строки Safari'):'')+
+      (APK_TIP?'<p class="lbl2">ВЕСЬ ЭКРАН</p>'+mb('apk',''+ico('phone')+' Приложение для Android — без шторки'):'')+
       '<p class="lbl2">МУЗЫКА НА УРОВНЯХ</p><div class="chips">'+chip('mus:0','Выкл',save.mus===0)+chip('mus:1','Тихо',save.mus===1)+chip('mus:2','Средне',save.mus===2)+chip('mus:3','Громко',save.mus===3)+'</div>'+
       (canVibrate?'<p class="lbl2">ВИБРАЦИЯ</p><div class="chips">'+chip('vib:1','Вкл',save.vib)+chip('vib:0','Выкл',!save.vib)+'</div>':'')+
       mb(settingsBack,'Назад','primary');
@@ -5285,6 +5304,9 @@ function act(a){
   else if(k==='fps'){save.fps=n===1;persist();showMenu('settings',a);if(phase!=='game')render(true);}
   else if(k==='vib'){save.vib=n===1;persist();buzz(40);showMenu('settings',a);}
   else if(k==='homescr')hsOpen();
+  else if(k==='apk')apkOpen();
+  else if(k==='apkdl')apkDownload();
+  else if(k==='apkhide'){save.apkHide=true;persist();showMenu('main');msg('Подсказка скрыта. Приложение можно скачать в «Настройках».',6000);}
   else if(k==='hsguide'){try{window.open(HS_GUIDE,'_blank','noopener');}catch(_){location.href=HS_GUIDE;}}
   else if(k==='hshide'){save.hsHide=true;persist();showMenu('main');msg('Подсказка скрыта. Инструкция есть в «Настройках» и на кнопке «ВЕСЬ ЭКРАН».',6000);}
   else if(k==='install')installGame();
@@ -5456,7 +5478,7 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
   if(phase==='menu'&&code==='Escape'&&menuScreen==='race'){mpLeave();showMenu('main');return;}
   if(phase==='menu'&&code==='Escape'){
-    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct',homescr:hsBack,tourres:'events'}[menuScreen];
+    const back={profile:profBack,editor:'community',mylevels:'community',mcp:'acct',homescr:hsBack,apk:apkBack,tourres:'events'}[menuScreen];
     if(back){showMenu(back);return;}
   }
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
@@ -5528,16 +5550,46 @@ const CAN_FS=!!(document.fullscreenEnabled&&rootEl.requestFullscreen);
 const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
 const STANDALONE=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches;
 const HS_TIP=IS_IOS&&!CAN_FS&&!STANDALONE&&!IN_CLAUDE&&location.protocol==='https:';
+// приложение для Android (папка android/, сборка — tools/build-apk.sh): окно на весь экран, в нём эта же игра с сайта.
+// Приложение дописывает «DataOutApp/…» в User-Agent. В браузере на Android игра предлагает его скачать
+const IN_APP=/DataOutApp\//.test(navigator.userAgent);
+const IS_ANDROID=/Android/i.test(navigator.userAgent);
+const APK_URL='https://artemiylakin-debug.github.io/Kod-Clod/DATA-OUT.apk',APK_VER='1.0';
+const APK_TIP=IS_ANDROID&&!IN_APP&&!IN_CLAUDE;
+let apkBack='main';
 let installEv=null,hsBack='main';
 // страница с пошаговой инструкцией и картинками экранов Safari — лежит рядом с игрой
 const HS_GUIDE='iphone.html';
 addEventListener('beforeinstallprompt',e=>{
-  if(IN_CLAUDE)return;
+  if(IN_CLAUDE||IN_APP)return;
   e.preventDefault();installEv=e;
   if(phase==='menu'&&menuScreen==='main')showMenu('main');
 });
 addEventListener('appinstalled',()=>{installEv=null;if(phase==='menu'&&menuScreen==='main')showMenu('main');});
 function hsTipOn(){return HS_TIP&&!save.hsHide;}
+function apkTipOn(){return APK_TIP&&!save.apkHide;}
+function apkOpen(){apkBack=phase==='pause'?'pause':(['settings','help'].indexOf(menuScreen)>=0?menuScreen:'main');showMenu('apk');}
+// скачать APK: обычная ссылка с download — Chrome на Android сохранит файл и предложит открыть
+function apkDownload(){
+  const a=document.createElement('a');a.href=APK_URL;a.download='DATA-OUT.apk';a.rel='noopener';
+  document.body.appendChild(a);a.click();a.remove();
+  msg('Загрузка началась — открой файл DATA-OUT.apk из уведомления или «Загрузок».',7000);
+}
+function apkHTML(){
+  return '<h2>ПРИЛОЖЕНИЕ ДЛЯ ANDROID</h2>'+
+    '<p>Официальная полная версия DATA.OUT для телефона: открывается <b>на весь экран</b> — без верхней шторки и нижних кнопок, '+
+    'экран не гаснет во время игры. Игра та же самая: войди тем же логином и паролем — прогресс, биты и облик на месте. '+
+    'Обновления игры приходят сами, приложение переустанавливать не нужно.</p>'+
+    mb('apkdl',''+ico('phone')+' Скачать DATA.OUT для Android','primary')+
+    '<ol class="hs-steps">'+
+    '<li>Нажми «Скачать» и открой файл <b>DATA-OUT.apk</b> — из уведомления о загрузке или из папки «Загрузки».</li>'+
+    '<li>Если телефон скажет, что установка из браузера запрещена, — нажми «Настройки», включи «Разрешить из этого источника» и вернись назад.</li>'+
+    '<li>Нажми «Установить». Приложения нет в Google Play, поэтому Play Защита может спросить, доверяешь ли ты ему, — его выкладывает автор игры здесь, на официальном сайте.</li>'+
+    '<li>Запускай DATA.OUT значком на экране телефона и войди в свой аккаунт.</li></ol>'+
+    '<p class="foot">Скачивай приложение только с этого сайта — artemiylakin-debug.github.io/Kod-Clod. Версия '+APK_VER+', для Android 7 и новее. '+
+    'Кнопка «назад» телефона ставит игру на паузу и возвращает на прошлый экран.</p>'+
+    mb(apkBack,'Назад');
+}
 function hsOpen(){hsBack=phase==='pause'?'pause':(menuScreen==='settings'?'settings':'main');showMenu('homescr');}
 async function installGame(){
   const ev=installEv;
@@ -5559,7 +5611,7 @@ function hsHTML(){
     '<p class="foot">В приложении один раз войди в тот же аккаунт: прогресс, биты и облик хранятся в нём и никуда не денутся. Играть лучше боком.</p>'+
     mb('hsguide','Инструкция с картинками')+mb(hsBack,'Назад','primary');
 }
-if(CAN_FS||HS_TIP)bFs.hidden=false;
+if((CAN_FS||HS_TIP)&&!IN_APP)bFs.hidden=false;
 bFs.addEventListener('pointerdown',e=>e.stopPropagation());
 bFs.addEventListener('click',()=>{
   if(!CAN_FS){if(phase==='game')pause();hsOpen();return;}

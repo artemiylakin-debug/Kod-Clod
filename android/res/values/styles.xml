@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- без заголовка; фон — как у меню игры, чтобы при запуске не мигало белым -->
+    <style name="Game" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+    </style>
+    <color name="bg">#F3F6FA</color>
+    <color name="icon_bg">#EAF4F8</color>
+</resources>
