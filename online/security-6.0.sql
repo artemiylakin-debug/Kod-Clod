@@ -39,6 +39,18 @@ language sql immutable set search_path = '' as $fn$
   end
 $fn$;
 
+-- биты, выданные или списанные администратором (online/admin-tools.sql), тратятся как заработанные
+alter table public.progress add column if not exists adm_bits int not null default 0;
+
+-- сколько секунд назад зарегистрировался тот, кто сохраняет (не больше 10 минут). Таблица auth.users
+-- игрокам не видна, поэтому — отдельной функцией с правами владельца; узнать можно только про себя
+create or replace function public.data_out_my_age() returns numeric
+language sql stable security definer set search_path = '' as $fn$
+  select least(600, greatest(0, coalesce(extract(epoch from now() - (select u.created_at from auth.users u where u.id = auth.uid())), 0)))
+$fn$;
+revoke execute on function public.data_out_my_age() from public, anon;
+grant execute on function public.data_out_my_age() to authenticated;
+
 create or replace function public.progress_guard() returns trigger
 language plpgsql set search_path = '' as $fn$
 declare
@@ -49,12 +61,16 @@ declare
 begin
   -- сервер, владелец проекта и администраторы игры не проверяются
   if current_user not in ('anon', 'authenticated') or public.is_admin() then return new; end if;
+  -- игра сохраняет upsert-ом (INSERT … ON CONFLICT DO UPDATE): для уже существующей строки Postgres
+  -- сначала зовёт этот триггер как INSERT, и его правки попадают в EXCLUDED. Сравнивать тут не с чем —
+  -- проверка будет в ветке UPDATE, где видна старая строка
+  if tg_op = 'INSERT' and exists (select 1 from public.progress p where p.user_id = new.user_id) then return new; end if;
   if tg_op = 'UPDATE' then
     o_unl := old.unlocked; o_best := old.best; o_wins := old.wins; o_earned := old.earned; o_own := old.own;
     el := greatest(0, extract(epoch from now() - old.updated_at));
   else
     -- первая запись аккаунта: в расчёт идёт не больше 10 минут с регистрации
-    el := least(600, greatest(0, extract(epoch from now() - coalesce((select u.created_at from auth.users u where u.id = new.user_id), now()))));
+    el := public.data_out_my_age();
   end if;
 
   -- уровни: каждый новый — не чаще раза в 10 секунд
@@ -72,7 +88,7 @@ begin
     new.earned := least(new.earned, o_earned + 200 + floor(el * 6)::int);
   end if;
 
-  -- купленное: только предметы с ценой и на сумму не больше заработанного
+  -- купленное: только предметы с ценой и на сумму не больше заработанного (с битами от администратора)
   if new.own is distinct from o_own then
     ok := true;
     foreach it in array string_to_array(new.own, ',') loop
@@ -82,7 +98,7 @@ begin
       if r is null or r->'p' is null then ok := false; exit; end if;
       cost := cost + (r->>'p')::int;
     end loop;
-    if not ok or cost > new.earned then new.own := o_own; end if;
+    if not ok or cost > new.earned + new.adm_bits then new.own := o_own; end if;
   end if;
 
   -- надетое: только своё (бесплатное, купленное, за пройденный акт, за поддержку)

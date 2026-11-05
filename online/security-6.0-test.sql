@@ -38,7 +38,7 @@ alter default privileges in schema public revoke insert, update, delete, truncat
 -- при новых предметах или актах обновлять вместе с игрой (тест tools/check-catalog.mjs это проверяет)
 create or replace function public.data_out_items() returns jsonb
 language sql immutable set search_path = '' as $fn$
-  select '{"c":[{},{},{},{},{"p":150},{"p":150},{"p":250},{"p":250},{"p":350},{"p":400},{"p":500,"a":2},{"p":700,"a":4},{"p":1500},{"p":2000,"s":1},{"p":800},{"p":1100,"a":8},{"p":1400,"a":11},{"p":2000,"s":1},{"p":2000,"s":1},{"p":1700,"a":14},{"p":2000,"a":17},{"p":2300,"a":20},{"p":2600,"a":23},{"p":2900,"a":26},{"p":1200}],"s":[{},{},{},{"p":200},{"p":300},{"p":500},{"p":600},{"p":600,"a":3},{"p":800,"a":5},{"p":2000,"s":1},{"p":900}],"t":[{},{"p":200},{"p":350},{"p":500},{"p":700},{"p":1000},{"p":400,"a":1},{"p":2000,"s":1},{"p":1200,"a":9},{"p":2000,"s":1},{"p":900},{"p":666},{"p":1300}],"h":[{},{"p":150},{"p":300},{"p":400},{"p":450},{"p":600},{"p":900,"a":6},{"p":2000,"s":1},{"p":1000,"a":7},{"p":1300,"a":10},{"p":2000,"s":1},{"p":2000,"s":1},{"p":1200},{"p":700},{"p":500},{"p":800},{"p":1000},{"p":900},{"p":600},{"p":350},{"p":400},{"p":1600,"a":13},{"p":1900,"a":16},{"p":2100,"a":18},{"p":2600,"a":23},{"p":1500}],"ends":[10,20,39,59,79,99,119,139,159,179,199,219,239,259,279,299,319,339,359,379,399,419,439,459,479,499]}'::jsonb
+  select '{"c":[{},{},{},{},{"p":150},{"p":150},{"p":250},{"p":250},{"p":350},{"p":400},{"p":500,"a":2},{"p":700,"a":4},{"p":1500},{"p":2000,"s":1},{"p":800},{"p":1100,"a":8},{"p":1400,"a":11},{"p":2000,"s":1},{"p":2000,"s":1},{"p":1700,"a":14},{"p":2000,"a":17},{"p":2300,"a":20},{"p":2600,"a":23},{"p":2900,"a":26},{"p":1200},{},{},{},{},{}],"s":[{},{},{},{"p":200},{"p":300},{"p":500},{"p":600},{"p":600,"a":3},{"p":800,"a":5},{"p":2000,"s":1},{"p":900}],"t":[{},{"p":200},{"p":350},{"p":500},{"p":700},{"p":1000},{"p":400,"a":1},{"p":2000,"s":1},{"p":1200,"a":9},{"p":2000,"s":1},{"p":900},{"p":666},{"p":1300},{},{},{},{},{},{}],"h":[{},{"p":150},{"p":300},{"p":400},{"p":450},{"p":600},{"p":900,"a":6},{"p":2000,"s":1},{"p":1000,"a":7},{"p":1300,"a":10},{"p":2000,"s":1},{"p":2000,"s":1},{"p":1200},{"p":700},{"p":500},{"p":800},{"p":1000},{"p":900},{"p":600},{"p":350},{"p":400},{"p":1600,"a":13},{"p":1900,"a":16},{"p":2100,"a":18},{"p":2600,"a":23},{"p":1500},{},{},{},{},{},{},{}],"ends":[10,20,39,59,79,99,119,139,159,179,199,219,239,259,279,299,319,339,359,379,399,419,439,459,479,499]}'::jsonb
 $fn$;
 
 -- пройден ли акт n (с единицы), как actDone в игре
@@ -52,6 +52,18 @@ language sql immutable set search_path = '' as $fn$
   end
 $fn$;
 
+-- биты, выданные или списанные администратором (online/admin-tools.sql), тратятся как заработанные
+alter table public.progress add column if not exists adm_bits int not null default 0;
+
+-- сколько секунд назад зарегистрировался тот, кто сохраняет (не больше 10 минут). Таблица auth.users
+-- игрокам не видна, поэтому — отдельной функцией с правами владельца; узнать можно только про себя
+create or replace function public.data_out_my_age() returns numeric
+language sql stable security definer set search_path = '' as $fn$
+  select least(600, greatest(0, coalesce(extract(epoch from now() - (select u.created_at from auth.users u where u.id = auth.uid())), 0)))
+$fn$;
+revoke execute on function public.data_out_my_age() from public, anon;
+grant execute on function public.data_out_my_age() to authenticated;
+
 create or replace function public.progress_guard() returns trigger
 language plpgsql set search_path = '' as $fn$
 declare
@@ -62,12 +74,16 @@ declare
 begin
   -- сервер, владелец проекта и администраторы игры не проверяются
   if current_user not in ('anon', 'authenticated') or public.is_admin() then return new; end if;
+  -- игра сохраняет upsert-ом (INSERT … ON CONFLICT DO UPDATE): для уже существующей строки Postgres
+  -- сначала зовёт этот триггер как INSERT, и его правки попадают в EXCLUDED. Сравнивать тут не с чем —
+  -- проверка будет в ветке UPDATE, где видна старая строка
+  if tg_op = 'INSERT' and exists (select 1 from public.progress p where p.user_id = new.user_id) then return new; end if;
   if tg_op = 'UPDATE' then
     o_unl := old.unlocked; o_best := old.best; o_wins := old.wins; o_earned := old.earned; o_own := old.own;
     el := greatest(0, extract(epoch from now() - old.updated_at));
   else
     -- первая запись аккаунта: в расчёт идёт не больше 10 минут с регистрации
-    el := least(600, greatest(0, extract(epoch from now() - coalesce((select u.created_at from auth.users u where u.id = new.user_id), now()))));
+    el := public.data_out_my_age();
   end if;
 
   -- уровни: каждый новый — не чаще раза в 10 секунд
@@ -85,7 +101,7 @@ begin
     new.earned := least(new.earned, o_earned + 200 + floor(el * 6)::int);
   end if;
 
-  -- купленное: только предметы с ценой и на сумму не больше заработанного
+  -- купленное: только предметы с ценой и на сумму не больше заработанного (с битами от администратора)
   if new.own is distinct from o_own then
     ok := true;
     foreach it in array string_to_array(new.own, ',') loop
@@ -95,7 +111,7 @@ begin
       if r is null or r->'p' is null then ok := false; exit; end if;
       cost := cost + (r->>'p')::int;
     end loop;
-    if not ok or cost > new.earned then new.own := o_own; end if;
+    if not ok or cost > new.earned + new.adm_bits then new.own := o_own; end if;
   end if;
 
   -- надетое: только своё (бесплатное, купленное, за пройденный акт, за поддержку)
@@ -147,6 +163,12 @@ $mig$;
   -- честное: уровень +1, рекорд чуть выше, покупка ушек (350) и надеть их
   update public.progress set unlocked=unlocked+1,best=best+40,earned=earned+150,own=case when own='' then 'h19' else own||',h19' end,hat=19 where user_id=mx;
   res := res || jsonb_build_object('honest', (select jsonb_build_object('unlocked',unlocked,'best',best,'earned',earned,'own',own,'hat',hat) from public.progress where user_id=mx));
+  -- так сохраняет сама игра — upsert (INSERT … ON CONFLICT DO UPDATE): уровень +1, покупки на месте
+  insert into public.progress (user_id,name,unlocked,best,wins,earned,own,color,shape,trail,hat)
+    select user_id,name,unlocked+1,best,wins,earned+10,own,color,shape,trail,hat from public.progress where user_id=mx
+    on conflict (user_id) do update set name=excluded.name,unlocked=excluded.unlocked,best=excluded.best,wins=excluded.wins,
+      earned=excluded.earned,own=excluded.own,color=excluded.color,shape=excluded.shape,trail=excluded.trail,hat=excluded.hat;
+  res := res || jsonb_build_object('honest_upsert', (select jsonb_build_object('unlocked',unlocked,'earned',earned,'own',own,'hat',hat) from public.progress where user_id=mx));
   -- чужая строка
   update public.progress set best=0 where user_id=ad;
   get diagnostics n = row_count;

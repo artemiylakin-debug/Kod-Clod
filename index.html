@@ -169,6 +169,14 @@
   .panel .lcard p,.panel p.bio{text-align:left;color:var(--ink);font-size:12px;overflow-wrap:anywhere}
   .panel p.bio{text-align:center;font-size:13px}
   .lacts{display:flex;flex-wrap:wrap;gap:6px}
+  /* админ: правка уровней и бит игрока */
+  .adm-box{border:2px dashed var(--b-out);border-radius:14px;padding:8px 10px;background:#fff7ed;text-align:left}
+  .adm-box .lbl2{margin:0 0 2px}
+  .adm-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+  .adm-v b{font-size:15px}
+  .adm-v small{display:block;font-size:11px;color:var(--muted)}
+  .adm-row input{width:110px;font:14px var(--font);padding:7px 9px;border:2px solid var(--b-out);border-radius:10px;color:var(--ink);background:#fff}
+  @media (pointer:coarse){.adm-row input{font-size:16px}}
   .copyrow{display:flex;gap:6px;align-items:center}
   .ev-note{font-size:13px;text-align:center;margin:4px 0}
   .ev-card{border:2px solid var(--b-out);border-radius:16px;padding:10px 14px;margin:8px 0 14px;text-align:left;background:#fff;box-shadow:0 4px 0 #b6c3d1,0 4px 0 2px var(--b-out)}
@@ -1651,7 +1659,7 @@ function pastFinal(u,w){return w>0&&(u===100||u===200)&&LEVELS.length>u?u+1:u;}
 // редакция — в его data-version. Пока текущая редакция не принята, игра показывает экран принятия
 const TERMS_TPL=document.getElementById('terms-tpl');
 const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1683,13 +1691,16 @@ try{
     save.bio=typeof s.bio==='string'?s.bio.slice(0,200):'';
     // прогресс разбирается в разделе ПРОГРЕСС (parsePg): там описаны достижения и задания
     save.pg=s.pg&&typeof s.pg==='object'?s.pg:null;
+    // правки администратора (online/admin-tools.sql): номер учтённой правки уровней и выданные биты
+    save.admAck=clampInt(s.admAck,0,1e9,0);
+    save.admBits=clampInt(s.admBits,-1e8,1e8,0);
   }
 }catch(_){}
 // аккаунт (см. раздел АККАУНТ ниже); пока не подключён — прогресс только в этом браузере
 // kind: 'claude' — аккаунт claude.ai в артефакте, 'net' — своя база на сайте (Supabase), null — без аккаунта
 const acct={kind:null,state:'guest',db:null,user:null,id:null,top:null,cloudKey:'',scoreKey:'',busy:false,again:false,tm:0};
 // сессия и пользователь своей базы на сайте
-const NET={sess:null,user:null,err:'',sup:false,thanks:false,admin:false,hidden:false};
+const NET={sess:null,user:null,err:'',sup:false,thanks:false,admin:false,hidden:false,admCols:false};
 function isSupporter(){return !!NET.sup;}
 // что входит в набор «Поддержка» — по списку предметов, чтобы текст не отставал от магазина
 function supList(){
@@ -1715,8 +1726,10 @@ function parseOwn(v){
 }
 // «сколько бит» не хранится: это заработанное минус цены купленного — так на двух устройствах
 // нельзя потратить одни и те же биты дважды
-function spent(){let n=0;for(const id of save.own)n+=catOf(id[0]).list[Number(id.slice(1))].price;return n;}
-function coins(){return Math.max(0,save.earned-spent());}
+function costOf(own){let n=0;for(const id of own)n+=catOf(id[0]).list[Number(id.slice(1))].price;return n;}
+function spent(){return costOf(save.own);}
+// биты от администратора (save.admBits, может быть и меньше нуля) прибавляются к заработанному
+function coins(){return Math.max(0,save.earned+save.admBits-spent());}
 // последний акт пройден, когда пройдена вся игра: открыт последний уровень и есть хоть один побег
 function actDone(n){return n<ACTS.length?save.unlocked>ACTS[n-1].end+1:save.unlocked>=LEVELS.length&&save.wins>0;}
 function owned(cat,i){
@@ -5021,6 +5034,11 @@ function act(a){
   else if(k==='admin'){if(NET.admin)showMenu('admin');}
   else if(k==='atab'){if(ADM_TABS.some(t=>t[0]===arg)){admTab=arg;showMenu('admin',a);}}
   else if(k==='ahide'||k==='abio'||k==='asup')admAct(k,arg);
+  else if(k==='alv')admAdjust(arg,Number(a.split(':')[2]),0);
+  else if(k==='abit')admAdjust(arg,null,Number(a.split(':')[2]));
+  else if(k==='alvset'){const v=admInput('adm-lv');if(v>=1&&v<=LEVELS.length)admAdjust(arg,v,0);else msg('Уровень — от 1 до '+LEVELS.length+'.');}
+  else if(k==='abitadd'||k==='abitsub'){const v=admInput('adm-bits');if(v>0)admAdjust(arg,null,k==='abitadd'?v:-v);else msg('Укажи, сколько бит.');}
+  else if(k==='aedit'){if(isUuid(arg)){admScroll=true;openProfile(arg,menuScreen==='admin'?'admin':'main');}}
   else if(k==='areset'){if(sure)admAct(k,arg);else armBtn(a,'Точно обнулить?');}
   else if(k==='ednew'){if(needLogin()){showMenu('gate');return;}edBrush='#';edSym='none';edTab='map';edOpen(edBlank(),null,'');}
   else if(k==='edopen'){const d=draftsLoad().find(x=>x.id===arg);if(d)edOpen(edFromData(d.lv),{id:d.id,pub:Number(d.pub)||null},typeof d.ok==='string'?d.ok:'');}
@@ -6043,7 +6061,7 @@ async function fillProfile(){
   if(!st)return;
   const id=profId;
   if(!NET_ON||!isUuid(id)){st.textContent='Профили игроков — на сайте игры.';return;}
-  let row,levels=[],sup=false;
+  let row,levels=[],sup=false,ar=null,arErr='';
   try{
     const tok=await netToken(),h={headers:netHeaders(tok)};
     const rows=await netFetch('/rest/v1/progress?select=user_id,name,bio,best,unlocked,wins,color,shape,trail,hat,created_at,updated_at,hidden&user_id=eq.'+id,h);
@@ -6052,6 +6070,9 @@ async function fillProfile(){
       const lv=await netFetch('/rest/v1/levels?select=id,name,descr,author,plays,likes,hidden,created_at&author=eq.'+id+'&order=created_at.desc&limit=30',h);
       levels=(Array.isArray(lv)?lv:[]).map(cleanLevelRow).filter(Boolean);
       if(DONATE_ON||NET.admin){const s=await netFetch('/rest/v1/supporters?select=user_id&user_id=eq.'+id,h);sup=Array.isArray(s)&&s.length>0;}
+      // администратору — биты игрока; столбцов правок нет, пока не выполнен online/admin-tools.sql
+      if(NET.admin)try{const a=await netFetch('/rest/v1/progress?select=earned,own,adm_bits,adm_rev,adm_ack&user_id=eq.'+id,h);ar=Array.isArray(a)&&a[0]||null;}
+        catch(e){arErr=e.status===0?'Нет связи с сервером.':'В базе ещё нет правок администратора: выполните online/admin-tools.sql в Supabase (SQL Editor).';}
       await loadLiked(levels.map(r=>r.id),tok);
     }
   }catch(e){if(panelEl.contains(st))st.textContent='Не удалось загрузить профиль: '+(e.status===0?'нет связи с сервером.':errMsg(e));return;}
@@ -6080,6 +6101,7 @@ async function fillProfile(){
     btn('asup:'+id,sup?'Забрать ★':'Выдать ★');
   }
   if(acts.childNodes.length)body.appendChild(acts);
+  if(NET.admin){const ab=admBox(id,row,ar,arErr);body.appendChild(ab);if(admScroll){admScroll=false;ab.scrollIntoView({block:'center'});}}
   profLevels=levels.filter(r=>!r.hidden||me||NET.admin);
   if(profLevels.length){
     const lb=document.createElement('p');lb.className='lbl2';lb.textContent='УРОВНИ ИГРОКА';
@@ -6129,6 +6151,8 @@ function cleanAdmPlayer(v){
   if(!v||!isUuid(v.user_id))return null;
   return{id:v.user_id,login:edStr(v.login,40),provider:edStr(v.provider,10),name:edStr(v.name,20),bio:typeof v.bio==='string'?v.bio.slice(0,200):'',
     unlocked:clampInt(v.unlocked,0,LEVELS.length,0),best:Math.max(0,Math.floor(Number(v.best)||0)),wins:clampInt(v.wins,0,1e6,0),hidden:v.hidden===true,sup:v.supporter===true,levels:clampInt(v.levels,0,1e6,0),
+    // биты есть, когда в базе выполнен online/admin-tools.sql
+    bal:v.earned==null?null:Math.max(0,admBalance(v)),given:clampInt(v.adm_bits,-1e8,1e8,0),
     at:Date.parse(v.created_at)||0,seen:Date.parse(v.last_sign_in_at)||0};
 }
 async function fillAdmin(){
@@ -6194,12 +6218,13 @@ function renderAdmPlayers(){
     const card=document.createElement('div');card.className='lcard';
     const h=document.createElement('b');h.textContent=(p.name||'без прогресса')+(p.sup?' ★':'')+(p.hidden?' · скрыт':'');
     const meta=document.createElement('small');
-    meta.textContent='логин '+(p.login||'—')+' · '+(p.provider||'—')+' · ур. '+p.unlocked+' · рекорд '+p.best+' · побегов '+p.wins+' · уровней '+p.levels+' · с '+fmtDate(p.at)+' · вход '+fmtDate(p.seen);
+    meta.textContent='логин '+(p.login||'—')+' · '+(p.provider||'—')+' · ур. '+p.unlocked+(p.bal==null?'':' · биты '+pgNum(p.bal)+(p.given?' (от админа '+(p.given>0?'+':'−')+pgNum(Math.abs(p.given))+')':''))+
+      ' · рекорд '+p.best+' · побегов '+p.wins+' · уровней '+p.levels+' · с '+fmtDate(p.at)+' · вход '+fmtDate(p.seen);
     card.append(h,meta);
     if(p.bio){const b=document.createElement('p');b.textContent=p.bio;card.appendChild(b);}
     const row=document.createElement('div');row.className='lacts';
     const btn=(act,label)=>{const b=document.createElement('button');b.type='button';b.className='mbtn sm';b.dataset.act=act;b.textContent=label;row.appendChild(b);};
-    if(p.unlocked>0)btn('profile:'+p.id,'Профиль');
+    if(p.unlocked>0){btn('profile:'+p.id,'Профиль');btn('aedit:'+p.id,'Уровни и биты');}
     if(!NET.user||p.id!==NET.user.id){
       if(p.unlocked>0)btn('ahide:'+p.id,p.hidden?'Показать':'Скрыть');
       if(p.bio)btn('abio:'+p.id,'Стереть описание');
@@ -6210,6 +6235,61 @@ function renderAdmPlayers(){
   }
   body.appendChild(box);
 }
+// Правка уровней и бит игрока — в его профиле (видна только администраторам). Меняет функция базы admin_adjust;
+// игра игрока применяет правку при следующем сохранении или входе (admApply)
+let admEdit={id:'',lv:1,bal:0},admScroll=false;
+function admBalance(ar){return clampInt(ar.earned,0,1e8,0)+clampInt(ar.adm_bits,-1e8,1e8,0)-costOf(parseOwn(ar.own));}
+function admBox(id,row,ar,err){
+  const box=document.createElement('div');box.className='adm-box';
+  const h=document.createElement('p');h.className='lbl2';h.textContent='АДМИН: УРОВНИ И БИТЫ';box.appendChild(h);
+  if(!ar){const p=document.createElement('p');p.className='foot';p.textContent=err||'Нет данных.';box.appendChild(p);return box;}
+  const lv=clampInt(row.unlocked,1,LEVELS.length,1),bal=admBalance(ar),given=clampInt(ar.adm_bits,-1e8,1e8,0);
+  admEdit={id,lv,bal};
+  const line=(label,val,small)=>{const r=document.createElement('div');r.className='adm-row';const s=document.createElement('span');s.className='adm-v';
+    s.textContent=label+' ';const b=document.createElement('b');b.textContent=val;s.appendChild(b);
+    if(small){const m=document.createElement('small');m.textContent=small;s.appendChild(m);}r.appendChild(s);box.appendChild(r);return r;};
+  const btn=(r,act,label,cls)=>{const b=document.createElement('button');b.type='button';b.className='mbtn sm'+(cls?' '+cls:'');b.dataset.act=act;b.textContent=label;r.appendChild(b);};
+  const inp=(r,iid,val,ph,max)=>{const i=document.createElement('input');i.type='number';i.id=iid;i.min='1';i.max=String(max);i.inputMode='numeric';if(val)i.value=String(val);i.placeholder=ph;r.appendChild(i);};
+  // уровни
+  const r1=line('Открыто уровней:',lv+' из '+LEVELS.length);
+  const q1=document.createElement('div');q1.className='adm-row';box.appendChild(q1);
+  [-10,-1,1,10].forEach(d=>{const t=Math.min(LEVELS.length,Math.max(1,lv+d));if(t!==lv)btn(q1,'alv:'+id+':'+t,(d>0?'+':'−')+Math.abs(d));});
+  inp(q1,'adm-lv',lv,'уровень',LEVELS.length);btn(q1,'alvset:'+id,'Поставить','primary');
+  // биты
+  line('Биты:',pgNum(Math.max(0,bal)),' заработано '+pgNum(clampInt(ar.earned,0,1e8,0))+(given?' · от админа '+(given>0?'+':'−')+pgNum(Math.abs(given)):''));
+  const q2=document.createElement('div');q2.className='adm-row';box.appendChild(q2);
+  [-1000,-100,100,1000].forEach(d=>{if(d>0||bal>0)btn(q2,'abit:'+id+':'+d,(d>0?'+':'−')+pgNum(Math.abs(d)));});
+  const q3=document.createElement('div');q3.className='adm-row';box.appendChild(q3);
+  inp(q3,'adm-bits',0,'сколько бит',1e7);btn(q3,'abitadd:'+id,'Выдать','primary');if(bal>0)btn(q3,'abitsub:'+id,'Забрать');
+  const f=document.createElement('p');f.className='foot';
+  f.textContent='Игрок увидит правку при следующем сохранении или входе. Забрать можно не больше, чем у него есть. '+
+    'Пока его игра не получила новые уровни, старая вкладка не вернёт ему прежние.';
+  box.appendChild(f);
+  return box;
+}
+// lv — новое число открытых уровней (или null), bits — сколько выдать (+) или забрать (−)
+async function admAdjust(id,lv,bits){
+  if(!NET.admin||!isUuid(id))return;
+  bits=Math.round(Number(bits)||0);
+  if(bits<0&&admEdit.id===id)bits=Math.max(bits,-Math.max(0,admEdit.bal));
+  if(lv!=null)lv=clampInt(lv,1,LEVELS.length,1);
+  if(lv==null&&!bits){msg(admEdit.id===id&&admEdit.bal<=0?'У игрока и так 0 бит.':'Укажи число.');return;}
+  if(Math.abs(bits)>1e7){msg('Не больше 10 000 000 бит за раз.');return;}
+  try{
+    const tok=await netToken();
+    await netFetch('/rest/v1/rpc/admin_adjust',{method:'POST',headers:netHeaders(tok),body:JSON.stringify({target:id,set_level:lv,add_bits:bits})});
+    msg(lv!=null?'Готово: открыто уровней — '+lv+'.':(bits>0?'Выдано '+pgNum(bits)+' бит.':'Забрано '+pgNum(-bits)+' бит.'),5000);
+    // правка самого себя — применяем сразу
+    if(NET.user&&id===NET.user.id){
+      const rows=await netFetch('/rest/v1/progress?select=*&user_id=eq.'+id,{headers:netHeaders(tok)});
+      if(Array.isArray(rows)&&admApply(rows[0]))persist();
+    }
+  }catch(e){
+    msg('Не получилось: '+(e.status===404?'в базе нет функции admin_adjust — выполните online/admin-tools.sql':(e.status===0?'нет связи с сервером':errMsg(e))),8000);
+  }
+  if(phase==='menu'&&menuScreen==='profile'&&profId===id){admScroll=true;showMenu('profile');}
+}
+function admInput(iid){const el=$id(iid);return el?Math.floor(Number(el.value)):NaN;}
 // действия администратора над игроком; после них экран загружается заново
 async function admAct(k,id){
   if(!NET.admin||!isUuid(id))return;
@@ -8060,6 +8140,32 @@ function renderTop(list,st,rows,head,who,tab){
     list.appendChild(li);
   });
 }
+// Правки администратора из строки progress (online/admin-tools.sql). Биты берутся как в базе (adm_bits — сумма
+// всех выдач и списаний). Уровни: если в базе правка новее учтённой (adm_rev > save.admAck), открытые уровни
+// берутся из базы как есть, а не по максимуму. Пока игра правку не учла, база её запись уровней не принимает,
+// поэтому в базе в это время лежит ровно уровень администратора. Вызывать до mergeCloud.
+function admApply(r){
+  if(!r||typeof r!=='object'||!('adm_rev' in r))return false;
+  NET.admCols=true;
+  let ch=false;const say=[];
+  // на новом устройстве (или после выхода) биты из базы — не новость
+  const fresh=save.admAck===0&&save.admBits===0&&save.earned===0;
+  const b=clampInt(r.adm_bits,-1e8,1e8,0);
+  if(b!==save.admBits){
+    const d=b-save.admBits;save.admBits=b;ch=true;
+    if(!fresh)say.push(d>0?'выдал тебе '+pgNum(d)+' бит':'забрал '+pgNum(-d)+' бит');
+  }
+  const rev=clampInt(r.adm_rev,0,1e9,0);
+  if(rev>save.admAck){
+    save.unlocked=clampInt(r.unlocked,1,LEVELS.length,save.unlocked);save.admAck=rev;ch=true;
+    if(clampInt(r.adm_ack,0,1e9,0)<rev)say.push('изменил твои уровни: открыто '+save.unlocked);
+  }
+  if(say.length)msg('Администратор '+say.join(' и ')+'.',7000);
+  if(ch)try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}
+  return ch;
+}
+// после правки: заново нарисовать экран, где видны уровни или биты
+function admShow(){if(phase==='menu'&&!menuEl.hidden&&['main','levels','skins','acct','profile'].indexOf(menuScreen)>=0)showMenu(menuScreen);}
 // прогресс из аккаунта сливается с местным по максимуму, чтобы ничего не потерять между устройствами
 function mergeCloud(d){
   if(!d)return;
@@ -8316,15 +8422,19 @@ async function netSync(){
   if(!NET.user)return;
   if(acct.busy){acct.again=true;return;}
   const body=Object.assign({user_id:NET.user.id,name:nickName(),unlocked:save.unlocked,best:save.best,wins:save.wins||0},lookBody());
+  if(NET.admCols)body.adm_ack=save.admAck;
   const key=JSON.stringify(body);
   if(key===acct.cloudKey){if(acct.state!=='synced')setAcctState('synced');return;}
   acct.busy=true;setAcctState('saving');
   try{
     const tok=await netToken();
     if(!tok)throw new Error('нет входа');
-    await netFetch('/rest/v1/progress?on_conflict=user_id',{method:'POST',
-      headers:Object.assign(netHeaders(tok),{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
+    // со столбцами правок (online/admin-tools.sql) база в ответ отдаёт строку — по ней игра узнаёт о новых правках
+    const back=await netFetch('/rest/v1/progress?on_conflict=user_id'+(NET.admCols?'&select=unlocked,adm_rev,adm_ack,adm_bits':''),{method:'POST',
+      headers:Object.assign(netHeaders(tok),{Prefer:'resolution=merge-duplicates,return='+(NET.admCols?'representation':'minimal')}),body:JSON.stringify(body)});
     acct.cloudKey=key;setAcctState('synced');
+    // администратор поменял уровни или биты, пока игра была открыта — применяем и сохраняем заново
+    if(Array.isArray(back)&&admApply(back[0])){persist();admShow();}
   }catch(e){
     setAcctState(NET.user?'error':'netout');
   }finally{
@@ -8406,6 +8516,7 @@ async function netLoadUser(){
     {const had=JSON.stringify(save.evd);mergeEvd((NET.user.user_metadata||{}).evd);if(JSON.stringify(save.evd)!==JSON.stringify(parseEvd((NET.user.user_metadata||{}).evd))&&had!==JSON.stringify(parseEvd({})))evCloudSoon();}
     const rows=await netFetch('/rest/v1/progress?user_id=eq.'+encodeURIComponent(NET.user.id)+'&select=*',{headers:netHeaders(tok)});
     if(Array.isArray(rows)&&rows[0]){
+      admApply(rows[0]);
       mergeCloud(rows[0]);
       if(!save.nick&&rows[0].name)save.nick=String(rows[0].name).slice(0,20);
       // описание правится только из «Аккаунта» и сразу пишется в базу — там оно и свежее
@@ -8436,7 +8547,7 @@ async function netLogout(){
   // прогресс, имя в рекордах и облик принадлежат аккаунту и уже лежат в нём; настройки устройства остаются.
   // Если сохранить не удалось (нет связи), прогресс не стираем — он досохранится при следующем входе
   save.nick='';save.bio='';
-  if(kept){Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,own:[],color:0,shape:0,trail:0,hat:0,outfits:[],evd:parseEvd({}),pg:parsePg({})});pgRetro=null;evCloudKey='';}
+  if(kept){Object.assign(save,{unlocked:1,best:0,wins:0,earned:0,admAck:0,admBits:0,own:[],color:0,shape:0,trail:0,hat:0,outfits:[],evd:parseEvd({}),pg:parsePg({})});pgRetro=null;evCloudKey='';}
   persist();
   setAcctState('netout');
   showMenu('gate');
