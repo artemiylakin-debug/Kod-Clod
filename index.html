@@ -5025,8 +5025,11 @@ function panelHTML(s){
       const site=(NET.user.user_metadata||{}).provider==='site';
       body='<p>Уровни, рекорд и облик хранятся в аккаунте и открываются на любом устройстве, где ты войдёшь тем же способом.</p>'+
         (NET.hidden?'<p class="err">Администратор скрыл твой профиль: его не видно в рекордах и сообществе.</p>':'')+
-        '<label class="nick">Имя в таблице рекордов<input id="nick" maxlength="20" autocomplete="nickname"></label>'+
+        (NET.nnote?'<p class="err">Прежний ник был похож на настоящее имя — мы его скрыли. Придумай прозвище без имени, фамилии и года рождения.</p>':'')+
+        '<label class="nick">Ник в таблице рекордов<input id="nick" maxlength="20" autocomplete="nickname" placeholder="Прозвище, не настоящее имя"></label>'+
+        mb('nickgen','Придумать ник','sm')+
         '<label class="nick">О себе — видно в твоём профиле<input id="bio" maxlength="200" placeholder="Например: люблю уровни с роутерами"></label>'+
+        '<p class="foot">Ник и «О себе» видят все. Не пиши в них имя, фамилию, телефон, школу и ссылки.</p>'+
         '<div class="mrow2">'+mb('nick','Сохранить профиль')+mb('profile:me','Мой профиль')+'</div>'+
         (site?'<p class="lbl2">СМЕНИТЬ ПАРОЛЬ</p><label class="nick">Новый пароль<input id="np1" type="password" maxlength="72" autocomplete="new-password"></label>'+
           '<label class="nick">Новый пароль ещё раз<input id="np2" type="password" maxlength="72" autocomplete="new-password"></label>'+
@@ -5122,6 +5125,7 @@ function panelHTML(s){
   if(s==='race')return mpHTML();
   if(s==='homescr')return hsHTML();
   if(s==='apk')return apkHTML();
+  if(s==='nnote')return nnoteHTML();
   if(s==='events')return evHTML();
   if(s==='quests')return pgQuestsHTML();
   if(s==='ach')return pgAchHTML();
@@ -5428,6 +5432,8 @@ function act(a){
   else if(k==='termstext'){if(menuScreen!=='termstext')termsBack=menuScreen;showMenu('termstext');}
   else if(k==='termsok')acceptTerms();
   else if(k==='nick')saveProfile();
+  else if(k==='nickgen'){const i=$id('nick');if(i){i.value=safeNick(Math.random()+':'+Date.now());i.focus();}}
+  else if(k==='nnok'){NET.nnote=null;showMenu('main');}
   else if(k==='pass')changePassword();
   else if(k==='menu'){if(CUSTOM)leaveCustom();else goMenu();}
   else if(k==='ttab'){if(TOP_ORDER[arg]){topTab=arg;showMenu('top',a);}}
@@ -5599,7 +5605,7 @@ function onPress(code){
   if(phase==='menu'&&code==='Escape'&&(menuScreen==='signin'||menuScreen==='signup')){showMenu(loginBack);return;}
   if(phase==='menu'&&code==='Escape'&&menuScreen==='race'){mpLeave();showMenu('main');return;}
   if(phase==='menu'&&code==='Escape'){
-    const back={profile:profBack,editor:'community',mylevels:'community',mcp:mcpBack,homescr:hsBack,apk:apkBack,tourres:'events'}[menuScreen];
+    const back={profile:profBack,editor:'community',mylevels:'community',mcp:mcpBack,homescr:hsBack,apk:apkBack,tourres:'events',nnote:'main'}[menuScreen];
     if(back){showMenu(back);return;}
   }
   if(phase==='menu'&&code==='Escape'&&menuScreen!=='main'){showMenu('main');return;}
@@ -6435,7 +6441,7 @@ async function loadNames(ids,tok){
   ids=ids.filter(isUuid).filter(id=>!comNames[id]);
   if(!ids.length)return;
   const rows=await netFetch('/rest/v1/progress?select=user_id,name&user_id=in.('+ids.join(',')+')',{headers:netHeaders(tok)});
-  (Array.isArray(rows)?rows:[]).forEach(r=>{if(isUuid(r.user_id))comNames[r.user_id]=edStr(r.name,20)||'Игрок';});
+  (Array.isArray(rows)?rows:[]).forEach(r=>{if(isUuid(r.user_id))comNames[r.user_id]=pubName(edStr(r.name,20)||'Игрок');});
 }
 async function loadLiked(ids,tok){
   if(!NET.user||!ids.length)return;
@@ -6585,7 +6591,7 @@ async function fillProfile(){
   }catch(e){if(panelEl.contains(st))st.textContent='Не удалось загрузить профиль: '+(e.status===0?'нет связи с сервером.':errMsg(e));return;}
   if(!panelEl.contains(st)||profId!==id)return;
   if(!row){st.textContent='Профиль не найден: игрок ещё не играл или скрыт администратором.';return;}
-  const name=edStr(row.name,20)||'Игрок',me=!!NET.user&&id===NET.user.id;
+  const me=!!NET.user&&id===NET.user.id,name=me||NET.admin?edStr(row.name,20)||'Игрок':pubName(edStr(row.name,20)||'Игрок');
   comNames[id]=name;
   panelEl.querySelector('.prof-name').textContent=name+(sup?' ★':'');
   st.textContent='В игре с '+fmtDate(Date.parse(row.created_at)||0)+' · последняя игра '+fmtDate(Date.parse(row.updated_at)||0)+(row.hidden?' · скрыт администратором':'');
@@ -6723,7 +6729,7 @@ function renderAdmPlayers(){
   const box=document.createElement('div');box.className='lcards';
   for(const p of list.slice(0,200)){
     const card=document.createElement('div');card.className='lcard';
-    const h=document.createElement('b');h.textContent=(p.name||'без прогресса')+(p.sup?' ★':'')+(p.hidden?' · скрыт':'');
+    const h=document.createElement('b');h.textContent=(p.name||'без прогресса')+(p.sup?' ★':'')+(p.hidden?' · скрыт':'')+(nickRisk(p.name)?' · ник похож на имя':'');
     const meta=document.createElement('small');
     meta.textContent='логин '+(p.login||'—')+' · '+(p.provider||'—')+' · ур. '+p.unlocked+(p.bal==null?'':' · биты '+pgNum(p.bal)+(p.given?' (от админа '+(p.given>0?'+':'−')+pgNum(Math.abs(p.given))+')':''))+
       ' · рекорд '+p.best+' · побегов '+p.wins+' · уровней '+p.levels+' · с '+fmtDate(p.at)+' · вход '+fmtDate(p.seen);
@@ -6832,6 +6838,10 @@ async function admAct(k,id){
 // перезапишет то, что стёр администратор
 async function saveProfile(){
   const ni=$id('nick'),bi=$id('bio');
+  // ник и описание видят все: похожее на настоящее имя, телефон, почту, ссылку или школу не сохраняем
+  if(ni){const v=ni.value.replace(/\s+/g,' ').trim().slice(0,20);
+    if(nickRisk(v)){msg('Ник «'+v+'» похож на настоящее имя — по нему легко узнать, кто ты. Придумай прозвище или нажми «Придумать ник».',8000);ni.focus();return;}}
+  if(bi){const why=bioRisk(edStrBio(bi.value));if(why){msg('«О себе»: '+why+'. Это личная информация — её увидят все, лучше убрать.',8000);bi.focus();return;}}
   if(ni)save.nick=ni.value.replace(/\s+/g,' ').trim().slice(0,20);
   if(bi)save.bio=edStrBio(bi.value);
   persist();
@@ -6840,6 +6850,7 @@ async function saveProfile(){
   try{
     const tok=await netToken();
     await netFetch('/rest/v1/progress?on_conflict=user_id',{method:'POST',headers:Object.assign(netHeaders(tok),{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({user_id:NET.user.id,name:nickName(),bio:save.bio})});
+    NET.nnote=null;
     msg('Профиль сохранён.');
   }catch(e){msg('Не получилось сохранить: '+(e.status===0?'нет связи с сервером':errMsg(e)));}
 }
@@ -7239,7 +7250,7 @@ function mpPresence(){
   const o=MP.expect?others.find(x=>x.k===MP.expect):others[0];
   const racing=MP.st==='count'||MP.st==='race';
   if(o&&(!MP.opp||MP.opp.id!==o.k)&&!racing){
-    MP.opp={id:o.k,name:edStr(o.m.n,20)||'Соперник',look:mpLook(o.m.l),unl:clampInt(o.m.u,1,LEVELS.length,1),
+    MP.opp={id:o.k,name:pubName(edStr(o.m.n,20)||'Соперник'),look:mpLook(o.m.l),unl:clampInt(o.m.u,1,LEVELS.length,1),
       x:W/2,y:H/2,vx:0,vy:0,at:0,gx:W/2,gy:H/2,face:0,got:0,goal:0,lives:0,pause:false,seen:performance.now(),deaths:0,t:-1};
     clearTimeout(MP.tm);MP.note='';MP.ack=false;
     // тот же соперник вернулся (мигнула связь) — выбранный уровень не сбрасываем
@@ -8196,7 +8207,7 @@ function evHTML(){
     h+='<p class="lbl2">'+(on?'ТАБЛИЦА СЕЙЧАС':'ИТОГИ ПРОШЛОГО ТУРНИРА')+'</p>';
     if(tourRows===null||tourBw!==bw){h+='<p class="foot">Загружаю таблицу…</p>';tourBw=bw;tourRows=null;tourLoad(bw);}
     else if(tourRows.length){
-      h+='<ol class="ev-top">'+tourRows.map((r,i)=>'<li'+(NET.user&&r.user_id===NET.user.id?' class="me"':'')+'><span>'+(i<3?'<span class="place p'+(i+1)+'">'+(i+1)+'</span>':(i+1)+'.')+' '+escHTML(edStr(r.name,20)||'Игрок')+'</span><b>'+tourSec(r.ms)+'</b>'+(NET.admin?'<button type="button" class="chip" data-act="tourdel:'+escHTML(r.user_id)+'" aria-label="Убрать результат">✕</button>':'')+'</li>').join('')+'</ol>'+
+      h+='<ol class="ev-top">'+tourRows.map((r,i)=>'<li'+(NET.user&&r.user_id===NET.user.id?' class="me"':'')+'><span>'+(i<3?'<span class="place p'+(i+1)+'">'+(i+1)+'</span>':(i+1)+'.')+' '+escHTML(pubName(edStr(r.name,20)||'Игрок'))+'</span><b>'+tourSec(r.ms)+'</b>'+(NET.admin?'<button type="button" class="chip" data-act="tourdel:'+escHTML(r.user_id)+'" aria-label="Убрать результат">✕</button>':'')+'</li>').join('')+'</ol>'+
         '<p class="foot">Участников: '+tourCount+'.</p>';
     }else h+='<p class="foot">'+(tourErr||'В этой неделе ещё никто не прошёл — будь первым!')+'</p>';
   }
@@ -8784,7 +8795,7 @@ function renderTop(list,st,rows,head,who,tab){
     const rk=document.createElement('span');rk.className='rk';rk.textContent=(i+1)+'.';
     const im=document.createElement('img');im.alt='';
     if(p.avatarUrl)im.src=p.avatarUrl;else im.hidden=true;
-    const nm=document.createElement('span');nm.className='nm';nm.textContent=(p.name||'Игрок')+(r.sup?' ★':'')+(r.id===acct.id?' (ты)':'');
+    const nm=document.createElement('span');nm.className='nm';nm.textContent=(NET_ON&&r.id!==acct.id?pubName(p.name||'Игрок'):p.name||'Игрок')+(r.sup?' ★':'')+(r.id===acct.id?' (ты)':'');
     const sc=document.createElement('span');sc.className='sc';sc.textContent=L.big;
     const sm=document.createElement('small');sm.textContent=L.small;
     sc.appendChild(sm);
@@ -9022,11 +9033,122 @@ async function netHandleReturn(){
 }
 // имя в рекордах по умолчанию: у аккаунта на сайте — его логин, у остальных — «Игрок-xxxx»,
 // чтобы настоящее имя из VK, Яндекса или Google не попало в общую таблицу без спроса
+// ================= БЕЗОПАСНОСТЬ НИКОВ =================
+// Игроки — дети 10–14 лет: ник, похожий на настоящее имя или фамилию, не показывается другим. Проверка — по спискам
+// частых имён (с уменьшительными, русских, татарских и английских) и фамилий; латиница и кириллица сравниваются
+// через общий «скелет» (nmSkel: «Maks», «Max» и «Макс» дают одно и то же). Списки — строки через пробел.
+const NM_FIRST='александр саша саня шура санёк алексей лёша лёха алёша андрей андрюша антон артём тёма тёмка артемий артур '+
+  'арсений сеня богдан борис боря вадим валентин валера валерий василий вася ваня ванька иван виктор витя виталий '+
+  'владимир вова вовка володя владислав влад всеволод сева вячеслав слава геннадий гена георгий гоша жора герман глеб '+
+  'григорий гриша давид даниил данил данила даня данька денис дима димка дмитрий митя евгений женя егор елисей захар игнат '+
+  'игорь илья ильюша кирилл киря константин костя леонид лёня макар максим макс максик марк матвей мотя михаил миша '+
+  'мирон никита николай коля колька олег павел паша пётр петя петька платон роман рома ростислав руслан савелий семён '+
+  'сёма сергей серёжа серёга станислав стас степан стёпа тимофей тимоха тимур тихон фёдор федя филипп эдуард эдик эмиль '+
+  'юрий юра ярослав ярик амир адам алан алик азат айдар булат ринат рустам рустем ренат марат тагир ильдар ильнар ильнур '+
+  'ильназ радик камиль дамир рамиль айрат ильяс искандер альберт нияз наиль ислам салават динар ришат фарид марсель '+
+  'ильшат ирек самир артемка '+
+  'александра алина алиса алёна алла анастасия настя ангелина анна аня анжелика антонина арина валентина валерия лера '+
+  'варвара варя вероника ника виктория вика галина диана дарья даша дашка ева евгения екатерина катя катька елена лена '+
+  'елизавета лиза жанна злата зоя инна ирина ира карина кира кристина ксения ксюша лариса лидия лиля людмила люда '+
+  'маргарита рита марина мария маша машка милана мила милена наталья наташа нина оксана ольга оля полина раиса регина '+
+  'светлана света софия софья соня таисия тамара татьяна таня ульяна уля юлия юля яна эвелина эмилия есения василиса '+
+  'агата алсу гульназ айгуль ляйсан лейсан динара камила камилла эльвира гузель зарина резеда эльмира аделина азалия '+
+  'диляра ралина ясмина самира аиша амина '+
+  'alex max john mike michael kate emma lily mia sophie emily olivia chloe jack james tom tommy harry oliver noah liam '+
+  'alexander ethan lucas daniel david mark paul peter steve bob tim tony leo jake luke ryan kevin brian chris jessica sarah adam alan';
+const NM_LAST='иванов смирнов кузнецов попов васильев петров соколов михайлов новиков фёдоров морозов волков алексеев '+
+  'лебедев семёнов егоров павлов козлов степанов николаев орлов андреев макаров никитин захаров зайцев соловьёв борисов '+
+  'яковлев григорьев романов воробьёв сергеев кузьмин фролов александров дмитриев королёв гусев киселёв ильин максимов '+
+  'поляков сорокин виноградов ковалёв белов медведев антонов тарасов жуков баранов филиппов комаров давыдов беляев '+
+  'герасимов богданов осипов сидоров матвеев титов марков миронов крылов куликов карпов власов мельников денисов '+
+  'гаврилов тихонов казаков афанасьев данилов савельев тимофеев фомин чернов абрамов мартынов ефимов щербаков назаров '+
+  'калинин исаев быков маслов родионов лазарев воронин климов филатов голубев прохоров наумов потапов журавлёв леонов '+
+  'соболев ермаков колесников гончаров емельянов никифоров котов гришин ефремов архипов громов кириллов малышев панов '+
+  'моисеев румянцев акимов галкин лукин юдин нестеров симонов князев цветков левин воронов логинов краснов демидов '+
+  'хабибуллин сафин гарипов гайнуллин галиев шарипов хайруллин зарипов ахметов валиев закиров мухаметов садыков '+
+  'исмагилов файзуллин нуриев латыпов гиниятуллин';
+// слова, которые совпадают с именем, но в нике чаще значат другое
+const NM_SKIP='лев вера надежда любовь мир ник сам роза art nick will sam';
+const NM_CYR={а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',
+  с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sh',ъ:'',ы:'i',ь:'',э:'e',ю:'iu',я:'ia'};
+function nmSkel(w){
+  let s=[...String(w).toLowerCase()].map(c=>NM_CYR[c]!==undefined?NM_CYR[c]:c).join('');
+  s=s.replace(/shch|sch/g,'sh').replace(/tch/g,'ch').replace(/kh/g,'h').replace(/ph/g,'f').replace(/ck/g,'k')
+    .replace(/x/g,'ks').replace(/q/g,'k').replace(/w/g,'v').replace(/t[sz]/g,'c')
+    .replace(/[yj][oe]/g,'e').replace(/[yj]([au])/g,'i$1').replace(/[yj]/g,'i');
+  return s.replace(/(.)\1+/g,'$1');
+}
+const NM_SET=(()=>{
+  const skip=new Set(NM_SKIP.split(' ').map(nmSkel)),set=new Set();
+  const add=w=>{const k=nmSkel(w);if(k.length>=3&&!skip.has(k))set.add(k);};
+  NM_FIRST.split(' ').forEach(add);
+  // фамилии — и в женской форме: Иванов → Иванова, Хабибуллин → Хабибуллина
+  NM_LAST.split(' ').forEach(w=>{add(w);add(w+'а');});
+  return set;
+})();
+// слова ника: по пробелам, знакам и цифрам, а «MaxPower» — по большим буквам
+function nmTokens(s){
+  return String(s||'').normalize('NFC').replace(/([a-zа-яё])([A-ZА-ЯЁ])/g,'$1 $2')
+    .split(/[^a-zA-Zа-яА-ЯёЁ]+/).filter(t=>t.length>=3);
+}
+function nickRisk(s){
+  for(const t of nmTokens(s)){
+    const k=nmSkel(t);
+    if(NM_SET.has(k))return true;
+    // имя и фамилия слитно: «ivanpetrov», «машаиванова»
+    for(let i=3;i<=k.length-3;i++)if(NM_SET.has(k.slice(0,i))&&NM_SET.has(k.slice(i)))return true;
+  }
+  return false;
+}
+// «О себе»: имя, телефон, почта, ссылки, номер школы — объяснение, почему нельзя, или пустая строка
+function bioRisk(s){
+  s=String(s||'');
+  if(/(\d[\s()+-]*){7,}/.test(s))return 'похоже на номер телефона';
+  if(/[^\s@]+@[^\s@]+\.[a-z]{2,}/i.test(s))return 'похоже на почту';
+  if(/https?:\/\/|www\.|t\.me\/|vk\.com|\b[a-z0-9-]+\.(ru|com|net|org|рф)\b/i.test(s))return 'есть ссылка';
+  if(/школ[аеуы]?\s*№?\s*\d+/i.test(s))return 'есть номер школы';
+  if(nickRisk(s))return 'похоже на настоящее имя или фамилию';
+  return '';
+}
+// безопасный ник-прозвище: всегда один и тот же для одного аккаунта (seed — id игрока)
+const NM_ADJ=['Неон','Пиксель','Турбо','Кибер','Байт','Лазер','Квант','Глитч','Нано','Ультра','Вольт','Хром'];
+const NM_NOUN=['Лис','Енот','Кот','Волк','Ёж','Филин','Панда','Дракон','Барс','Сокол','Краб','Бобр'];
+function safeNick(seed){
+  let h=2166136261;
+  for(const c of String(seed))h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;
+  return NM_ADJ[h%12]+'-'+NM_NOUN[(h>>>4)%12]+' '+(10+(h>>>8)%90);
+}
+// чужое имя на экране: похожее на настоящее показываем скрытым (могло прийти от старой версии игры)
+function pubName(n){return nickRisk(n)?'Скрытый ник':n;}
+// ник при входе: похожий на настоящее имя меняется на безопасный, и игрок узнаёт почему (NET.nnote → экран «nnote»).
+// Если ник уже сменил администратор (в аккаунте метка notice:'realname'), объяснение тоже показывается — один раз
+function nickGuard(row,tok){
+  const m=NET.user.user_metadata||{},cur=(save.nick||'').replace(/\s+/g,' ').trim();
+  const srv=row&&typeof row.name==='string'?row.name.slice(0,20):'';
+  let old='';
+  if(cur?nickRisk(cur):m.provider==='site'&&nickRisk(m.name)){
+    old=(cur||String(m.name)).slice(0,20);
+    save.nick=srv&&srv!==cur&&!nickRisk(srv)?srv:safeNick(NET.user.id);
+    persist();
+  }
+  if(m.notice==='realname'){
+    m.notice=null;
+    netFetch('/auth/v1/user',{method:'PUT',headers:netHeaders(tok),body:JSON.stringify({data:{notice:null}})}).catch(()=>{});
+    NET.nnote={old};
+  }else if(old)NET.nnote={old};
+}
+function nnoteHTML(){
+  const n=NET.nnote||{old:''};
+  return '<h2>ТВОЙ НИК СКРЫТ</h2>'+
+    '<p>'+(n.old?'Ник <b>'+escHTML(n.old)+'</b> очень':'Твой прежний ник был очень')+' похож на настоящее имя. Мы скрыли его, чтобы не утекла твоя личная информация.</p>'+
+    '<p>Теперь в рекордах ты — <b>'+escHTML(nickName())+'</b>. Ник можно сменить в «Аккаунте» — только без имени, фамилии и года рождения.</p>'+
+    mb('acct','Сменить ник','primary')+mb('nnok','Понятно');
+}
 function nickName(){
   const n=(save.nick||'').replace(/\s+/g,' ').trim().slice(0,20);
   if(n)return n;
   const m=NET.user&&NET.user.user_metadata||{};
-  if(m.provider==='site'&&typeof m.name==='string'&&m.name)return m.name.slice(0,20);
+  if(m.provider==='site'&&typeof m.name==='string'&&m.name&&!nickRisk(m.name))return m.name.slice(0,20);
   return 'Игрок-'+(NET.user?String(NET.user.id).slice(0,4):'0000');
 }
 // логин: латинские и русские буквы, цифры, «_», «-» и пробелы; большие и маленькие буквы не различаются
@@ -9184,6 +9306,7 @@ async function netLoadUser(){
       save.bio=typeof rows[0].bio==='string'?rows[0].bio.slice(0,200):'';
       NET.hidden=rows[0].hidden===true;
     }
+    nickGuard(Array.isArray(rows)&&rows[0],tok);
     pgSync();
     // администратор ли этот игрок — решает база (таблица admins); от этого только видна кнопка панели
     try{NET.admin=(await netFetch('/rest/v1/rpc/is_admin',{method:'POST',headers:netHeaders(tok),body:'{}'}))===true;}catch(_){NET.admin=false;}
@@ -9191,6 +9314,7 @@ async function netLoadUser(){
     await netSupLoad();
     tourPrize();
     if(NET.thanks&&termsOk()){if(phase==='menu')showMenu('donate');supPoll(1);return;}
+    if(NET.nnote&&termsOk()&&phase==='menu'&&!menuEl.hidden){showMenu('nnote');return;}
   }catch(e){
     if(e.status===401||e.status===403){saveSess(null);NET.user=null;setAcctState('netout');maybeGate();return;}
     setAcctState('error');
