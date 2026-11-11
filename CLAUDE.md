@@ -6,10 +6,18 @@
 Автор просил: всё должно быть и в артефакте — https://claude.ai/artifact/445HdLoTZ8KQ1YV6iHBo7k
 (его содержимое — то, что лежит в `index.html` между `<body>` и `</body>`).
 
+**Сайт скрыт (ошибка 404) с 11.11.2026 по просьбе автора. Игра не удалена.** Она лежит в ветке `claude/data-out-online`
+и в истории `main`. В `main` один лишний коммит «Hide the site: 404 instead of the game»: он убрал `index.html`, `terms.html`,
+`iphone.html` и `DATA-OUT.apk` и добавил `404.html`, поэтому GitHub Pages на адрес сайта отвечает 404. Пока он там,
+`main` нельзя «перематывать» до рабочей ветки — сайт снова откроется. Вернуть сайт: `git checkout main`, затем
+`git revert <этот коммит>` и `git push` (или попросить Claude). База Supabase, артефакт и сохранения игроков не тронуты;
+приложение для Android показывает 404, пока сайт скрыт. Когда сайт вернётся, удалить этот абзац.
+
 ## Что где
 
 - `index.html` — вся игра одним файлом. Сайт: https://artemiylakin-debug.github.io/Kod-Clod/
-  (GitHub Pages из ветки `main`). Работа идёт в ветке `claude/data-out-online`, `main` перематывается до неё.
+  (GitHub Pages из ветки `main`). Работа идёт в ветке `claude/data-out-online`, `main` перематывается до неё
+  (пока сайт не скрыт — см. абзац выше).
 - `online-config.js` — только открытые настройки: адрес Supabase, ключ `anon`, ID приложений VK и Яндекса,
   номер кошелька ЮMoney. Секреты (`service_role`, токены, Client secret) в репозиторий не кладутся никогда.
 - `online/` — сервер на Supabase: `schema.sql` (можно запускать повторно), функции `ru-login.ts`
