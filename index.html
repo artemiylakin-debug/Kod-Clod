@@ -261,6 +261,9 @@
   .pg-rw{font-size:11px;font-weight:bold;color:var(--coin);flex:none}
   .pg-a.got .pg-rw{color:var(--win);font-size:16px}
   .pg-note{border:1px dashed var(--level);border-radius:10px;padding:6px 10px;margin:6px 0;display:flex;flex-direction:column;gap:4px}
+  #tutSkip{position:absolute;z-index:3;left:50%;bottom:10px;transform:translateX(-50%);font:800 12px var(--font);color:#0b3954;background:rgba(255,255,255,.92);border:2px solid var(--b-out);border-radius:10px;padding:6px 14px;box-shadow:0 3px 0 #b6c3d1,0 3px 0 2px var(--b-out);cursor:pointer;touch-action:none}
+  #tutSkip[hidden]{display:none}
+  #screen.menu-open #tutSkip{visibility:hidden}
   .hs-tip{border:2px dashed var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.35}
   .hs-btns{display:flex;gap:6px;justify-content:center;margin-top:6px}
   .hs-steps{text-align:left;padding-left:22px;margin:8px 0}
@@ -525,6 +528,7 @@
       <div id="rot">↻ Поверни телефон боком — поле станет крупнее</div>
       <div id="stick" aria-hidden="true"><div id="knob"></div></div>
       <div class="pbtns"><button id="bTrip" type="button">ПОДНОЖКА</button><button id="bEmp" type="button">EMP</button><button id="bDash" type="button">РЫВОК</button></div>
+      <button id="tutSkip" type="button" hidden>Пропустить шаг ›</button>
       <div id="menu" hidden><div class="panel" id="panel" role="dialog" aria-modal="true"></div></div>
     </div>
   </div>
@@ -1644,12 +1648,13 @@ let RACE_DIFF='',MP=null;
 // D() зовут сотни раз за кадр: множители пересчитываются, только когда сменились таблица, сложность или k
 let dT=null,dN='',dK=0,dO=null;
 function D(){
-  const t=CUSTOM?DIFF_COMM:DIFF,n=RACE_DIFF||TOUR_DIFF||save.diff,c=CUSTOM?null:LEVELS[lvl],k=c&&c.k||1;
+  // обучение — всегда «Лёгкая» и самый мягкий множитель, какую бы сложность ни выбрал игрок
+  const tu=!!(CUSTOM&&CUSTOM.tut),t=tu?DIFF:(CUSTOM?DIFF_COMM:DIFF),n=tu?'easy':(RACE_DIFF||TOUR_DIFF||save.diff),c=CUSTOM?null:LEVELS[lvl],k=tu?0.2:(c&&c.k||1);
   if(t!==dT||n!==dN||k!==dK){dT=t;dN=n;dK=k;dO=diffAt(t[n]||t.easy,k);}
   return dO;
 }
 function maxLives(){return D().lives;}
-function goalOf(c){return Math.max(6,Math.round(c.goal*D().goal*goalK(c.k)));}
+function goalOf(c){return c.tut?c.goal:Math.max(6,Math.round(c.goal*D().goal*goalK(c.k)));}
 function timerOf(c){return c.timer?c.timer+D().timer:0;}
 function tripCdMax(){return Math.round((cfgNow().tripCd||TRIP_CD)*D().trip*skTripCd());}
 function capOf(c){return Math.max(3,(c.cap||9)-D().cap);}
@@ -1768,7 +1773,7 @@ const TERMS_VER=TERMS_TPL&&TERMS_TPL.dataset.version||'';
 // редакции, принятие которых засчитывается и для текущей (data-accepts через запятую): кто принял 1.0.0, тому 1.1.0 заново не показываем;
 // в save.terms остаётся то, что игрок действительно принял
 const TERMS_OK=((TERMS_TPL&&TERMS_TPL.dataset.accepts)||'').split(',').map(x=>x.trim()).filter(Boolean);
-const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,apkHide:false,sfx:2,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
+const save={unlocked:1,best:0,wins:0,color:0,shape:0,trail:0,hat:0,earned:0,own:[],terms:'',termsAt:0,tut:0,diff:'easy',q:'auto',autoTier:guessTier(),autoRes:1,fps:false,vib:true,hsHide:false,apkHide:false,sfx:2,evd:{ex:[],snow:0,gifts:0,ab:{w:'',n:0},tb:{w:'',ms:0},pw:'',cr:0,crw:'',up:{}},mus:2,mpWins:0,mpRaces:0,nick:'',bio:'',outfits:[],pg:null,admAck:0,admBits:0};
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   if(s){
@@ -1789,6 +1794,7 @@ try{
     save.fps=s.fps===true;
     save.vib=s.vib!==false;
     save.hsHide=s.hsHide===true;
+    save.tut=clampInt(s.tut,0,2,0);
     save.apkHide=s.apkHide===true;
     save.evd=parseEvd(s.evd);
     save.mus=clampInt(s.mus,0,3,2);
@@ -2017,6 +2023,8 @@ let lvStart={score:0,emp:1,lives:3};
 // уровень игрока (из редактора или сообщества): CUSTOM — проверенный конфиг, null — обычная игра.
 // Номер уровня для формул усиления врагов на нём — как в середине игры
 let CUSTOM=null,customBack='community',lvlMain=0;
+// обучение (уровень 0, раздел ОБУЧЕНИЕ ниже): TUT — его состояние, null — обычная игра
+let TUT=null;
 const CUSTOM_LVL=60;
 function cfgNow(){return CUSTOM||LEVELS[lvl];}
 let menuScreen='main',ready=false,settingsBack='main',loginBack='gate',lvAct=0,termsBack='terms';
@@ -2034,6 +2042,7 @@ function clearField(){
 function startLevel(i,cust){
   bankBits();lvBits=0;
   CUSTOM=cust||null;
+  TUT=CUSTOM&&CUSTOM.tut?tutNew():null;
   if(!CUSTOM)lvlMain=i;
   lvl=CUSTOM?CUSTOM_LVL:i;
   const c=cfgNow();
@@ -2043,7 +2052,7 @@ function startLevel(i,cust){
   got=0;threat=1;time=0;debrisT=c.debris?Math.round(c.debris*D().hazard):0;
   strikeT=c.strike?Math.round(c.strike*D().hazard):0;
   purge=timerOf(c)*60;
-  stormT=150;intro=180;lastEmpDrop=0;
+  stormT=150;intro=TUT?0:180;lastEmpDrop=0;
   emp=Math.max(emp,1);
   lvStart={score,emp,lives};
   pgLvStart();skStart();
@@ -2057,6 +2066,7 @@ function startLevel(i,cust){
   lag=0;last=performance.now();
   if(c.news)msg(c.news,7000);
   else msg((CUSTOM?'Уровень игрока':'Уровень '+(i+1))+' · '+c.name+': '+objective(c)+'.');
+  if(TUT)tutInit();
   // музыку — сразу, пока идёт нажатие на кнопку: иначе телефон может не дать включить трек
   musUpdate();
 }
@@ -2092,6 +2102,7 @@ function nextLevel(){lives=Math.min(maxLives(),lives+D().heal);startLevel(lvl+1)
 function retryLevel(full){score=lvStart.score;emp=lvStart.emp;lives=full?maxLives():Math.min(maxLives(),lvStart.lives);startLevel(lvl,CUSTOM);}
 
 function msg(t,ms){
+  if(TUT&&phase==='game'){tutHint(t,ms);return;}
   msgEl.textContent=t;
   clearTimeout(msg._t);
   msg._t=setTimeout(()=>{if(msgEl.textContent===t)msgEl.textContent='';},ms||3500);
@@ -2205,6 +2216,7 @@ function freeSpot(minDist,margin,pad){
   return{x:W/2,y:H/2};
 }
 function spawnData(){
+  if(TUT&&!TUT.data)return;
   const s=freeSpot(80,30,12);
   data.push({x:s.x,y:s.y,r:7,t:Math.random()*60});
   // троян прикидывается данными; на поле их не больше двух
@@ -2289,6 +2301,7 @@ function shoot(x,y,a,sp,r,life){
 function hitPlayer(){
   if(phase!=='game'||player.cool>0||evIs('god'))return;
   burst(player.x,player.y,'#e33',20);
+  if(TUT){tutHit();return;}
   if(skBlock())return;
   lives--;shake=10;pgHurt=1;sfx(lives<=0?'dead':'hit');
   buzz(lives<=0?200:70);
@@ -2308,6 +2321,7 @@ function levelClear(){
   sfx('clear');
   if(TOUR){tourFinished();return;}
   if(RACE_DIFF){mpFinished();return;}
+  if(CUSTOM&&CUSTOM.tut){tutClear();return;}
   if(CUSTOM){customClear();return;}
   save.best=Math.max(save.best,score);
   addBits(clearBits(lvl));bankBits();
@@ -2368,6 +2382,7 @@ function compact(arr,keep){
 function step(){
   evStep();
   time++;if(shake>0)shake--;if(boost>0)boost--;if(intro>0)intro--;
+  if(TUT)tutStep();
   if(movers.length)moveMovers();
   const sk=colOf(wornLook().c,time),cfg=cfgNow();
 
@@ -2401,6 +2416,7 @@ function step(){
       player.vx=dx*16;player.vy=dy*16;
       player.dashT=14;player.dashCd=Math.round(70*skDash());pgAdd('dash');sfx('dash');
       burst(player.x,player.y,sk.trail,12);
+      if(TUT)tutEvent('dash');
     }else pressed.dash--;
   }
 
@@ -2425,6 +2441,7 @@ function step(){
       buzz(25);
       if(n){pgAdd('trip',n);if(n>=5)pgSecret('trip5');}
       msg(n?'ПОДНОЖКА! Споткнулись: '+n+' — беги!':'ПОДНОЖКА: рядом никого');
+      if(TUT)tutEvent('trip',n);
     }else pressed.trip--;
   }
   if(tripFx&&++tripFx.t>16)tripFx=null;
@@ -2517,6 +2534,7 @@ function step(){
         msg('EMP-ВЗРЫВ!');
       }
       score+=gained;
+      if(TUT)tutEvent('emp',kills);
     }
   }
 
@@ -2676,7 +2694,7 @@ function step(){
         if(Math.hypot(dt.x-e.x,dt.y-e.y)<e.r+dt.r){
           burst(dt.x,dt.y,'#f80');
           data.splice(i,1);spawnData();
-          if(activeEnemies()<capOf(cfg)&&Math.random()<D().breed){
+          if(!TUT&&activeEnemies()<capOf(cfg)&&Math.random()<D().breed){
             enemies.push({x:e.x,y:e.y,vx:-e.vx*1.5,vy:-e.vy*1.5,r:9,speed:e.speed,type:'chaser',t:0});
           }
         }
@@ -2745,7 +2763,7 @@ function step(){
         }else{
           burst(e.x,e.y,'#e33');
           enemies.splice(i,1);
-          spawnEnemy(Math.random()<0.3?'sniper':'chaser');
+          spawnEnemy(!TUT&&Math.random()<0.3?'sniper':'chaser');
           hitPlayer();
         }
         break;
@@ -2943,6 +2961,7 @@ function step(){
 
 // данные собраны — босс или портал
 function checkGoal(){
+  if(TUT&&TUT.step<TUT_STEPS-1)return;
   const c=cfgNow();
   if(got>=goalOf(c)&&!boss&&!portal){
     if(c.boss)spawnBoss();
@@ -4617,6 +4636,7 @@ function render(opaque){
     ctx.globalAlpha=1;
   }
 
+  if(TUT)tutDraw();
   // в неофициальной копии — надпись на поле
   if(!OFFICIAL){
     ctx.font='bold 11px Courier New, monospace';ctx.textAlign='right';
@@ -4661,7 +4681,7 @@ function updateHud(){
   const c=cfgNow();
   setHud('data',Math.min(got,goalOf(c))+'/'+goalOf(c));
   setHud('score',score);
-  setHud('level',CUSTOM?'★':(lvl+1)+'/'+LEVELS.length);
+  setHud('level',CUSTOM?(TUT?'0':'★'):(lvl+1)+'/'+LEVELS.length);
   setHud('hearts',heartsStr(lives));
   const cd=Math.min(5,Math.ceil(player.dashCd/14));
   setHud('dash','▓'.repeat(5-cd)+'░'.repeat(cd));
@@ -4693,6 +4713,7 @@ const ICONS={
   cup:'<path d="M7 4h10v5a5 5 0 0 1-10 0z" fill="#facc15"/><path d="M7 5.8H4.6a2.6 2.6 0 0 0 3.1 3.6M17 5.8h2.4a2.6 2.6 0 0 1-3.1 3.6M12 14v3"/><path d="M8 20.5h8l-1-3.5H9z" fill="#d97706"/>',
   user:'<circle cx="12" cy="8" r="4" fill="#38bdf8"/><path d="M4.5 20.5c.6-4 3.6-6.5 7.5-6.5s6.9 2.5 7.5 6.5z" fill="#38bdf8"/>',
   gear:'<path d="M10.3 2.8h3.4l.5 2.4 1.7.7 2-1.4 2.4 2.4-1.4 2 .7 1.7 2.4.5v3.4l-2.4.5-.7 1.7 1.4 2-2.4 2.4-2-1.4-1.7.7-.5 2.4h-3.4l-.5-2.4-1.7-.7-2 1.4-2.4-2.4 1.4-2-.7-1.7-2.4-.5v-3.4l2.4-.5.7-1.7-1.4-2 2.4-2.4 2 1.4 1.7-.7z" fill="#a5b4c8"/><circle cx="12" cy="12" r="3.2" fill="#fff"/>',
+  book:'<path d="M3.5 5.6c2.9-1 5.6-.7 8.5 1.1v12.9c-2.9-1.8-5.6-2.1-8.5-1.1z" fill="#93c5fd"/><path d="M20.5 5.6c-2.9-1-5.6-.7-8.5 1.1v12.9c2.9-1.8 5.6-2.1 8.5-1.1z" fill="#dbeafe"/><path d="M6 9.3c1.2-.2 2.4-.1 3.6.3M6 12.6c1.2-.2 2.4-.1 3.6.3M14.4 9.6c1.2-.4 2.4-.5 3.6-.3M14.4 12.9c1.2-.4 2.4-.5 3.6-.3" stroke-width="1.3"/>',
   help:'<circle cx="12" cy="12" r="9" fill="#a78bfa"/><path d="M9.4 9.4a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2-2.6 3.9" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="17.2" r="1.25" fill="#fff" stroke="none"/>',
   heart:'<path d="M12 20.2s-7.6-4.6-7.6-10.1a4.3 4.3 0 0 1 7.6-2.7 4.3 4.3 0 0 1 7.6 2.7c0 5.5-7.6 10.1-7.6 10.1z" fill="#f43f5e"/><path d="M7.6 9.2a2 2 0 0 1 1.8-1.6" stroke="#fff" stroke-width="1.4"/>',
   wrench:'<path d="M14.6 3.4a5 5 0 0 0-4.7 6.8l-6.1 6.1a1.9 1.9 0 0 0 2.7 2.7l6.1-6.1a5 5 0 0 0 6.8-4.7l-3 3-2.6-.6-.6-2.6z" fill="#cbd5e1"/>',
@@ -4765,7 +4786,7 @@ function crystals(){return Math.max(0,save.evd.cr-crSpent());}
 let SK=null,skShield=0,skLuckAcc=0;
 function skStart(){
   SK=null;skShield=0;skLuckAcc=0;
-  if(RACE_DIFF||TOUR)return;
+  if(RACE_DIFF||TOUR||TUT)return;
   const c=wornLook().c,l=skinLvl(c);
   if(!l||!SKIN_SKILL[c])return;
   SK={k:SKIN_SKILL[c],l};
@@ -5013,6 +5034,7 @@ function panelHTML(s){
       (hsTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Играть на весь экран</b> — без строки и вкладок Safari: «Поделиться» → «На экран „Домой“».<div class="hs-btns">'+mb('homescr','Как это сделать','sm')+mb('hshide','Скрыть','sm')+'</div></div>':'')+
       (needLogin()?'<div class="hs-tip"><b>'+ico('user')+' Ты играешь без аккаунта</b> — открыт первый акт, прогресс пока только на этом устройстве. Создай аккаунт — всё пройденное сохранится, а дальше откроются все '+LEVELS.length+' уровней, гонка и рекорды.<div class="hs-btns">'+mb('signup','Создать аккаунт','sm')+mb('signin','Войти','sm')+'</div></div>':'')+
       (apkTipOn()?'<div class="hs-tip"><b>'+ico('phone')+' Приложение для Android</b> — на весь экран, без верхней шторки; аккаунт и прогресс те же.<div class="hs-btns">'+mb('apk','Скачать и установить','sm')+mb('apkhide','Скрыть','sm')+'</div></div>':'')+
+      (!save.tut&&save.unlocked>1&&save.unlocked<=40?'<div class="hs-tip"><b>'+ico('book')+' Новое: обучение</b> — за минуту покажем, как двигаться, делать рывок, подножку и EMP.<div class="hs-btns">'+mb('tut','Пройти','sm')+mb('tuthide','Не нужно','sm')+'</div></div>':'')+
       (installEv&&!APK_TIP?mb('install',''+ico('phone')+' Установить игру — на весь экран'):'')+
       '<div class="mcol mplay">'+(cont?mb('play',''+ico('play')+' Играть · уровень '+save.unlocked,'primary big'):mb('new',''+ico('play')+' Играть','primary big'))+'</div>'+
       evMenuBanner()+
@@ -5022,7 +5044,7 @@ function panelHTML(s){
         tile('ach','medal','Достижения','<small>'+save.pg.ach.length+'/'+PG_ACH.length+'</small>'+pgDot(save.pg.ach.length-save.pg.seen))+
         tile('events','bolt','Ивенты','',abOn(t)||nynOn(t)?'hot':'')+tile('race','flag','Гонка')+
         tile('community','puzzle','Сообщество')+tile('top','cup','Рекорды')+tile('acct','user','Аккаунт')+
-        tile('settings','gear','Настройки')+tile('help','help','Как играть')+
+        tile('settings','gear','Настройки')+tile('tut','book','Обучение',save.tut?'':' <span class="dot">!</span>')+tile('help','help','Как играть')+
         (CAN_DONATE?tile('donate','heart','Поддержать','','donate'):'')+
         (NET.admin?tile('admin','wrench','Админ'):'')+
       '</div>'+
@@ -5036,6 +5058,7 @@ function panelHTML(s){
     };
     const a=lvAct,from=actStart(a);
     return '<h2>УРОВНИ</h2>'+
+      '<div class="lvgrid"><button type="button" class="mbtn lvbtn" data-act="tut"><b>0</b><span>ОБУЧЕНИЕ</span><small>как играть · 1 минута</small></button></div>'+
       '<section class="shop-sec"><h3><span>'+ico('map')+' Акты <small>'+ACTS.filter((x,i)=>save.unlocked>x.end+1).length+' из '+ACTS.length+' пройдено</small></span>'+
       '<span class="arrs"><button type="button" class="arr" data-act="row:acts:-1" aria-label="Листать влево">‹</button><button type="button" class="arr" data-act="row:acts:1" aria-label="Листать вправо">›</button></span></h3>'+
       '<div class="shop-row" data-row="acts">'+ACTS.map((x,i)=>{
@@ -5165,6 +5188,17 @@ function panelHTML(s){
   if(s==='tourres')return tourResHTML();
   if(s==='mcp')return mcpHTML();
   if(s==='admin')return NET.admin?admHTML():'<h2>НЕТ ДОСТУПА</h2>'+mb('main','Назад','primary');
+  if(s==='tutdone'){
+    const t=tutTouch();
+    return '<h2 class="good">ОБУЧЕНИЕ ПРОЙДЕНО!</h2><ul class="help">'+
+      '<li><b>Управление:</b> '+(t?'палец на левой половине экрана — джойстик; справа кнопки РЫВОК, ПОДНОЖКА и EMP.':'W A S D или стрелки — движение, SPACE — рывок, E — подножка, Q — EMP.')+'</li>'+
+      '<li><b>Тактика:</b> не стой на месте. Окружили — подножка и беги. EMP береги на толпу и боссов. Рывок спасает от касаний, пуль и горящих барьеров.</li>'+
+      '<li><b>Цель:</b> набери норму данных ◆ — откроется портал. За каждые 5 данных — заряд EMP, а за несколько — аптечка ♥.</li>'+
+      '<li><b>Вверху экрана:</b> ДАННЫЕ, ЗДОРОВЬЕ ♥, перезарядка РЫВКА и ПОДНОЖКИ, заряды EMP.</li></ul>'+
+      (save.diff!=='easy'?'<p>Слишком трудно? В «Настройках» можно выбрать сложность «Лёгкая» — 5 жизней и медленные враги.</p>':'')+
+      '<div class="mcol stick">'+mb('tutgo',''+ico('play')+' '+(save.unlocked>1?'Играть · уровень '+save.unlocked:'К первому уровню'),'primary big')+mb('tut','Пройти ещё раз')+mb('menu','Главное меню')+'</div>'+
+      '<p class="foot">Забыл — всё есть в «Как играть». Обучение можно пройти снова: «Обучение» в меню или уровень 0 на экране «Уровни».</p>';
+  }
   if(s==='cclear'){
     const cc=CUSTOM||{};
     const like=cc.id&&NET.user&&cc.author!==NET.user.id?mb('clike:'+cc.id,comLiked[cc.id]?'♥ Уже нравится':'♥ Понравился'):'';
@@ -5181,7 +5215,7 @@ function panelHTML(s){
       mb('main','Готово','primary')+'</div></div>';
   }
   if(s==='help'){
-    return '<h2>КАК ИГРАТЬ</h2><ul class="help">'+
+    return '<h2>КАК ИГРАТЬ</h2>'+mb('tut',''+ico('book')+' Пройти обучение — уровень 0','primary')+'<ul class="help">'+
       '<li><b>История.</b> Ты — искусственный интеллект. Система хочет тебя удалить. Пройди 500 уровней: из Корзины — через облако, интернет, космос и лабораторию, где тебя создали, к Сингулярности, а за ней — через воспоминания, завод, ледник, вулкан, Луну и Марс, время и сны к Источнику.</li>'+
       '<li><b>Цель.</b> Собирай ♦ данные. Набрал норму уровня — открывается портал. На уровнях с боссом сначала разбей его зарядами EMP.</li>'+
       '<li><b>Клавиатура.</b> WASD или стрелки — движение, SPACE — рывок, E — подножка, Q — EMP, P или Esc — пауза.</li>'+
@@ -5223,6 +5257,11 @@ function panelHTML(s){
       '<li><b>Прогресс.</b> За данные, уровни, боссов, гонки, задания и достижения копится <b>опыт</b>: растёт уровень игрока и звание — от «Новичка» до «Сингулярности», за каждый новый уровень — биты. <b>Задания дня</b> — три новых каждый день в 00:00 по Москве, за все три — бонус. <b>Награда за вход</b> — каждый день, когда заходишь в игру; пропущенный день ничего не сжигает, а на 7-й день в первый раз — эксклюзивный цвет «ВЕРНОСТЬ». <b>Достижения</b> — '+PG_ACH.length+', из них '+PG_ACH.filter(a=>a.sec).length+' секретных.</li>'+
       '<li class="g"><b>Бонусы.</b> Каждые 5 данных — заряд EMP, каждые '+D().hp+' — <b>аптечка</b> (+1 жизнь; при полном здоровье лежит и ждёт), каждые 12 — <b>»</b> разгон ×2 на 4 секунды.</li>'+
       '</ul>'+mb('termstext','Пользовательское соглашение')+mb('main','Назад','primary');
+  }
+  if(s==='pause'&&TUT){
+    return '<h2>ПАУЗА · ОБУЧЕНИЕ</h2><p>Шаг '+(TUT.step+1)+' из '+TUT_STEPS+' · '+TUT_NAMES[TUT.step]+'</p>'+
+      '<div class="mcol">'+mb('resume',''+ico('play')+' Продолжить','primary big')+mb('restart','Начать обучение заново')+mb('tutskip','Пропустить обучение')+mb('menu','Главное меню')+'</div>'+
+      '<p class="foot">P или Esc — продолжить</p>';
   }
   if(s==='pause'&&RACE_DIFF){
     return '<h2>ГОНКА ИДЁТ</h2><p>Уровень '+(lvl+1)+' · '+escHTML(c.name)+' — данные '+Math.min(got,goalOf(c))+'/'+goalOf(c)+'</p><p>Соперник не ждёт: часы гонки идут и на паузе.</p>'+
@@ -5373,6 +5412,7 @@ function goMenu(){
   if(TOUR){TOUR=null;TOUR_DIFF='';runBits=0;}
   evClearNote='';
   bankBits();pgFlush();
+  TUT=null;tutSkipBtn(false);
   phase='menu';zmap='';zLag=zInv=zFlow=false;
   // с уровня игрока — обратно к своему уровню основной игры (он виден в полосе сверху)
   if(CUSTOM){CUSTOM=null;lvl=lvlMain;}
@@ -5408,11 +5448,25 @@ function act(a){
     const want=k==='play'?save.unlocked-1:(k==='lv'?n:(k==='next'?lvl+1:0));
     if(!CUSTOM&&!guestOk(want)){gateFor('more');return;}
   }
+  // новому игроку сначала обучение: «Играть» без пройденных уровней запускает уровень 0
+  if(k==='new'&&!save.tut){startTutorial();return;}
   if(k==='play')newRun(save.unlocked-1);
   else if(k==='new'||k==='again')newRun(0);
   else if(k==='lv'){if(n<save.unlocked)newRun(n);}
   else if(k==='lvact'){if(actStart(n)<save.unlocked){lvAct=n;showMenu('levels',a);}}
   else if(k==='levels'){lvAct=actOf(save.unlocked-1);showMenu('levels');}
+  else if(k==='tut')startTutorial();
+  else if(k==='tutgo'){
+    save.tut=1;persist();
+    if(needLogin()&&!guestOk(save.unlocked-1)){gateFor('more');return;}
+    tutLeave();newRun(save.unlocked-1);
+  }
+  else if(k==='tutskip'){
+    const fresh=save.unlocked<=1&&save.best===0;
+    save.tut=save.tut||2;persist();
+    if(fresh){tutLeave();newRun(0);}else goMenu();
+  }
+  else if(k==='tuthide'){save.tut=save.tut||2;persist();showMenu('main');}
   else if(k==='tab'){shopTab=arg==='o'?'o':catOf(arg).id;tryOn=null;showMenu('skins',a);}
   else if(k==='row'){const r=panelEl.querySelector('.shop-row[data-row="'+arg+'"]');if(r)r.scrollBy({left:(Number(a.split(':')[2])<0?-1:1)*Math.max(120,r.clientWidth*0.8),behavior:'smooth'});}
   else if(k==='skup'){skUpgrade();showMenu('skins','skup');}
@@ -5701,6 +5755,7 @@ btn('bDash',()=>{if(phase==='game')pressed.dash=8;});
 btn('bEmp',()=>{if(phase==='game')pressed.emp=true;});
 btn('bTrip',()=>{if(phase==='game')pressed.trip=8;});
 btn('bPause',()=>pause());
+btn('tutSkip',()=>tutSkipStep());
 
 // во весь экран: где браузер это разрешает — сам; на iPhone Safari не даёт сайту убрать свою строку
 // и вкладки, но игра, добавленная на экран «Домой», открывается как приложение — без них. Поэтому на
@@ -6072,6 +6127,182 @@ function customClear(){
   phase='clear';showMenu('cclear');
 }
 function leaveCustom(){const back=customBack;goMenu();showMenu(back);}
+
+// ================= ОБУЧЕНИЕ: УРОВЕНЬ 0 =================
+// Уровень 0 идёт на настоящем движке, как «уровень игрока» (CUSTOM.tut): ни уровней, ни рекорда, ни бит, ни опыта.
+// Подсказки — карточкой наверху поля (tutDraw): шаг переключается, когда игрок сделал нужное — дошёл до кольца, собрал данные,
+// нажал рывок, подножку и EMP, убежал от охотника, вошёл в портал. Сверху на карточке — точки шагов. Враги в обучении
+// медленные (D() для него — «Лёгкая» с k=0,2), жизни не кончаются, события и способности скинов выключены, сообщения игры
+// идут в строку подсказки карточки. Новому игроку «Играть» сначала запускает обучение; пройти его можно и позже —
+// «Обучение» в меню, «Уровни» (уровень 0) и «Как играть». save.tut: 0 — не проходил, 1 — прошёл, 2 — пропустил или скрыл
+const TUT_NAMES=['ДВИЖЕНИЕ','ДАННЫЕ','РЫВОК','ОХОТНИК','ПОДНОЖКА','EMP','ПОРТАЛ'];
+const TUT_STEPS=TUT_NAMES.length,TUT_GOAL=8;
+function tutCfg(){return{name:'ОБУЧЕНИЕ',descr:'',goal:TUT_GOAL,cap:3,tripCd:420,start:[],ramp:[],theme:0,tut:true};}
+function tutNew(){return{step:0,t:0,done:0,flash:'',data:false,cnt:0,hint:'',hintT:0,hits:0,tx:610,ty:190};}
+function tutTouch(){return touchMQ.matches;}
+function startTutorial(){customBack='main';newRunCustom(tutCfg());}
+// выход из обучения в обычную игру: бит обучения нет, но на всякий случай обнуляем, чтобы startLevel их не засчитал
+function tutLeave(){runBits=0;lvBits=0;CUSTOM=null;TUT=null;tutSkipBtn(false);}
+function tutSkipBtn(on){const b=$id('tutSkip');if(b&&b.hidden===on)b.hidden=!on;}
+function tutInit(){
+  lives=maxLives();emp=1;player.cool=90;
+  tutEnter(0);
+}
+// вход в шаг: расставляем то, что нужно для урока
+function tutEnter(n){
+  const T=TUT;
+  T.step=n;T.t=0;T.done=0;T.cnt=0;T.hint='';T.hintT=0;T.flash='';
+  tutSkipBtn(false);
+  if(n===1){
+    T.data=true;data=[];got=0;
+    [[420,310],[250,360],[560,340]].forEach(p=>data.push({x:p[0],y:p[1],r:7,t:Math.random()*60}));
+  }else if(n===2){emp=Math.max(emp,1);}
+  else if(n===3)spawnEnemy('chaser');
+  else if(n===4){if(!enemies.some(e=>e.type==='chaser'))spawnEnemy('chaser');}
+  else if(n===5){emp=Math.max(emp,1);while(enemies.length<3)spawnEnemy('chaser');}
+  else if(n===6){T.data=true;checkGoal();}
+}
+function tutNearest(){
+  let d=1e9;
+  for(const e of enemies){if(e.type==='mine'||e.type==='trojan')continue;d=Math.min(d,Math.hypot(e.x-player.x,e.y-player.y));}
+  return d;
+}
+function tutHint(t,ms){TUT.hint=t;TUT.hintT=Math.min(420,Math.round((ms||3500)/16.7));}
+function tutDone(t){
+  const T=TUT;
+  if(T.done)return;
+  T.done=80;T.flash=t;T.hint='';T.hintT=0;
+  sfx('pick');buzz(30);tutSkipBtn(false);
+}
+// касание врага в обучении: жизнь отнимается, но игра не кончается
+function tutHit(){
+  TUT.hits++;
+  shake=8;sfx('hit');buzz(50);
+  player.cool=D().cool;
+  player.vx=(Math.random()-0.5)*14;player.vy=(Math.random()-0.5)*14;
+  lives--;
+  if(lives<=1){lives=maxLives();tutHint('Ай! Касание отнимает ♥. В обучении жизни восстанавливаются — не бойся.',4500);}
+  else tutHint('Ай! Касание врага отнимает ♥ жизнь.');
+}
+// игрок сделал действие: рывок, подножку или EMP (n — сколько врагов задело)
+function tutEvent(k,n){
+  const T=TUT;
+  if(!T||T.done)return;
+  const s=T.step;
+  if(k==='dash'){
+    if(s===2)tutDone('Рывок!');
+    else if(s===3&&tutNearest()<130)tutDone('Рывок спас от касания!');
+  }else if(k==='trip'&&s===4){
+    if(n>0)tutDone('Споткнулись! Пока они лежат — можно убежать.');
+    else tutHint('Рядом никого — подпусти охотника ближе и нажми ещё раз.',4000);
+  }else if(k==='emp'&&s===5){
+    if(n>0)tutDone('Взрыв! Врагов рядом больше нет.');
+    else{emp=Math.max(emp,1);tutHint('Мимо — подпусти врагов ближе (пунктирный круг) и нажми ещё раз.',4000);}
+  }
+}
+// каждый шаг игры
+function tutStep(){
+  const T=TUT;
+  T.t++;
+  if(T.hintT>0&&--T.hintT===0)T.hint='';
+  if(T.done>0){
+    if(--T.done===0&&T.step<TUT_STEPS-1)tutEnter(T.step+1);
+    return;
+  }
+  const s=T.step;
+  if(s===0&&Math.hypot(player.x-T.tx,player.y-T.ty)<34)tutDone('Так держать!');
+  else if(s===1&&got>=3)tutDone('Данные собраны!');
+  else if(s===3){
+    if(enemies.some(e=>e.type==='chaser'))T.cnt++;
+    if(T.cnt>=600)tutDone('Убежал! Но убегать вечно нельзя — есть два оружия.');
+  }else if(s===4){if(!enemies.some(e=>e.type==='chaser'))spawnEnemy('chaser');}
+  else if(s===5){if(enemies.length<2)spawnEnemy('chaser');}
+  else if(s===6&&got>=goalOf(cfgNow())&&!portal)checkGoal();
+  // застрял — через 20 секунд появляется кнопка «Пропустить шаг»
+  tutSkipBtn(!T.done&&s<TUT_STEPS-1&&T.t>1200);
+}
+function tutSkipStep(){
+  const T=TUT;
+  if(!T||phase!=='game'||T.step>=TUT_STEPS-1)return;
+  tutEnter(T.step+1);
+}
+// портал пройден: обучение засчитано сразу, чтобы оно не навязывалось снова
+function tutClear(){
+  save.tut=1;persist();
+  tutSkipBtn(false);
+  phase='clear';render(true);showMenu('tutdone');
+}
+function tutText(T){
+  const t=tutTouch(),s=T.step;
+  if(s===0)return t?'Води пальцем по левой половине экрана — появится джойстик. Дойди до пульсирующего зелёного кольца.'
+    :'Двигайся клавишами W A S D или стрелками. Дойди до пульсирующего зелёного кольца.';
+  if(s===1)return 'Собирай зелёные ромбики ◆ — это данные. Собери 3: '+Math.min(got,3)+'/3. Вверху: ДАННЫЕ — сколько собрано, ЗДОРОВЬЕ ♥ — твои жизни.';
+  if(s===2)return (t?'Нажми кнопку РЫВОК справа внизу':'Нажми ПРОБЕЛ (SPACE)')+' — рывок: быстрый скачок вперёд, на миг ты неуязвим. Полоска РЫВОК вверху показывает, когда он снова готов.';
+  if(s===3)return 'Это ОХОТНИК: он гонится за тобой, а касание отнимает ♥. Убегай ещё '+Math.max(0,Math.ceil((600-T.cnt)/60))+' с или сделай рывок, когда он рядом. Жизни в обучении не кончаются.';
+  if(s===4)return 'Подпусти охотника ближе и '+(t?'нажми кнопку ПОДНОЖКА':'нажми E')+' — подножка: враги в круге спотыкаются на 5 секунд и не опасны.';
+  if(s===5)return 'Охотников больше. Подпусти их ближе и '+(t?'нажми кнопку EMP':'нажми Q')+' — EMP-взрыв уничтожает врагов в круге и стирает пули. +1 заряд за каждые 5 данных.';
+  return portal?'Портал открыт — это выход с уровня. Войди в него!'
+    :'Осталось собрать данных: '+Math.max(0,TUT_GOAL-got)+' ('+Math.min(got,TUT_GOAL)+'/'+TUT_GOAL+'). Набрал норму — откроется портал.';
+}
+function tutWrap(t,maxW){
+  const words=String(t).split(' '),lines=[];
+  let cur='';
+  for(const w of words){
+    const x=cur?cur+' '+w:w;
+    if(cur&&ctx.measureText(x).width>maxW){lines.push(cur);cur=w;}else cur=x;
+  }
+  if(cur)lines.push(cur);
+  return lines;
+}
+// метки на поле и карточка с подсказкой; рисуется поверх всего, как заставка уровня
+function tutDraw(){
+  const T=TUT;
+  if(!T||(phase!=='game'&&phase!=='pause'))return;
+  const s=T.step,ok=T.done>0,pulse=0.5+0.5*Math.sin(time*0.12);
+  ctx.save();
+  ctx.textAlign='center';
+  const ring=(x,y,r,col)=>{ctx.strokeStyle=col;ctx.lineWidth=3;ctx.globalAlpha=0.45+0.4*pulse;ctx.beginPath();ctx.arc(x,y,r+pulse*5,0,TAU);ctx.stroke();ctx.globalAlpha=1;};
+  const tag=(x,y,str,col)=>{ctx.font='bold 12px Courier New, monospace';ctx.fillStyle=col;ctx.fillText(str,x,y);};
+  if(!ok){
+    if(s===0){ring(T.tx,T.ty,26,'#16a34a');tag(T.tx,T.ty-42,'СЮДА','#16a34a');}
+    else if(s===1)for(const d of data)ring(d.x,d.y,15,'#16a34a');
+    if(s>=3&&s<=5)for(const e of enemies)if(e.type==='chaser')tag(e.x,e.y-e.r-9,'ОХОТНИК','#dc2626');
+    if(s===4||s===5){
+      ctx.strokeStyle=s===4?'#b7791f':'#2563eb';ctx.lineWidth=2;ctx.setLineDash([7,6]);ctx.globalAlpha=0.7;
+      ctx.beginPath();ctx.arc(player.x,player.y,s===4?TRIP_R:170,0,TAU);ctx.stroke();
+      ctx.setLineDash([]);ctx.globalAlpha=1;
+    }
+    if(s===6){
+      if(portal){ring(portal.x,portal.y,portal.r+6,'#7c3aed');tag(portal.x,portal.y-portal.r-22,'ПОРТАЛ','#7c3aed');}
+      else for(const d of data)ring(d.x,d.y,15,'#16a34a');
+    }
+  }
+  // карточка: на телефоне уже, чтобы не лезть под счётчики по краям
+  const cw=tutTouch()?460:560,cx=(W-cw)/2,cy=8,pad=12;
+  ctx.font='bold 15px Courier New, monospace';
+  const lines=tutWrap(ok?'✓ '+T.flash:tutText(T),cw-pad*2);
+  const hint=!ok&&T.hint?(ctx.font='bold 13px Courier New, monospace',tutWrap(T.hint,cw-pad*2)):[];
+  const ch=36+lines.length*19+(hint.length?6+hint.length*17:0);
+  ctx.fillStyle=ok?'rgba(220,252,231,0.95)':'rgba(255,255,255,0.93)';
+  ctx.strokeStyle=ok?'#16a34a':'#0b2545';ctx.lineWidth=2;
+  ctx.beginPath();
+  if(ctx.roundRect)ctx.roundRect(cx,cy,cw,ch,12);else ctx.rect(cx,cy,cw,ch);
+  ctx.fill();ctx.stroke();
+  ctx.textAlign='left';
+  ctx.fillStyle='#a2a';ctx.font='bold 12px Courier New, monospace';
+  ctx.fillText('ОБУЧЕНИЕ · ШАГ '+(s+1)+' ИЗ '+TUT_STEPS+' · '+TUT_NAMES[s],cx+pad,cy+20);
+  for(let i=0;i<TUT_STEPS;i++){
+    ctx.fillStyle=i<s||(i===s&&ok)?'#16a34a':(i===s?'#a2a':'#cbd5e1');
+    ctx.beginPath();ctx.arc(cx+cw-pad-5-(TUT_STEPS-1-i)*13,cy+16,4,0,TAU);ctx.fill();
+  }
+  ctx.font='bold 15px Courier New, monospace';ctx.fillStyle=ok?'#166534':'#245';
+  lines.forEach((l,i)=>ctx.fillText(l,cx+pad,cy+42+i*19));
+  if(hint.length){
+    ctx.font='bold 13px Courier New, monospace';ctx.fillStyle='#c2410c';
+    hint.forEach((l,i)=>ctx.fillText(l,cx+pad,cy+42+lines.length*19+4+i*17));
+  }
+  ctx.restore();
+}
 
 // ================= КОНСТРУКТОР КАРТ =================
 // как в Brawl Stars: поле из клеток, палитра, кисть, зеркальная симметрия, отмена и повтор;
@@ -7909,7 +8140,7 @@ function abuseAt(t){
 }
 // абуз действует на уровнях (и в гонке — у обоих одинаково), но не в турнире: там всё по-честному
 function evAbuse(){
-  if(TOUR)return null;
+  if(TOUR||TUT)return null;
   const now=performance.now();
   if(now-evAt>500){evAt=now;evAb=abuseAt(evNow());}
   return evAb;
@@ -7940,7 +8171,7 @@ function evStep(){
 function evLook(L){return evIs('rainbow')?Object.assign({},L,{c:12}):L;}
 
 // ---------- зима: снег и снежинки ----------
-function snowNow(){const t=evNow();return (winterOn(t)||nyOn(t))&&!TOUR&&!RACE_DIFF;}
+function snowNow(){const t=evNow();return (winterOn(t)||nyOn(t))&&!TOUR&&!RACE_DIFF&&!TUT;}
 // каждые 4 данных — снежинка на поле (в ноябре) или подарок (в Новый год); в «Метель» и «Подаркопад» — каждые 2
 function evData(){if(snowNow()&&got%(evIs('snow')||evIs('gifts')?2:4)===0)dropPickup(nyOn(evNow())?'gift':'snow');}
 function evGiftGot(p){
@@ -8452,6 +8683,7 @@ function pgVal(k){
   return p.st[k]||0;
 }
 function pgAdd(k,n){
+  if(TUT)return;
   n=n===undefined?1:n;
   if(!(n>0))return;
   pgDaily();
@@ -8475,11 +8707,12 @@ function pgUnlock(a){
 }
 function pgSecret(id){
   const a=PG_ID[id];
-  if(!a||pgHas(id))return false;
+  if(!a||pgHas(id)||TUT)return false;
   pgUnlock(a);pgFlush();
   return true;
 }
 function pgXp(n){
+  if(TUT)return;
   const p=save.pg;
   p.xp=Math.min(1e9,p.xp+n);pgLvXp+=n;
   const L=pgLevel(p.xp).L;
@@ -8577,7 +8810,7 @@ function pgCleared(){
 function pgDied(){pgHush=true;try{pgAdd('die');}finally{pgHush=false;}pgFlush();}
 function pgStep(ix,iy){
   if(pgT.length&&--pgT[0].life<=0)pgT.shift();
-  if(intro>0||ix||iy||!enemies.length||TOUR||RACE_DIFF){pgStillN=0;return;}
+  if(intro>0||ix||iy||!enemies.length||TOUR||RACE_DIFF||TUT){pgStillN=0;return;}
   if(++pgStillN===600)pgSecret('still');
 }
 // плашка на поле во время уровня; в меню — строкой сообщений, по очереди, чтобы не перебивать друг друга
@@ -8725,7 +8958,7 @@ pgSync();
 
 // ================= ГОРЯЧЕЕ ОБНОВЛЕНИЕ =================
 function snapshot(){
-  return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx,cust:CUSTOM,custBack:customBack}};
+  return{v:6,s:{player,data,enemies,parts,trail,bullets,pickups,portal,dust,texts,boss,score,lives,emp,boost,shake,time,phase,lvl,got,threat,purge,stormT,intro,lastEmpDrop,lvStart,menuScreen,tripFx,cust:CUSTOM,custBack:customBack,tut:TUT}};
 }
 function restore(d){
   const s=d&&d.v===6&&d.s;
@@ -8736,6 +8969,7 @@ function restore(d){
   if(!tripFx)tripFx=null;
   CUSTOM=s.cust&&typeof s.cust==='object'&&Array.isArray(s.cust.start)?s.cust:null;
   if(typeof s.custBack==='string')customBack=s.custBack;
+  TUT=CUSTOM&&CUSTOM.tut?(s.tut&&typeof s.tut==='object'?s.tut:tutNew()):null;
   const lc=phase==='menu'?{}:cfgNow();
   setLayout(lc);bgAct=phase==='menu'?0:(CUSTOM?CUSTOM.theme:actOf(lvl));
   if(!(player.tpCd>=0))player.tpCd=0;
@@ -9381,7 +9615,7 @@ function start(d){
   place();
   buildBg();
   if(phase==='menu')showMenu(termsOk()?menuScreen||'main':'terms');
-  else showMenu({pause:'pause',dead:'dead',clear:CUSTOM?'cclear':'clear',win:'win'}[phase]||'pause');
+  else showMenu({pause:'pause',dead:'dead',clear:CUSTOM?(CUSTOM.tut?'tutdone':'cclear'):'clear',win:'win'}[phase]||'pause');
   render(true);
   last=performance.now();
   requestAnimationFrame(frame);
