@@ -169,6 +169,8 @@ func _run() -> void:
 	g = game()
 	p = g.player
 	w = g.world
+	await wait(2.0)
+	check(g.logic.springs_started > 0, "родники в пещерах потекли (%d)" % g.logic.springs_started)
 	var target: Vector3 = g.call("nearest_stronghold", p.position)
 	check(target != Vector3.INF, "ближайшая крепость известна (%s)" % str(target))
 	p.inventory.set_slot(p.inventory.selected, Items.ENDER_EYE, 2)

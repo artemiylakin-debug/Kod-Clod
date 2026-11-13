@@ -306,7 +306,7 @@ func _after_terrain() -> void:
 func finish_chunk() -> Dictionary:
 	_decor.finish()
 	var out := {"blocks": buf.blocks, "meta": buf.meta, "biomes": _biomes, "block_entities": buf.block_entities,
-		"entities": buf.entities}
+		"entities": buf.entities, "springs": buf.springs}
 	buf = null
 	_biomes = PackedByteArray()
 	_cols = []

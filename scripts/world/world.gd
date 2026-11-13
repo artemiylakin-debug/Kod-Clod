@@ -776,6 +776,8 @@ func _on_generated(job: ChunkJob) -> void:
 	ch.tickers = job.tickers
 	ch.top_y = job.computed_top
 	ch.modified = job.from_disk
+	if not job.from_disk:
+		ch.springs = job.data.get("springs", PackedInt32Array())
 	# Сгенерированные контейнеры (сундуки в данжах и деревнях) и существа — сохранять сразу.
 	if not job.from_disk and (not ch.block_entities.is_empty() or not ch.entities.is_empty()):
 		ch.modified = true

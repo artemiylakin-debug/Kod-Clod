@@ -184,6 +184,41 @@ func underground() -> void:
 	var b := gen.local_biome(8, 8)
 	if Biomes.is_desert(b) and _ri(rng, 1000) == 0:
 		_desert_well(buf.ox + 5 + _ri(rng, 6), buf.oz + 5 + _ri(rng, 6))
+	_springs(rng)
+
+
+## Родники (WorldGenLiquids в 1.2): 50 попыток воды и 20 лавы на чанк. Источник встаёт в стену
+## пещеры — камень сверху и снизу, три каменных соседа и один открытый — и начинает течь,
+## когда загрузятся соседние чанки.
+func _springs(rng: RandomNumberGenerator) -> void:
+	for i in 70:
+		var lava := i >= 50
+		var x := 1 + _ri(rng, 14)
+		var z := 1 + _ri(rng, 14)
+		var y := _ri(rng, _ri(rng, _ri(rng, 112) + 8) + 8) if lava else _ri(rng, _ri(rng, 120) + 8)
+		_spring(x, y, z, Blocks.FLOWING_LAVA if lava else Blocks.FLOWING_WATER)
+
+
+func _spring(lx: int, y: int, lz: int, id: int) -> void:
+	if y < 1 or y > 250:
+		return
+	var data := buf.blocks
+	var i := lx + (lz << 4) + (y << 8)
+	if data[i + 256] != Blocks.STONE or data[i - 256] != Blocks.STONE:
+		return
+	if data[i] != Blocks.AIR and data[i] != Blocks.STONE:
+		return
+	var stone := 0
+	var air := 0
+	for n: int in [i - 1, i + 1, i - 16, i + 16]:
+		if data[n] == Blocks.STONE:
+			stone += 1
+		elif data[n] == Blocks.AIR:
+			air += 1
+	if stone == 3 and air == 1:
+		data[i] = id
+		buf.meta[i] = 0
+		buf.springs.append(i)
 
 
 static func _solid(id: int) -> bool:

@@ -21,6 +21,10 @@ var rng := RandomNumberGenerator.new()
 ## Отложенные тики: номер тика → массив позиций; позиция → номер тика (без дублей).
 var _due: Dictionary = {}
 var _pending: Dictionary = {}
+## Родники, ждущие загрузки соседних чанков: ключ чанка → индексы блоков.
+var _springs_waiting: Dictionary = {}
+## Сколько родников уже потекло (для отладки и тестов).
+var springs_started := 0
 var _acc := 0.0
 var _random_acc := 0.0
 ## Позиции, чьи соседи меняются в текущем обновлении (защита от бесконечной рекурсии).
@@ -37,13 +41,40 @@ func setup(p_world: World, p_game: Node) -> void:
 	world.chunk_loaded.connect(_on_chunk_loaded)
 
 
-## Работающие печи и стойки в загруженном чанке продолжают работу.
+## Работающие печи и стойки в загруженном чанке продолжают работу; родники новых чанков
+## начинают течь, как только вокруг загружены все соседние чанки.
 func _on_chunk_loaded(ch: Chunk) -> void:
 	for i: int in ch.block_entities:
 		var be: Dictionary = ch.block_entities[i]
 		if int(be.get("burn", 0)) > 0 or int(be.get("brew", 0)) > 0:
 			var lp := Chunk.local_pos(i)
 			containers.mark_active(Vector3i(ch.key.x * 16 + lp.x, lp.y, ch.key.y * 16 + lp.z))
+	if not ch.springs.is_empty():
+		_springs_waiting[ch.key] = ch.springs
+		ch.springs = PackedInt32Array()
+	if _springs_waiting.is_empty():
+		return
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var k := ch.key + Vector2i(dx, dz)
+			if _springs_waiting.has(k) and _area_loaded(k):
+				var list: PackedInt32Array = _springs_waiting[k]
+				_springs_waiting.erase(k)
+				for i in list:
+					var lp := Chunk.local_pos(i)
+					var p := Vector3i(k.x * 16 + lp.x, lp.y, k.y * 16 + lp.z)
+					var id := world.get_block_v(p)
+					if Blocks.is_liquid(id):
+						schedule(p, _liquid_delay(id))
+						springs_started += 1
+
+
+func _area_loaded(k: Vector2i) -> bool:
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			if not world.chunks.has(k + Vector2i(dx, dz)):
+				return false
+	return true
 
 
 func _process(delta: float) -> void:

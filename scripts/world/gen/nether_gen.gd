@@ -136,6 +136,8 @@ func _stage(s: int) -> void:
 			_fire_and_mushrooms()
 		8, 9, 10, 11:
 			_fortress(s - 8)
+		12:
+			_lava_springs()
 
 
 func finish_chunk() -> Dictionary:
@@ -143,10 +145,37 @@ func finish_chunk() -> Dictionary:
 	biomes.resize(256)
 	biomes.fill(Biomes.HELL)
 	var out := {"blocks": buf.blocks, "meta": buf.meta, "biomes": biomes, "block_entities": buf.block_entities,
-		"entities": buf.entities}
+		"entities": buf.entities, "springs": buf.springs}
 	buf = null
 	_cols = []
 	return out
+
+
+## Лавопады (WorldGenHellLava в 1.2): 8 попыток на чанк — незерак сверху, четыре незерака среди
+## соседей по сторонам и снизу и одна открытая сторона.
+func _lava_springs() -> void:
+	_rng.seed = WorldGen.hash3(buf.cx, 91, buf.cz, seed_value)
+	var data := buf.blocks
+	for t in 8:
+		var lx := 1 + _rng.randi_range(0, 13)
+		var lz := 1 + _rng.randi_range(0, 13)
+		var y := 4 + _rng.randi_range(0, 119)
+		var i := lx + (lz << 4) + (y << 8)
+		if data[i + 256] != Blocks.NETHERRACK:
+			continue
+		if data[i] != Blocks.AIR and data[i] != Blocks.NETHERRACK:
+			continue
+		var rack := 0
+		var air := 0
+		for n: int in [i - 1, i + 1, i - 16, i + 16, i - 256]:
+			if data[n] == Blocks.NETHERRACK:
+				rack += 1
+			elif data[n] == Blocks.AIR:
+				air += 1
+		if rack == 4 and air == 1:
+			data[i] = Blocks.FLOWING_LAVA
+			buf.meta[i] = 0
+			buf.springs.append(i)
 
 
 func _terrain_rows(z0: int, z1: int) -> void:

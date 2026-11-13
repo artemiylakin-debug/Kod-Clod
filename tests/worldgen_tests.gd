@@ -33,6 +33,7 @@ func _run() -> void:
 	_test_spawn()
 	_test_no_structures()
 	_test_flat()
+	_test_springs()
 	var nether: Script = load("res://scripts/world/gen/nether_gen.gd")
 	var end: Script = load("res://scripts/world/gen/end_gen.gd")
 	if nether != null:
@@ -429,6 +430,43 @@ func _test_flat() -> void:
 	WorldGen.structures_enabled = true
 	check(_count(none, Blocks.WOODEN_DOOR) == 0 and _count(none, Blocks.COBBLESTONE) == 0,
 		"без построек — пустая равнина")
+
+
+## Родники: вода и лава в стенах пещер (одна открытая сторона), лавопады в Аду.
+func _test_springs() -> void:
+	print("Родники")
+	var water := 0
+	var lava := 0
+	var shape_ok := true
+	for cz in range(-3, 3):
+		for cx in range(-3, 3):
+			var d := WorldGen.new(SEED).generate_chunk(cx, cz)
+			var b: PackedByteArray = d["blocks"]
+			for i: int in d["springs"]:
+				if b[i] == Blocks.FLOWING_WATER:
+					water += 1
+				elif b[i] == Blocks.FLOWING_LAVA:
+					lava += 1
+				else:
+					shape_ok = false
+				var open := 0
+				for n: int in [i - 1, i + 1, i - 16, i + 16]:
+					if b[n] == Blocks.AIR:
+						open += 1
+				if open != 1 or b[i + 256] != Blocks.STONE or b[i - 256] != Blocks.STONE:
+					shape_ok = false
+	print("    в 36 чанках: водяных родников %d, лавовых %d" % [water, lava])
+	check(water >= 5 and lava >= 1, "в пещерах есть водяные и лавовые родники")
+	check(shape_ok, "родник — в стене: камень сверху и снизу, открыт с одной стороны")
+	var ng: Object = load("res://scripts/world/gen/nether_gen.gd").new(SEED)
+	var falls := 0
+	for cz in range(-3, 3):
+		for cx in range(-3, 3):
+			var d: Dictionary = ng.call("generate_chunk", cx, cz)
+			for i: int in d["springs"]:
+				if (d["blocks"] as PackedByteArray)[i] == Blocks.FLOWING_LAVA:
+					falls += 1
+	check(falls >= 3, "лавопады в Аду (%d в 36 чанках)" % falls)
 
 
 # --- Ад и Край -------------------------------------------------------------

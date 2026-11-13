@@ -16,6 +16,8 @@ var blocks := PackedByteArray()
 var meta := PackedByteArray()
 var block_entities: Dictionary = {}
 var entities: Array = []
+## Родники (индексы блоков чанка): начинают течь после загрузки чанка и его соседей.
+var springs := PackedInt32Array()
 
 
 func setup(p_cx: int, p_cz: int) -> void:

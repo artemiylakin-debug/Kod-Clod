@@ -1064,9 +1064,9 @@ func try_sleep(p: Vector3i) -> void:
 	if world.dimension != 0:
 		logic.explode(Vector3(p) + Vector3(0.5, 0.5, 0.5), 5.0, true)
 		return
+	# Как в 1.2: точка возрождения ставится, только если игрок действительно лёг спать.
 	if not is_night():
-		player.spawn_point = Vector3(p) + Vector3(0.5, 0.6, 0.5)
-		hud.show_toast("Спать можно только ночью. Точка появления установлена.", 2.5)
+		hud.show_toast("Спать можно только ночью", 2.5)
 		return
 	if entities.mobs != null and bool(entities.mobs.call("monsters_near", player.position, 8.0)):
 		hud.show_toast("Нельзя спать: рядом монстры", 2.5)
