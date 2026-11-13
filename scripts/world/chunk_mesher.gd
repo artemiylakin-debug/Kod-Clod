@@ -513,7 +513,13 @@ func _shaped(i: int, x: int, y: int, z: int, b: int, sh: int) -> void:
 					_box(i, base, box, b, meta, tint, _solid)
 				return
 			if sh == Blocks.SH_REPEATER:
-				_box(i, base, Blocks.shape_boxes(b, meta)[0], b, meta, tint, _solid, meta & 3)
+				_repeater(i, base, b, meta)
+				return
+			if sh == Blocks.SH_PISTON:
+				_piston(i, base, b, meta)
+				return
+			if sh == Blocks.SH_PISTON_HEAD:
+				_piston_head(i, base, meta)
 				return
 			if sh == Blocks.SH_BED:
 				_box(i, base, Blocks.shape_boxes(b, meta)[0], b, meta, tint, _solid, _bed_rot(meta))
@@ -550,7 +556,9 @@ func _shaped(i: int, x: int, y: int, z: int, b: int, sh: int) -> void:
 
 
 ## Параллелепипед: грани на границе клетки отсекаются непрозрачными соседями.
-func _box(i: int, base: Vector3, box: AABB, b: int, meta: int, tint: Color, surf: Surface, top_rot := 0, force_tile := -1) -> void:
+## face_rots ≥ 0 — поворот текстуры каждой грани (по 2 бита на грань d), вместо top_rot.
+func _box(i: int, base: Vector3, box: AABB, b: int, meta: int, tint: Color, surf: Surface, top_rot := 0, force_tile := -1,
+		face_rots := -1) -> void:
 	var lo := box.position
 	var hi := box.end
 	var vol := _vol
@@ -587,8 +595,9 @@ func _box(i: int, base: Vector3, box: AABB, b: int, meta: int, tint: Color, surf
 		var f: float = FACE_SHADE[d]
 		var p := _box_face(lo, hi, d)
 		var uv := []
+		var rot := (face_rots >> (d * 2)) & 3 if face_rots >= 0 else (top_rot if d == 2 else 0)
 		for k in 4:
-			uv.append(_rot_uv(_face_uv(d, p[k]), top_rot if d == 2 else 0))
+			uv.append(_rot_uv(_face_uv(d, p[k]), rot))
 		for k in 4:
 			p[k] = base + p[k]
 		surf.quad(p, uv, tile, s * f, bl * f, tint)
@@ -660,10 +669,9 @@ func _crops(i: int, base: Vector3, tile: int) -> void:
 
 
 ## Факел: четыре плоскости вокруг «стержня» 2×2 пикселя; настенный — у стены и наклонён от неё.
+## Светится (не темнеет ночью) только горящий: погасший красный факел — без подсветки.
 func _torch(i: int, base: Vector3, b: int, meta: int) -> void:
 	var tile := Blocks.tile_table[(b * 16 + meta) * 6 + 2]
-	var s := _sky(i)
-	var bl := maxf(_blk(i), 0.8)
 	var att := meta & 7
 	var bottom := Vector3(0.5, 0.0, 0.5)
 	var up := Vector3(0, 1, 0)
@@ -671,8 +679,14 @@ func _torch(i: int, base: Vector3, b: int, meta: int) -> void:
 		var wall := Vector3(Blocks.attach_offset(att))
 		bottom += wall * 0.36 + Vector3(0, 0.2, 0)
 		up -= wall * 0.36
+	_torch_at(i, base + bottom, up, tile, Blocks.light_of(b) > 0)
+
+
+## Факел с основанием в точке c (мировые координаты меша) и осью up.
+func _torch_at(i: int, c: Vector3, up: Vector3, tile: int, lit: bool) -> void:
+	var s := _sky(i)
+	var bl := maxf(_blk(i), 0.8) if lit else _blk(i)
 	var w := 1.0 / 16.0
-	var c := base + bottom
 	for k in 4:
 		var n: Vector3 = [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)][k]
 		var t := Vector3(-n.z, 0, n.x) * 0.5
@@ -783,7 +797,25 @@ func _wire(i: int, base: Vector3, meta: int) -> void:
 	if conn != 0 and ((ns != 0 and ew == 0) or (ew != 0 and ns == 0)):
 		_flat(i, base, h, Tex.REDSTONE_DUST_LINE, tint, 0 if ns != 0 else 1)
 	else:
-		_flat(i, base, h, Tex.REDSTONE_DUST_CROSS, tint, 0)
+		# Крест (как в 1.2): у развилок и поворотов обрезается с несоединённых сторон на 5/16,
+		# одиночная «точка» — целый крест.
+		var x0 := 0.0
+		var x1 := 1.0
+		var z0 := 0.0
+		var z1 := 1.0
+		if conn != 0:
+			var cut := 5.0 / 16.0
+			if conn & 2 == 0:
+				x0 = cut
+			if conn & 8 == 0:
+				x1 = 1.0 - cut
+			if conn & 4 == 0:
+				z0 = cut
+			if conn & 1 == 0:
+				z1 = 1.0 - cut
+		var pts := [base + Vector3(x0, h, z1), base + Vector3(x1, h, z1), base + Vector3(x1, h, z0), base + Vector3(x0, h, z0)]
+		var uv := [Vector2(x0, z1), Vector2(x1, z1), Vector2(x1, z0), Vector2(x0, z0)]
+		_solid.quad(pts, uv, Tex.REDSTONE_DUST_CROSS, _sky(i), _blk(i), tint)
 	for d in 4:
 		if up_conn & (1 << d):
 			var n: Vector3i = Blocks.DIR_VEC[d]
@@ -867,6 +899,77 @@ func _lever(i: int, base: Vector3, meta: int) -> void:
 	var w := 1.0 / 16.0
 	var stick := AABB(c - Vector3(w, w, w), Vector3(2 * w, 2 * w, 2 * w)).expand(c + dir)
 	_box(i, base, stick, Blocks.LEVER, 0, Color.WHITE, _solid, 0, Tex.LOG_OAK)
+
+
+## Повторитель: плита 2/16 и два факела. Выход — в сторону DIR_VEC[meta & 3] (куда смотрел игрок),
+## неподвижный факел — у выхода, второй сдвигается к входу с ростом задержки (meta >> 2).
+func _repeater(i: int, base: Vector3, b: int, meta: int) -> void:
+	var dir := meta & 3
+	# Поворот текстуры: стрелка/факелы на текстуре смотрят к выходу.
+	_box(i, base, Blocks.shape_boxes(b, meta)[0], b, meta, Color.WHITE, _solid, [0, 3, 2, 1][dir])
+	var out := Vector3(Blocks.DIR_VEC[dir])
+	var lit := b == Blocks.REPEATER_ON
+	var tile := Tex.REDSTONE_TORCH_ON if lit else Tex.REDSTONE_TORCH_OFF
+	# Факелы утоплены в плиту: над ней видно 5/16 (как в оригинале).
+	var c := base + Vector3(0.5, -3.0 / 16.0, 0.5)
+	var delay := (meta >> 2) & 3
+	_torch_at(i, c + out * (3.0 / 16.0), Vector3.UP, tile, lit)
+	_torch_at(i, c - out * (delay * 2.0 / 16.0), Vector3.UP, tile, lit)
+
+
+## Направление поршня (0 вниз, 1 вверх, 2 север, 3 юг, 4 запад, 5 восток) → поворот текстуры
+## каждой грани (по 2 бита на грань), чтобы «верх» боковой текстуры смотрел к лицевой стороне.
+static func _piston_rots(front: Vector3i) -> int:
+	# Оси текстуры граней (как в _face_uv): u и v; «верх» текстуры при повороте 0..3 — −v, −u, +v, +u.
+	var face_u := [Vector3i(0, 0, -1), Vector3i(0, 0, 1), Vector3i(1, 0, 0), Vector3i(1, 0, 0), Vector3i(1, 0, 0), Vector3i(-1, 0, 0)]
+	var face_v := [Vector3i(0, -1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, 1), Vector3i(0, -1, 0), Vector3i(0, -1, 0)]
+	var rots := 0
+	for d in 6:
+		var u: Vector3i = face_u[d]
+		var v: Vector3i = face_v[d]
+		var r := 0
+		if front == -u:
+			r = 1
+		elif front == v:
+			r = 2
+		elif front == u:
+			r = 3
+		rots |= r << (d * 2)
+	return rots
+
+
+## Поршень: втянутый — полный блок; выдвинутый — основание 12/16 (лицевая грань — внутренняя
+## текстура), передние 4/16 занимает шток головки.
+func _piston(i: int, base: Vector3, b: int, meta: int) -> void:
+	var dir := meta & 7
+	var f := Blocks.piston_vec(mini(dir, 5))
+	var lo := Vector3.ZERO
+	var hi := Vector3.ONE
+	if meta & 8:
+		for a in 3:
+			if f[a] > 0:
+				hi[a] = 12.0 / 16.0
+			elif f[a] < 0:
+				lo[a] = 4.0 / 16.0
+	_box(i, base, AABB(lo, hi - lo), b, meta, Color.WHITE, _solid, 0, -1, _piston_rots(f))
+
+
+## Головка поршня: плита 4/16 у дальнего края и шток 4×4 пикселя, уходящий в основание на 4/16.
+func _piston_head(i: int, base: Vector3, meta: int) -> void:
+	var dir := mini(meta & 7, 5)
+	var f := Blocks.piston_vec(dir)
+	var rots := _piston_rots(f)
+	_box(i, base, Blocks.shape_boxes(Blocks.PISTON_HEAD, meta)[0], Blocks.PISTON_HEAD, meta, Color.WHITE, _solid, 0, -1, rots)
+	var lo := Vector3(6, 6, 6) / 16.0
+	var hi := Vector3(10, 10, 10) / 16.0
+	for a in 3:
+		if f[a] > 0:
+			lo[a] = -4.0 / 16.0
+			hi[a] = 12.0 / 16.0
+		elif f[a] < 0:
+			lo[a] = 4.0 / 16.0
+			hi[a] = 20.0 / 16.0
+	_box(i, base, AABB(lo, hi - lo), Blocks.PISTON_HEAD, meta, Color.WHITE, _solid, 0, Tex.PLANKS_OAK, rots)
 
 
 func _sign(i: int, base: Vector3, b: int, meta: int) -> void:
