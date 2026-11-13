@@ -49,6 +49,7 @@ var touch: TouchControls
 var inventory_ui: ContainerUI
 var pause_menu: PauseMenu
 var settings_panel: SettingsPanel
+var achievements_panel: AchievementsPanel
 var weather: Weather
 var particles: Particles
 var sound: SoundSystem
@@ -171,8 +172,11 @@ func _ready() -> void:
 	add_child(sound)
 	player.block_broken.connect(func(pos: Vector3i, id: int, m: int) -> void:
 		particles.block_break(pos, id, m)
-		sound.play_block("break", id, Vector3(pos) + Vector3(0.5, 0.5, 0.5)))
-	player.damaged.connect(func(_a: int) -> void: sound.play_ui("hurt", 0.8))
+		sound.play_block("break", id, Vector3(pos) + Vector3(0.5, 0.5, 0.5))
+		Achievements.add_stat("blocks_mined"))
+	player.damaged.connect(func(a: int) -> void:
+		sound.play_ui("hurt", 0.8)
+		Achievements.add_stat("damage_taken", a))
 
 	if meta.get("player") is Dictionary:
 		player.from_dict(meta["player"], _legacy)
@@ -389,6 +393,9 @@ func _build_ui() -> void:
 	pause_menu.settings_requested.connect(func() -> void:
 		pause_menu.visible = false
 		settings_panel.open())
+	pause_menu.achievements_requested.connect(func() -> void:
+		pause_menu.visible = false
+		achievements_panel.open())
 	pause_menu.quit_requested.connect(quit_to_menu)
 	sign_editor = SignEditor.new()
 	menus.add_child(sign_editor)
@@ -398,6 +405,12 @@ func _build_ui() -> void:
 	settings_panel = SettingsPanel.new()
 	menus.add_child(settings_panel)
 	settings_panel.closed.connect(func() -> void:
+		if get_tree().paused:
+			pause_menu.visible = true
+		_ui_state_changed())
+	achievements_panel = AchievementsPanel.new()
+	menus.add_child(achievements_panel)
+	achievements_panel.closed.connect(func() -> void:
 		if get_tree().paused:
 			pause_menu.visible = true
 		_ui_state_changed())
@@ -423,7 +436,8 @@ func _apply_settings() -> void:
 
 func gameplay_active() -> bool:
 	return not loading and not player.dead and not inventory_ui.visible \
-		and not pause_menu.visible and not settings_panel.visible and not player.sleeping \
+		and not pause_menu.visible and not settings_panel.visible and not achievements_panel.visible \
+		and not player.sleeping \
 		and not (sign_editor != null and sign_editor.visible)
 
 
@@ -468,6 +482,7 @@ func open_inventory() -> void:
 	if not gameplay_active():
 		return
 	inventory_ui.open("inventory", Vector3i.ZERO, creative)
+	Achievements.unlock("open_inventory")
 	_ui_state_changed()
 
 
@@ -533,6 +548,7 @@ func open_pause() -> void:
 func resume() -> void:
 	pause_menu.visible = false
 	settings_panel.visible = false
+	achievements_panel.visible = false
 	get_tree().paused = false
 	_ui_state_changed()
 
@@ -685,6 +701,7 @@ func effect(kind: String, pos: Vector3, data := 0) -> void:
 ## Звуки событий блоков (вызывается действиями игрока и логикой).
 func on_block_placed(p: Vector3i, id: int) -> void:
 	sound.play_block("place", id, Vector3(p) + Vector3(0.5, 0.5, 0.5))
+	Achievements.add_stat("blocks_placed")
 
 
 func edit_sign(p: Vector3i) -> void:
@@ -726,6 +743,7 @@ func use_fishing_rod() -> void:
 			var vel := (player.eye_position() - pos) * 1.2 + Vector3(0, 5.0, 0)
 			entities.spawn_drop(Items.FISH, 1, 0, pos + Vector3(0, 0.4, 0), vel)
 			entities.spawn_xp(player.position + Vector3(0, 0.5, 0), randi_range(1, 6))
+			Achievements.add_stat("fish_caught")
 			if not creative:
 				inv.damage_slot(inv.selected, 1)
 		elif r == -1 and not creative:
@@ -743,8 +761,10 @@ func use_fishing_rod() -> void:
 	sound.play("bow", player.position, 0.4, 1.3)
 
 
-func on_item_picked(_id: int, _count: int) -> void:
+func on_item_picked(id: int, count: int) -> void:
 	sound.play_ui("pop", 0.35, randf_range(0.8, 1.6))
+	if count > 0:
+		Achievements.on_pickup(id)
 
 
 func on_item_crafted(_id: int) -> void:
@@ -759,6 +779,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			sign_editor.close_editor()
 		elif settings_panel.visible:
 			settings_panel.close_panel()
+		elif achievements_panel.visible:
+			achievements_panel.close_panel()
 		elif inventory_ui.visible:
 			inventory_ui.close_ui()
 		elif pause_menu.visible:
@@ -802,6 +824,8 @@ func _notification(what: int) -> void:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			if settings_panel.visible:
 				settings_panel.close_panel()
+			elif achievements_panel.visible:
+				achievements_panel.close_panel()
 			elif inventory_ui.visible:
 				inventory_ui.close_ui()
 			elif pause_menu.visible:
@@ -835,11 +859,57 @@ func _process(delta: float) -> void:
 	signs.update(delta)
 	_update_held_items(delta)
 	_update_sounds(delta)
+	_update_stats(delta)
 	hud.set_underwater(player.head_in_water)
 	_autosave += delta
 	if _autosave >= AUTOSAVE_INTERVAL:
 		_autosave = 0.0
 		save_game(false)
+
+
+var _stat_pos := Vector3.INF
+var _rail_start := Vector3.INF
+
+
+## Статистика перемещений (как StatList в 1.2), «По рельсам» и всплывающие достижения.
+func _update_stats(delta: float) -> void:
+	Achievements.add_stat("play_time", delta)
+	var pos := player.position
+	if _stat_pos != Vector3.INF and not player.dead:
+		var d := pos - _stat_pos
+		var horiz := Vector2(d.x, d.z).length()
+		# Скачки (телепорт, возрождение) не считаются.
+		if horiz < 4.0 and absf(d.y) < 4.0:
+			var v := player.vehicle
+			if v is Minecart:
+				Achievements.add_stat("minecart", d.length())
+			elif v is Boat:
+				Achievements.add_stat("boat", horiz)
+			elif v != null:
+				Achievements.add_stat("pig", horiz)
+			elif player.flying:
+				Achievements.add_stat("fly", d.length())
+			elif player.in_water:
+				Achievements.add_stat("swim", d.length())
+			elif player.on_ladder and d.y > 0.0:
+				Achievements.add_stat("climb", d.y)
+			elif player.on_ground:
+				Achievements.add_stat("walk", horiz)
+			elif d.y < 0.0:
+				Achievements.add_stat("fall", -d.y)
+	_stat_pos = pos
+	# «По рельсам»: километр по прямой от места, где сел в вагонетку.
+	if player.vehicle is Minecart:
+		if _rail_start == Vector3.INF:
+			_rail_start = pos
+		elif pos.distance_to(_rail_start) >= 1000.0:
+			Achievements.unlock("on_a_rail")
+	else:
+		_rail_start = Vector3.INF
+	while not Achievements.pending.is_empty():
+		var id: String = Achievements.pending.pop_front()
+		hud.show_achievement(id)
+		sound.play_ui("levelup", 0.5)
 
 
 func _update_loading_text() -> void:
@@ -899,6 +969,13 @@ func _find_safe_spawn() -> void:
 
 ## Куда поставить игрока после перехода между измерениями.
 func _place_on_arrival() -> void:
+	# «Нужно копнуть глубже», «Конец?» и «Конец.» — как travelToTheEnd/портал в 1.2.
+	if _arrival == "nether_portal" and dimension == -1:
+		Achievements.unlock("portal")
+	elif _arrival == "end":
+		Achievements.unlock("the_end")
+	elif _arrival == "end_exit":
+		Achievements.unlock("the_end2")
 	match _arrival:
 		"nether_portal":
 			var found := Portals.find_portal(world, player.position, 32)
@@ -1024,6 +1101,7 @@ func _wake_up() -> void:
 # --- Смерть и возрождение --------------------------------------------------
 
 func _on_player_died() -> void:
+	Achievements.add_stat("deaths")
 	# Всё содержимое инвентаря и часть опыта выпадают на месте гибели.
 	var inv := player.inventory
 	for i in Inventory.TOTAL:
@@ -1064,6 +1142,8 @@ func _respawn() -> void:
 func save_game(full := true) -> void:
 	if world == null or player == null or _needs_spawn:
 		return
+	if not Game.test_mode:
+		Achievements.save()
 	var pd := player.to_dict()
 	if player.dead:
 		var sp := player.spawn_point

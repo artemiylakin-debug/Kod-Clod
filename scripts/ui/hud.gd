@@ -23,6 +23,12 @@ var day_angle := 0.0
 var _hearts: Painter
 var _debug: Label
 var _toast: Label
+## Всплывающее «Достижение получено!» справа сверху.
+var _ach: PanelContainer
+var _ach_icon: TextureRect
+var _ach_name: Label
+var _ach_time := 0.0
+var _ach_queue: Array[String] = []
 var _item_name: Label
 var _saved: Label
 var _underwater: ColorRect
@@ -100,6 +106,7 @@ func _ready() -> void:
 	_saved.modulate.a = 0.0
 	_debug = _make_label(18, HORIZONTAL_ALIGNMENT_LEFT)
 	_debug.visible = false
+	_build_achievement_popup()
 
 	_build_loading()
 	_build_death()
@@ -231,6 +238,35 @@ func set_portal_effect(amount: float) -> void:
 	_portal.color.a = clampf(amount, 0.0, 1.0) * 0.75
 
 
+func _build_achievement_popup() -> void:
+	_ach = PanelContainer.new()
+	_ach.add_theme_stylebox_override("panel", UITheme.box(Color(0.08, 0.08, 0.1, 0.92), Color(0.6, 0.6, 0.66), 2, 8.0, 8.0))
+	_ach.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ach.visible = false
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ach.add_child(h)
+	_ach_icon = TextureRect.new()
+	_ach_icon.custom_minimum_size = Vector2(44, 44)
+	_ach_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ach_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	h.add_child(_ach_icon)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	h.add_child(v)
+	v.add_child(UITheme.label("Достижение получено!", 17, Color(1.0, 0.88, 0.25)))
+	_ach_name = UITheme.label("", 20)
+	v.add_child(_ach_name)
+	root.add_child(_ach)
+
+
+## Показать достижение (по очереди, по 3,5 секунды).
+func show_achievement(id: String) -> void:
+	if not Achievements.info(id).is_empty():
+		_ach_queue.append(id)
+
+
 func show_toast(text: String, duration: float = 2.5) -> void:
 	_toast.text = text
 	_toast_time = duration
@@ -269,6 +305,7 @@ func _layout() -> void:
 	UITheme.place(_map_view, Vector2(1.0, 1.0), Vector2(-map_s - 24.0 - _margins.z, -map_s - s - bottom - 90.0), Vector2(map_s, map_s))
 	UITheme.place(_toast, Vector2(0.5, 0.0), Vector2(-420, 64.0 + _margins.y), Vector2(840, 40))
 	UITheme.place(_saved, Vector2(1.0, 0.0), Vector2(-360 - _margins.z, 14.0 + _margins.y), Vector2(260, 28))
+	UITheme.place(_ach, Vector2(1.0, 0.0), Vector2(-384 - _margins.z, 44.0 + _margins.y), Vector2(364, 66))
 	UITheme.place(_debug, Vector2(0.0, 0.0), Vector2(12.0 + _margins.x, 8.0 + _margins.y), Vector2(760, 260))
 	hotbar.queue_redraw()
 	_hearts.queue_redraw()
@@ -299,6 +336,14 @@ func _process(delta: float) -> void:
 		_map_view.queue_redraw()
 	_toast_time -= delta
 	_toast.modulate.a = clampf(_toast_time, 0.0, 1.0)
+	if _ach_time <= 0.0 and not _ach_queue.is_empty():
+		var a := Achievements.info(_ach_queue.pop_front())
+		_ach_icon.texture = TextureFactory.icon(int(a[3]))
+		_ach_name.text = str(a[1])
+		_ach_time = 3.5
+	_ach_time -= delta
+	_ach.visible = _ach_time > 0.0
+	_ach.modulate.a = clampf(_ach_time / 0.5, 0.0, 1.0)
 	_item_time -= delta
 	_item_name.modulate.a = clampf(_item_time, 0.0, 1.0)
 	_saved_time -= delta

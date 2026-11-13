@@ -66,6 +66,7 @@ func _run() -> void:
 	await _test_hostiles()
 	await _test_animals()
 	await _test_looting()
+	await _test_riding_achievements()
 	await _test_pets()
 	await _test_misc()
 	await _test_saving()
@@ -429,6 +430,10 @@ func _test_hostiles() -> void:
 			break
 	check(ball != null, "гаст выпускает огненный шар")
 	if ball != null:
+		# Посторонние снаряды (например, второй шар) не должны заслонять проверяемый.
+		for ch in c.ent.get_children():
+			if ch is SimpleEntities.Projectile and ch != ball:
+				ch.free()
 		_look(c.p, ball.position)
 		var hit := c.mobs.raycast(c.p.eye_position(), c.p.look_dir(), 100.0)
 		check(not hit.is_empty() and hit["entity"] == ball, "огненный шар можно взять на прицел %s" % [hit])
@@ -580,6 +585,53 @@ func _test_looting() -> void:
 	check(rare[1] > rare[0] + 25, "с «Добычей» III редкая добыча чаще (%d против %d)" % [rare[1], rare[0]])
 	probe.looting = 0
 	_clear_drops(c)
+	await _free_ctx(c)
+
+
+## Езда на осёдланной свинье и достижения за существ: «Когда свиньи полетят», «Охотник на монстров»,
+## «Снайперская дуэль», «Вернуть отправителю».
+func _test_riding_achievements() -> void:
+	print("Езда на свинье и достижения")
+	var saved := Achievements.path
+	Achievements.path = "user://test_stats_mobs.json"
+	Achievements.reset()
+	for id: String in ["open_inventory", "mine_wood", "build_workbench", "build_pickaxe", "build_furnace", "acquire_iron",
+			"diamonds", "portal", "build_sword", "kill_cow"]:
+		Achievements.unlock(id)
+	var c := await _make_ctx(false)
+	c.g.night = true
+	c.g.sky_level = 4
+	var pig := c.ent.spawn_mob(MobDefs.PIG, Vector3(3.5, 11.0, 0.5)) as PassiveMobs.Pig
+	c.p.inventory.set_slot(c.p.inventory.selected, Items.SADDLE, 1)
+	check(pig.interact(c.p) and pig.saddled, "седло надето")
+	c.p.inventory.set_slot(c.p.inventory.selected, 0, 0)
+	check(pig.interact(c.p) and c.p.vehicle == pig and pig.rider == c.p, "игрок сел на свинью")
+	pig.position.y = 20.0
+	pig.velocity = Vector3.ZERO
+	pig.fall_dist = 0.0
+	_run_mobs(c, 3.0, true)
+	check(Achievements.has("fly_pig"), "«Когда свиньи полетят»: свинья со всадником упала с 9 блоков")
+	check(c.p.vehicle == pig and c.p.position.distance_to(pig.seat_position()) < 0.3, "всадник сидит на спине")
+	check(c.p.health == Player.MAX_HEALTH, "всадник не разбился")
+	c.p.touch_sneak = true
+	c.p._process(0.05)
+	c.p.touch_sneak = false
+	check(c.p.vehicle == null and pig.rider == null, "приседание — слезть со свиньи")
+	# Монстр, убитый игроком, и скелет, застреленный издалека.
+	var z := c.ent.spawn_mob(MobDefs.ZOMBIE, c.p.position + Vector3(2.0, 0, 0)) as Mob
+	for i in 4:
+		z.invuln = 0.0
+		c.mobs.player_attack(z, 10)
+	check(Achievements.has("kill_enemy"), "«Охотник на монстров»")
+	var sk := c.ent.spawn_mob(MobDefs.SKELETON, c.p.position + Vector3(30.0, 0, -45.0)) as Mob
+	sk.hurt(100, "arrow", c.p, Vector3.ZERO, true)
+	check(Achievements.has("snipe_skeleton"), "«Снайперская дуэль»: скелет убит стрелой с 54 блоков")
+	var gh := c.ent.spawn_mob(MobDefs.GHAST, c.p.position + Vector3(0, 8.0, 12.0)) as Mob
+	gh.hurt(6, "fire", c.p, Vector3.ZERO)
+	check(gh.is_dead() and Achievements.has("ghast"), "«Вернуть отправителю»: гаст убит отбитым шаром")
+	check(Achievements.stat("mob_kills") >= 3.0, "счётчик убитых существ (%d)" % int(Achievements.stat("mob_kills")))
+	Achievements.path = saved
+	Achievements.reset(true)
 	await _free_ctx(c)
 
 
@@ -801,7 +853,12 @@ func _test_spawning() -> void:
 	c.g.sky_level = 15
 	for i in 60:
 		c.mobs._natural_spawn(c.p)
-	check(c.mobs.count_category(MobDefs.CAT_MONSTER) == 0, "днём на свету монстров нет")
+	# Слизни (как в 1.2) появляются в своих чанках ниже y=40 при любом свете — их не считаем.
+	var lit_monsters := 0
+	for m in c.mobs.mobs:
+		if MobDefs.category(m.type) == MobDefs.CAT_MONSTER and m.type != MobDefs.SLIME:
+			lit_monsters += 1
+	check(lit_monsters == 0, "днём на свету монстров нет (кроме слизней в их чанках)")
 	check(c.mobs.count_category(MobDefs.CAT_CREATURE) > 0, "животные появляются на траве (%d)" % c.mobs.count_category(MobDefs.CAT_CREATURE))
 	# Рассадник.
 	for m in c.mobs.mobs.duplicate():

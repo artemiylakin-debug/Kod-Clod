@@ -520,6 +520,7 @@ func _physics_step(dt: float) -> void:
 			velocity.y = JUMP_VELOCITY
 			on_ground = false
 			add_exhaustion(0.8 if sprinting else 0.2)
+			Achievements.add_stat("jumps")
 	if in_web:
 		velocity.y = clampf(velocity.y, -1.0, 1.0)
 	_move(velocity * dt)

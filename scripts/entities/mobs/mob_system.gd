@@ -694,11 +694,9 @@ func _monster_rules(type: int, c: Vector3i) -> bool:
 		MobDefs.GHAST:
 			return rng.randi_range(0, 19) == 0
 		MobDefs.SLIME:
-			if c.y < 40 and is_slime_chunk(c.x >> 4, c.z >> 4):
-				return true
-			# Болото (упрощение): ночью в темноте.
-			var biome := world.biome_at(c.x, c.z)
-			return biome == Biomes.SWAMPLAND and c.y > 50 and c.y < 70 and _monster_light_ok(c)
+			# Как в 1.2: только в «чанках слизней» ниже y=40, при любом свете, с шансом 1 из 10
+			# (болотные слизни появились позже, в 1.8).
+			return c.y < 40 and is_slime_chunk(c.x >> 4, c.z >> 4) and rng.randi_range(0, 9) == 0
 	return _monster_light_ok(c)
 
 

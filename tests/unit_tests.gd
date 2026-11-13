@@ -54,6 +54,7 @@ func _run() -> void:
 	_test_worldgen()
 	_test_other_dimensions()
 	_test_ender_eye()
+	_test_achievements()
 	_test_mesher()
 	_test_light()
 	_test_inventory()
@@ -274,6 +275,46 @@ func _test_worldgen() -> void:
 		and int(ores[Blocks.DIAMOND_ORE]) > 0, "руды: угля больше железа, железа больше алмазов")
 	var spawn: Vector2i = gen.find_spawn_column()
 	check(gen.get_height(spawn.x, spawn.y) >= WorldGen.SEA_LEVEL, "точка появления на суше")
+
+
+## Достижения 1.2: дерево «родителей», поводы, статистика, сохранение.
+func _test_achievements() -> void:
+	print("Достижения и статистика")
+	var saved_path := Achievements.path
+	Achievements.path = "user://test_stats.json"
+	Achievements.reset()
+	check(Achievements.LIST.size() == 27, "27 достижений, как в 1.2")
+	var ids := {}
+	var parents_ok := true
+	for a: Array in Achievements.LIST:
+		ids[a[0]] = true
+		if not str(a[4]).is_empty() and not ids.has(a[4]):
+			parents_ok = false
+	check(parents_ok, "у каждого достижения родитель стоит раньше в списке")
+	Achievements.on_pickup(Blocks.LOG)
+	check(not Achievements.has("mine_wood"), "без «Инвентаризации» бревно не засчитывается")
+	check(Achievements.unlock("open_inventory") and not Achievements.unlock("open_inventory"), "достижение выдаётся один раз")
+	Achievements.on_pickup(Blocks.LOG)
+	Achievements.on_crafted(Blocks.CRAFTING_TABLE)
+	Achievements.on_crafted(Items.WOODEN_PICKAXE)
+	Achievements.on_crafted(Blocks.FURNACE)
+	Achievements.on_taken_output("furnace", Items.IRON_INGOT, 0)
+	check(Achievements.has("mine_wood") and Achievements.has("build_workbench") and Achievements.has("build_pickaxe")
+		and Achievements.has("build_furnace") and Achievements.has("acquire_iron"), "цепочка бревно → верстак → кирка → печь → железо")
+	Achievements.on_taken_output("brewing", Items.POTION, 0)
+	check(not Achievements.has("potion"), "бутылка воды — ещё не зелье")
+	check(Achievements.pending.size() == 6, "очередь всплывающих достижений (%d)" % Achievements.pending.size())
+	Achievements.add_stat("walk", 1234.0)
+	Achievements.add_stat("play_time", 3725.0)
+	Achievements.add_stat("damage_dealt", 7.0)
+	check(Achievements.format_stat("walk", "distance") == "1.23 км" and Achievements.format_stat("play_time", "time") == "1 ч 02 мин"
+		and Achievements.format_stat("damage_dealt", "hp") == "3.5 ♥", "форматы статистики")
+	Achievements.save()
+	Achievements.reset(true)
+	check(Achievements.has("acquire_iron") and is_equal_approx(Achievements.stat("walk"), 1234.0), "сохранение и загрузка")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Achievements.path))
+	Achievements.path = saved_path
+	Achievements.reset(true)
 
 
 ## Око Края: летит к крепости не дальше 12 блоков, поднимаясь, и через 80 тиков падает или бьётся.

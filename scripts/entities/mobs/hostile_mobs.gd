@@ -850,6 +850,7 @@ class Ghast extends Mob:
 	func hurt(amount: int, source: String, attacker: Node3D, kb: Vector3, ignore_invuln := false) -> bool:
 		# Отбитый игроком огненный шар убивает гаста сразу (как в оригинале).
 		if source == "fire" and attacker != null and attacker == player():
+			Achievements.unlock("ghast")
 			return super.hurt(1000, "mob", attacker, kb, true)
 		return super.hurt(amount, source, attacker, kb, ignore_invuln)
 

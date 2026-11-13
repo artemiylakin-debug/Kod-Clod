@@ -657,6 +657,8 @@ func die(source: String, attacker: Node3D) -> void:
 		looting = 0
 		if xp_value > 0 and (attacker == player() or player_hurt > 0.0):
 			m.spawn_xp(center(), xp_value)
+	if attacker != null and attacker == player():
+		Achievements.on_mob_killed(self, source, attacker)
 	on_death(source, attacker)
 
 

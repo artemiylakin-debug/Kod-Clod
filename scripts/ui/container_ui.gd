@@ -635,6 +635,7 @@ func _click(v: SlotView, right: bool) -> void:
 		_set_stack(v, [sid, sc - take, sd])
 		if took_furnace_output:
 			player.add_xp(Containers.take_furnace_xp(_bes[0]))
+		_took_output(v, sid, sd)
 		return
 	if not _accepts(v, cid):
 		# Из результата печи можно только забрать.
@@ -643,6 +644,7 @@ func _click(v: SlotView, right: bool) -> void:
 			_cursor = [cid, cc + add, cd]
 			_set_stack(v, [sid, sc - add, sd])
 			player.add_xp(Containers.take_furnace_xp(_bes[0]))
+			_took_output(v, sid, sd)
 		return
 	var max_s := _max_in(v, cid)
 	if sc <= 0:
@@ -685,7 +687,19 @@ func _quick_move(v: SlotView) -> void:
 		left = _insert_range(player.inventory, 0, Inventory.SIZE, id, count, data)
 		if v.section == "cont" and mode == "furnace" and v.slot == 2 and left < count:
 			player.add_xp(Containers.take_furnace_xp(_bes[0]))
+		if left < count:
+			_took_output(v, id, data)
 	_set_stack(v, [id, left, data])
+
+
+## Забран результат печи или зелье со стойки — повод для достижений.
+func _took_output(v: SlotView, id: int, data: int) -> void:
+	if v.section != "cont":
+		return
+	if mode == "furnace" and v.slot == 2:
+		Achievements.on_taken_output("furnace", id, data)
+	elif mode == "brewing" and v.slot < 3:
+		Achievements.on_taken_output("brewing", id, data)
 
 
 func _insert_container(id: int, count: int, data: int) -> int:
@@ -796,7 +810,7 @@ func _take_result(all: bool) -> void:
 			if player.inventory.add_item(id, cnt, data) > 0:
 				break
 			_consume_ingredients()
-			_on_crafted(id)
+			_on_crafted(id, cnt)
 			r = _craft_result()
 		return
 	if int(_cursor[1]) > 0:
@@ -806,10 +820,11 @@ func _take_result(all: bool) -> void:
 	else:
 		_cursor = [id, cnt, data]
 	_consume_ingredients()
-	_on_crafted(id)
+	_on_crafted(id, cnt)
 
 
-func _on_crafted(id: int) -> void:
+func _on_crafted(id: int, count := 1) -> void:
+	Achievements.on_crafted(id, count)
 	var g := get_tree().current_scene
 	if g != null and g.has_method("on_item_crafted"):
 		g.call("on_item_crafted", id)

@@ -81,6 +81,11 @@ func attack(player: Player) -> bool:
 		if target != null:
 			_effect("crit", target.position + Vector3(0, 1.0, 0))
 	entities.attack(hit["entity"], maxi(dmg, 0))
+	if target is Mob:
+		Achievements.add_stat("damage_dealt", maxi(dmg, 0))
+		# «Перебор»: 18 единиц урона (девять сердец) одним ударом, как в 1.2.
+		if dmg >= 18:
+			Achievements.unlock("overkill")
 	if target != null:
 		# Отбрасывание и заговор огня.
 		var kb := Enchantments.level_of(idata, Enchantments.KNOCKBACK)

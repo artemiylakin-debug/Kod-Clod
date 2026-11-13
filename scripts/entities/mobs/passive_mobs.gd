@@ -144,6 +144,7 @@ class Animal extends Mob:
 ## Свинья: седло (правая кнопка с седлом), свинина. Удар молнии превращает в свинозомби.
 class Pig extends Animal:
 	var saddled := false
+	var rider: Player
 
 	func model_key() -> String:
 		return "pig"
@@ -161,7 +162,32 @@ class Pig extends Animal:
 			if model != null:
 				model.set_skin(0, MobSkins.get_skin("pig_saddle"))
 			return true
-		return super.interact(p)
+		if super.interact(p):
+			return true
+		# На осёдланную свинью можно сесть; в 1.2 она бредёт куда хочет.
+		if saddled and not baby and rider == null and p.vehicle == null:
+			rider = p
+			p.mount(self)
+			return true
+		return false
+
+	## Место всадника — на спине.
+	func seat_position() -> Vector3:
+		return position + Vector3(0, 0.62, 0)
+
+	func remove_rider() -> void:
+		rider = null
+
+	## «Когда свиньи полетят»: свинья со всадником падает больше чем на 5 блоков.
+	func _land() -> void:
+		if rider != null and is_instance_valid(rider) and rider.vehicle == self and fall_dist > 5.0:
+			Achievements.unlock("fly_pig")
+		super._land()
+
+	func die(source: String, attacker: Node3D) -> void:
+		if rider != null and is_instance_valid(rider) and rider.vehicle == self:
+			rider.dismount()
+		super.die(source, attacker)
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
 		drop_meat(Items.PORKCHOP, Items.COOKED_PORKCHOP, rng.randi_range(0, 2))

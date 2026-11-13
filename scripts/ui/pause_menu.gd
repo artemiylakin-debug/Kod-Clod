@@ -5,6 +5,7 @@ extends Control
 signal resume_requested
 signal mode_toggle_requested
 signal settings_requested
+signal achievements_requested
 signal difficulty_requested
 signal view_requested
 signal quit_requested
@@ -45,9 +46,16 @@ func _ready() -> void:
 	_view_button.pressed.connect(func() -> void: view_requested.emit())
 	vbox.add_child(_view_button)
 	set_view(0)
-	var settings := UITheme.button("Настройки", 460)
+	# Настройки и достижения — в одном ряду, чтобы меню помещалось на телефоне.
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	vbox.add_child(row)
+	var settings := UITheme.button("Настройки", 223)
 	settings.pressed.connect(func() -> void: settings_requested.emit())
-	vbox.add_child(settings)
+	row.add_child(settings)
+	var ach := UITheme.button("Достижения", 223)
+	ach.pressed.connect(func() -> void: achievements_requested.emit())
+	row.add_child(ach)
 	var quit := UITheme.button("Сохранить и выйти в меню", 460)
 	quit.pressed.connect(func() -> void: quit_requested.emit())
 	vbox.add_child(quit)
