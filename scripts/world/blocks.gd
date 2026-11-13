@@ -984,10 +984,7 @@ static func shape_boxes(id: int, meta: int, conn: int = 0, for_collision: bool =
 				else:
 					out.append(_box(6, 0, 0, 10, 24, 16))
 			else:
-				if (meta & 1) == 0:
-					out.append(_box(0, 5, 7, 16, 16, 9))
-				else:
-					out.append(_box(7, 5, 0, 9, 16, 16))
+				out.append_array(_gate_boxes(meta))
 		SH_PLATE:
 			out.append(_box(1, 0, 1, 15, 0.5 if meta & 1 else 1, 15))
 		SH_BUTTON:
@@ -1016,6 +1013,32 @@ static func shape_boxes(id: int, meta: int, conn: int = 0, for_collision: bool =
 				out.append(_box(0, 0, 6, 16, 16, 10))
 		SH_END_PORTAL:
 			out.append(_box(0, 0, 0, 16, 12, 16))
+	return out
+
+
+## Калитка: два столбика, две перекладины и середина; открытая — створки развёрнуты к стороне meta.
+static func _gate_boxes(meta: int) -> Array[AABB]:
+	var parts: Array[Array] = [[0, 5, 7, 2, 16, 9], [14, 5, 7, 16, 16, 9]]
+	if meta & 4 == 0:
+		parts.append_array([[2, 6, 7, 14, 9, 9], [2, 12, 7, 14, 15, 9], [6, 9, 7, 10, 12, 9]])
+	else:
+		# Створки у столбиков, перпендикулярно проёму.
+		var forward: bool = DIR_VEC[meta & 3].x + DIR_VEC[meta & 3].z > 0
+		var z0 := 9 if forward else 1
+		var z1 := 15 if forward else 7
+		var ze0 := 13 if forward else 1
+		var ze1 := 15 if forward else 3
+		for x: Array in [[0, 2], [14, 16]]:
+			parts.append([x[0], 6, z0, x[1], 9, z1])
+			parts.append([x[0], 12, z0, x[1], 15, z1])
+			parts.append([x[0], 9, ze0, x[1], 12, ze1])
+	var out: Array[AABB] = []
+	var along_z := (meta & 1) == 1
+	for q in parts:
+		if along_z:
+			out.append(_box(q[2], q[1], q[0], q[5], q[4], q[3]))
+		else:
+			out.append(_box(q[0], q[1], q[2], q[3], q[4], q[5]))
 	return out
 
 

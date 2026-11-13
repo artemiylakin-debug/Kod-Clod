@@ -367,7 +367,11 @@ func _run() -> void:
 	var hold_target: Vector3i = p.target.get("pos", Vector3i.ZERO)
 	var hold_id := w.get_block_v(hold_target)
 	touch(3, look, true)
-	await wait(TouchControls.HOLD_TIME + Blocks.hardness(hold_id) + 0.4)
+	# Ждём результат с запасом: при медленном программном рендере игровое время идёт медленнее.
+	var held_for := 0.0
+	while w.get_block_v(hold_target) == hold_id and held_for < 8.0:
+		await wait(0.1)
+		held_for += 0.1
 	touch(3, look, false)
 	await frames(3)
 	check(w.get_block_v(hold_target) != hold_id, "удержание пальца ломает блок (%s)" % Blocks.block_name(hold_id))

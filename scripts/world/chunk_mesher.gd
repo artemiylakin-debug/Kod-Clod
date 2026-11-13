@@ -1120,8 +1120,11 @@ static func block_arrays(id: int, meta: int) -> Array:
 		m.resize(WorldGen.VOLUME)
 		metas.append(m)
 	var idx := Chunk.index_of(8, 1, 8)
-	(blocks[4] as PackedByteArray)[idx] = id
-	(metas[4] as PackedByteArray)[idx] = meta
+	# Packed-массив внутри Array меняется только через переменную (иначе правится копия).
+	var center: PackedByteArray = blocks[4]
+	var center_meta: PackedByteArray = metas[4]
+	center[idx] = id
+	center_meta[idx] = meta
 	var res := build({"blocks": blocks, "metas": metas, "top_y": 1, "vol_top": 1})
 	var arr: Array = res["opaque"]
 	if arr.is_empty():

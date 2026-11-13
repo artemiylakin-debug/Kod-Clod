@@ -2279,12 +2279,7 @@ static func _repeater(on: bool) -> Image:
 	for y in range(1, S - 1):
 		img.set_pixel(7, y, dust)
 		img.set_pixel(8, y, _shade(dust, 0.82))
-	var tip := Color(1.0, 0.35, 0.25) if on else Color(0.38, 0.1, 0.08)
-	for ty in [3, 10]:
-		_rect(img, 6, ty - 1, 4, 4, Color(0.42, 0.3, 0.15))
-		_rect(img, 7, ty, 2, 2, tip)
-		if on:
-			img.set_pixel(7, ty, Color(1.0, 0.7, 0.6))
+	# Факелы повторителя — объёмные (рисует мешер), на текстуре только дорожка пыли.
 	return img
 
 
