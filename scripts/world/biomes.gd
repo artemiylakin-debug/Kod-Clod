@@ -1,7 +1,8 @@
 class_name Biomes
 extends RefCounted
 ## Биомы Minecraft 1.2 (номера — как в оригинале): название, температура, влажность,
-## цвет травы и листвы. Джунгли (21–22) появились именно в 1.2.
+## цвет травы и листвы, параметры рельефа (minHeight/maxHeight) и поверхность.
+## Джунгли (21–22) появились именно в 1.2.
 
 enum {
 	OCEAN = 0, PLAINS = 1, DESERT = 2, EXTREME_HILLS = 3, FOREST = 4, TAIGA = 5, SWAMPLAND = 6, RIVER = 7,
@@ -38,6 +39,28 @@ const INFO := [
 	["Холмы джунглей", 1.2, 0.9, Color8(89, 201, 60), Color8(48, 187, 11)],
 ]
 
+## Рельеф биома, как setMinMaxHeight в 1.2: [minHeight (глубина), maxHeight (разброс высот)].
+const HEIGHTS := [
+	[-1.0, 0.4], [0.1, 0.3], [0.1, 0.2], [0.2, 1.3], [0.1, 0.3], [0.1, 0.4], [-0.2, 0.1], [-0.5, 0.0],
+	[0.1, 0.3], [0.1, 0.3], [-1.0, 0.5], [-0.5, 0.0], [0.1, 0.3], [0.2, 1.2], [0.2, 1.0], [-1.0, 0.1],
+	[0.0, 0.1], [0.2, 0.7], [0.2, 0.6], [0.2, 0.7], [0.2, 0.8], [0.2, 0.4], [1.8, 0.5],
+]
+
+## Верхний блок и наполнитель поверхности (topBlock / fillerBlock).
+const TOP_BLOCKS := [
+	Blocks.GRASS, Blocks.GRASS, Blocks.SAND, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS,
+	Blocks.NETHERRACK, Blocks.END_STONE, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.MYCELIUM,
+	Blocks.MYCELIUM, Blocks.SAND, Blocks.SAND, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS,
+]
+const FILLER_BLOCKS := [
+	Blocks.DIRT, Blocks.DIRT, Blocks.SAND, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT,
+	Blocks.NETHERRACK, Blocks.END_STONE, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT,
+	Blocks.DIRT, Blocks.SAND, Blocks.SAND, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT,
+]
+
+## Биомы, в которых может оказаться точка появления (как biomesToSpawnIn в 1.2).
+const SPAWN_BIOMES := [FOREST, PLAINS, TAIGA, TAIGA_HILLS, FOREST_HILLS, JUNGLE, JUNGLE_HILLS]
+
 
 static func name_of(b: int) -> String:
 	return INFO[clampi(b, 0, COUNT - 1)][0]
@@ -67,3 +90,47 @@ static func is_snowy(b: int) -> bool:
 ## Дождя не бывает (пустыни, Ад).
 static func is_dry(b: int) -> bool:
 	return rainfall(b) <= 0.0
+
+
+static func min_height(b: int) -> float:
+	return HEIGHTS[clampi(b, 0, COUNT - 1)][0]
+
+
+static func max_height(b: int) -> float:
+	return HEIGHTS[clampi(b, 0, COUNT - 1)][1]
+
+
+static func top_block(b: int) -> int:
+	return TOP_BLOCKS[clampi(b, 0, COUNT - 1)]
+
+
+static func filler_block(b: int) -> int:
+	return FILLER_BLOCKS[clampi(b, 0, COUNT - 1)]
+
+
+static func is_ocean(b: int) -> bool:
+	return b == OCEAN or b == FROZEN_OCEAN
+
+
+static func is_river(b: int) -> bool:
+	return b == RIVER or b == FROZEN_RIVER
+
+
+static func is_desert(b: int) -> bool:
+	return b == DESERT or b == DESERT_HILLS
+
+
+static func is_jungle(b: int) -> bool:
+	return b == JUNGLE or b == JUNGLE_HILLS
+
+
+static func is_taiga(b: int) -> bool:
+	return b == TAIGA or b == TAIGA_HILLS
+
+
+static func is_forest(b: int) -> bool:
+	return b == FOREST or b == FOREST_HILLS
+
+
+static func is_mushroom(b: int) -> bool:
+	return b == MUSHROOM_ISLAND or b == MUSHROOM_SHORE
