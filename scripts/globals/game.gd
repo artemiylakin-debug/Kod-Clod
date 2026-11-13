@@ -186,10 +186,11 @@ func start_world(id: String) -> void:
 	current_world_id = id
 	current_world_dir = WorldStorage.world_dir(id)
 	get_tree().paused = false
-	get_tree().change_scene_to_file(GAME_SCENE)
+	# Смена сцены — после обработки текущего события (нажатие кнопки или касание ещё идёт).
+	get_tree().change_scene_to_file.call_deferred(GAME_SCENE)
 
 
 func goto_main_menu() -> void:
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(MAIN_MENU)
+	get_tree().change_scene_to_file.call_deferred(MAIN_MENU)

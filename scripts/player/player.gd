@@ -260,6 +260,8 @@ func look_dir() -> Vector3:
 
 
 func eye_position() -> Vector3:
+	if not is_inside_tree():
+		return transform * Vector3(0, _eye_y, 0)
 	return global_transform * Vector3(0, _eye_y, 0)
 
 

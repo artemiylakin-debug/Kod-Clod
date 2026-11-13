@@ -837,7 +837,8 @@ func _notification(what: int) -> void:
 # --- Кадр ------------------------------------------------------------------
 
 func _process(delta: float) -> void:
-	if world == null:
+	# После выхода в меню или смены измерения сцена доживает до конца кадра — без обновлений.
+	if world == null or _switching:
 		return
 	var paused := get_tree().paused
 	if not paused:
@@ -849,6 +850,8 @@ func _process(delta: float) -> void:
 		return
 	time_of_day = fposmod(time_of_day + delta / DAY_LENGTH, 1.0)
 	_update_portals(delta)
+	if _switching:
+		return
 	_update_sleep(delta)
 	_check_browser_pointer_lock()
 	weather.update(delta, player.camera.global_position)
@@ -1121,6 +1124,7 @@ func _on_player_died() -> void:
 func _respawn() -> void:
 	if hardcore:
 		# Хардкор: мир удаляется, возврат в главное меню.
+		_switching = true
 		world.wait_for_jobs()
 		WorldStorage.delete_world(Game.current_world_id)
 		Game.goto_main_menu()
@@ -1140,7 +1144,7 @@ func _respawn() -> void:
 
 ## full — вместе с существами и предметами на земле (при паузе и выходе).
 func save_game(full := true) -> void:
-	if world == null or player == null or _needs_spawn:
+	if world == null or player == null or _needs_spawn or _switching:
 		return
 	if not Game.test_mode:
 		Achievements.save()
@@ -1295,12 +1299,12 @@ func _update_portals(delta: float) -> void:
 func change_dimension(to: int, pos: Vector3, arrival: String) -> void:
 	if _switching:
 		return
-	_switching = true
 	sound.stop_all()
 	sound.play_ui("portal_travel", 0.6)
 	if inventory_ui.visible:
 		inventory_ui.close_ui()
 	save_game(true)
+	_switching = true
 	var pd := player.to_dict()
 	pd["pos"] = [pos.x, pos.y, pos.z]
 	meta["player"] = pd
@@ -1318,5 +1322,6 @@ func quit_to_menu() -> void:
 	if inventory_ui.visible:
 		inventory_ui.close_ui()
 	save_game(true)
+	_switching = true
 	world.wait_for_jobs()
 	Game.goto_main_menu()

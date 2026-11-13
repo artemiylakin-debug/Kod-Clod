@@ -46,7 +46,8 @@ func _ready() -> void:
 
 ## Звук в точке мира. pitch — множитель высоты (1 — как есть).
 func play(sound: String, pos: Vector3, vol := 1.0, pitch := 1.0) -> void:
-	if volume <= 0.001 or pos.distance_to(listener_pos) > 48.0:
+	# Во время смены сцены (переход между измерениями) узлы уже вне дерева.
+	if volume <= 0.001 or pos.distance_to(listener_pos) > 48.0 or not is_inside_tree():
 		return
 	var stream := get_stream(sound)
 	if stream == null:
@@ -134,7 +135,7 @@ func set_loop(sound: String, vol: float, pos := Vector3.INF) -> void:
 		add_child(p)
 		_loops[sound] = p
 		p.set("stream", get_stream(sound))
-	if pos != Vector3.INF:
+	if pos != Vector3.INF and is_inside_tree():
 		(p as Node3D).global_position = pos
 	p.set("volume_db", linear_to_db(maxf(vol * volume, 0.0001)))
 	if not bool(p.get("playing")):
@@ -147,7 +148,8 @@ func play_record(record_id: int, pos: Vector3) -> void:
 		_record.stop()
 		return
 	_record.stream = _melody(record_id, 24.0, true)
-	_record.global_position = pos
+	if is_inside_tree():
+		_record.global_position = pos
 	_record.volume_db = linear_to_db(maxf(music_volume * 1.2, 0.0001))
 	_record.play()
 

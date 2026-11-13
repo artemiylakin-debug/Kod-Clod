@@ -283,7 +283,7 @@ func _remove(i: int) -> void:
 
 func _rebuild() -> void:
 	var n := _pos.size()
-	if n == 0 or camera == null:
+	if n == 0 or camera == null or not camera.is_inside_tree():
 		mesh = null
 		return
 	var basis := camera.global_transform.basis
@@ -347,7 +347,7 @@ func _rebuild() -> void:
 
 ## Случайные клетки вокруг камеры: факелы дымят, огонь и лава искрят, порталы мерцают.
 func _ambient() -> void:
-	if world == null or camera == null:
+	if world == null or camera == null or not camera.is_inside_tree():
 		return
 	var c := camera.global_position
 	var cx := floori(c.x)
