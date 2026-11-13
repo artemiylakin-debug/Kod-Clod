@@ -302,7 +302,8 @@ func tick() -> void:
 	move_dir = Vector3.ZERO
 	want_jump = false
 	look_pos = Vector3.INF
-	ai_tick()
+	if system.get("ai_enabled") != false:
+		ai_tick()
 	_physics()
 	_update_look()
 	_update_limbs()

@@ -28,6 +28,9 @@ var path_budget := 2
 var spawners: Dictionary = {}
 ## Время последнего обновления (мкс) — для отладки производительности.
 var last_update_usec := 0
+## Отладка и сценарии скриншотов: выключить ИИ (существа только анимируются) и естественное появление.
+var ai_enabled := true
+var natural_spawning := true
 
 var _spawn_timer := 0.0
 var _passive_timer := 0.0
@@ -80,7 +83,8 @@ func update(delta: float) -> void:
 		_spawn_timer += delta
 		if _spawn_timer >= 1.0:
 			_spawn_timer = 0.0
-			_natural_spawn(p)
+			if natural_spawning:
+				_natural_spawn(p)
 		_despawn_timer += delta
 		if _despawn_timer >= 1.0:
 			_despawn_timer = 0.0
