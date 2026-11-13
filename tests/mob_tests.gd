@@ -37,7 +37,7 @@ class FakeGame extends Node:
 	func is_night() -> bool:
 		return night
 
-	func play_sound(n: String, _pos: Vector3) -> void:
+	func play_sound(n: String, _pos: Vector3, _vol := 1.0, _pitch := 1.0) -> void:
 		sounds.append(n)
 
 	func effect(kind: String, _pos: Vector3, _data := 0) -> void:
@@ -130,6 +130,8 @@ func _make_ctx(creative := false) -> Ctx:
 	c.p.actions = PlayerActions.new(c.g, c.w, c.logic, c.ent)
 	c.ent.setup(c.w, c.logic, c.p, c.g)
 	c.mobs = c.ent.mobs as MobSystem
+	# Случайные существа не должны мешать проверкам (появление проверяется отдельно, вызовами напрямую).
+	c.mobs.natural_spawning = false
 	await process_frame
 	c.p.frozen = false
 	c.p.position = Vector3(0.5, 11.0, 0.5)
