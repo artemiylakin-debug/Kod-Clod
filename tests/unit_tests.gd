@@ -58,6 +58,7 @@ func _run() -> void:
 	_test_storage()
 	await _test_world_and_player()
 	await _test_block_logic()
+	await _test_vehicles()
 	_test_threaded_job()
 	_test_sliced_jobs()
 	await _test_single_thread_world()
@@ -794,6 +795,90 @@ func _test_block_logic() -> void:
 	check(out.ids[2] == Blocks.GLASS and out.counts[2] == 1, "доски (1,5 предмета) переплавили 1 песок в стекло")
 	_ticks(logic, 20)
 	check(w.get_block_v(fp) == Blocks.FURNACE, "печь гаснет без топлива")
+	g.queue_free()
+	w.queue_free()
+	await process_frame
+
+
+func _test_vehicles() -> void:
+	print("Рельсы, вагонетки, лодки, картины")
+	var w := _make_flat_world()
+	var g := _make_game(w)
+	var logic: BlockLogic = g.get_node("Logic")
+	var ent := g.entities
+	ent.setup(w, logic, null, g)
+	# Рельсы сами соединяются: прямая, поворот, подъём.
+	for x in 2:
+		w.set_block(x, 11, 0, Blocks.RAIL, 0)
+		Rails.on_placed(w, Vector3i(x, 11, 0), 0)
+	check(w.get_meta_v(Vector3i(0, 11, 0)) == 1 and w.get_meta_v(Vector3i(1, 11, 0)) == 1, "два рельса вдоль X соединились")
+	w.set_block(1, 11, 1, Blocks.RAIL, 0)
+	Rails.on_placed(w, Vector3i(1, 11, 1), 1)
+	check(w.get_meta_v(Vector3i(1, 11, 1)) == 0 and w.get_meta_v(Vector3i(1, 11, 0)) == 7,
+		"рельс сбоку превращает соседа в поворот (%d)" % w.get_meta_v(Vector3i(1, 11, 0)))
+	w.set_block(6, 11, 0, Blocks.STONE)
+	w.set_block(6, 12, 0, Blocks.RAIL, 0)
+	w.set_block(5, 11, 0, Blocks.RAIL, 0)
+	Rails.on_placed(w, Vector3i(5, 11, 0), 0)
+	check(w.get_meta_v(Vector3i(5, 11, 0)) == 2, "рельс перед ступенькой — подъём на восток")
+	# Вагонетка едет по прямой и останавливается у стены.
+	for x in range(0, 12):
+		w.set_block(x, 11, 8, Blocks.RAIL, 1)
+	w.set_block(12, 11, 8, Blocks.STONE)
+	var cart: Minecart = ent.spawn_vehicle("minecart", Vector3(0.5, 11.0625, 8.5))
+	cart.velocity = Vector3(5, 0, 0)
+	for i in 240:
+		cart.update_entity(1.0 / 60.0)
+	check(cart.position.x > 10.0 and cart.position.x <= 12.0 and absf(cart.position.y - 11.0625) < 0.01,
+		"вагонетка доехала до стены (x=%.2f)" % cart.position.x)
+	# Ускоряющий рельс под током разгоняет стоящую вагонетку.
+	w.set_block(-1, 11, -8, Blocks.STONE)
+	for x in range(0, 12):
+		w.set_block(x, 11, -8, Blocks.POWERED_RAIL, 1)
+	w.set_block(0, 11, -9, Blocks.REDSTONE_TORCH, 0)
+	_ticks(logic, 10)
+	check(w.get_meta_v(Vector3i(0, 11, -8)) & 8 != 0 and w.get_meta_v(Vector3i(5, 11, -8)) & 8 != 0,
+		"факел включает ускоряющие рельсы (цепочка до 8)")
+	var cart2: Minecart = ent.spawn_vehicle("minecart", Vector3(0.5, 11.0625, -7.5))
+	for i in 60:
+		cart2.update_entity(1.0 / 60.0)
+	check(cart2.position.x > 2.0, "ускоряющий рельс толкает вагонетку от стены (x=%.2f)" % cart2.position.x)
+	# Поворот.
+	for z in range(-4, 1):
+		w.set_block(-6, 11, z, Blocks.RAIL, 0)
+	w.set_block(-6, 11, 1, Blocks.RAIL, 9)
+	w.set_block(-5, 11, 1, Blocks.RAIL, 1)
+	w.set_block(-4, 11, 1, Blocks.RAIL, 1)
+	var cart3: Minecart = ent.spawn_vehicle("minecart", Vector3(-5.5, 11.0625, -3.5))
+	cart3.velocity = Vector3(0, 0, 5)
+	for i in 180:
+		cart3.update_entity(1.0 / 60.0)
+	check(cart3.position.x > -5.0, "вагонетка проходит поворот (x=%.2f, z=%.2f)" % [cart3.position.x, cart3.position.z])
+	# Нажимной рельс включается под вагонеткой.
+	w.set_block(3, 11, -12, Blocks.DETECTOR_RAIL, 1)
+	var cart4: Minecart = ent.spawn_vehicle("minecart", Vector3(3.5, 11.0625, -11.5))
+	cart4.update_entity(1.0 / 60.0)
+	check(w.get_meta_v(Vector3i(3, 11, -12)) & 8 != 0, "нажимной рельс включился под вагонеткой")
+	# Лодка держится на воде.
+	w.fill_region(Vector3i(-12, 8, -12), Vector3i(-8, 10, -8), Blocks.WATER)
+	var boat: Boat = ent.spawn_vehicle("boat", Vector3(-9.5, 13.0, -9.5))
+	for i in 180:
+		boat.update_entity(1.0 / 60.0)
+	check(boat.position.y > 10.4 and boat.position.y < 11.0, "лодка плавает у поверхности (y=%.2f)" % boat.position.y)
+	# Картина на стене; без стены падает.
+	w.fill_region(Vector3i(8, 11, 4), Vector3i(11, 14, 4), Blocks.STONE)
+	var placed := ent.place_painting({"pos": Vector3i(9, 12, 4), "normal": Vector3i(0, 0, 1), "block": Blocks.STONE})
+	var painting: Painting = null
+	for c in ent.get_children():
+		if c is Painting:
+			painting = c
+	check(placed and painting != null and painting.cells().size() >= 1, "картина повешена (%s)" % (Painting.ARTS[painting.art][0] if painting else "—"))
+	for c in painting.cells():
+		w.set_block(c.x, c.y, c.z - 1, Blocks.AIR)
+	painting.update_entity(1.0)
+	check(painting.is_queued_for_deletion(), "картина без стены падает")
+	var d := cart.to_dict()
+	check(str(d["kind"]) == "minecart" and (d["pos"] as Array).size() == 3, "вагонетка сохраняется")
 	g.queue_free()
 	w.queue_free()
 	await process_frame

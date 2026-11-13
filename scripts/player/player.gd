@@ -74,6 +74,8 @@ var effects: Dictionary = {}
 var fire_time := 0.0
 var dead := false
 var spawn_point := Vector3.ZERO
+## Транспорт, в котором едет игрок (вагонетка, лодка), или null.
+var vehicle: Node3D
 ## Сложность: 0 мирная, 1 лёгкая, 2 нормальная, 3 сложная.
 var difficulty := 2
 ## Пока чанк под игроком не загружен, физика заморожена.
@@ -319,7 +321,18 @@ func _process(delta: float) -> void:
 	# Таймеры (добыча, перезарядка, голод) — по реальному времени, иначе при низком FPS всё замедляется.
 	var timer_dt := minf(delta, 0.25)
 	_read_movement_input()
-	if world.has_chunk_at(position.x, position.z):
+	if vehicle != null and not is_instance_valid(vehicle):
+		vehicle = null
+	if vehicle != null:
+		# В транспорте: приседание — выйти, иначе сидим на месте пассажира.
+		if sneaking:
+			dismount()
+		else:
+			position = vehicle.call("seat_position")
+			velocity = Vector3.ZERO
+			on_ground = true
+			_fall_start = position.y
+	elif world.has_chunk_at(position.x, position.z):
 		var steps := maxi(ceili(dt * 60.0), ceili(velocity.length() * dt / 0.45))
 		steps = clampi(steps, 1, 12)
 		for _s in steps:
@@ -346,6 +359,37 @@ func _process(delta: float) -> void:
 			velocity = Vector3.ZERO
 		else:
 			take_damage(4, "void")
+
+
+## Направление движения с клавиатуры/джойстика (для транспорта): x — вбок, y — вперёд (−1).
+func get_move_input() -> Vector2:
+	return _move_input
+
+
+func mount(v: Node3D) -> void:
+	vehicle = v
+	if flying:
+		set_flying(false)
+	velocity = Vector3.ZERO
+	position = v.call("seat_position")
+
+
+## Выйти из транспорта на свободное место рядом.
+func dismount() -> void:
+	if vehicle == null:
+		return
+	var v := vehicle
+	vehicle = null
+	if is_instance_valid(v):
+		v.call("remove_rider")
+		var base: Vector3 = v.position
+		for off: Vector3 in [Vector3(0, 0.7, 0), Vector3(1.3, 0.1, 0), Vector3(-1.3, 0.1, 0), Vector3(0, 0.1, 1.3),
+				Vector3(0, 0.1, -1.3), Vector3(0, 1.5, 0)]:
+			if not BodyPhysics.collides(world, base + off, HALF_WIDTH, HEIGHT):
+				position = base + off
+				break
+	velocity = Vector3.ZERO
+	_fall_start = position.y
 
 
 func _apply_rotation() -> void:

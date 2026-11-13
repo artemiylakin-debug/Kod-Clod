@@ -242,22 +242,96 @@ func _damage_target(who: Variant, amount: int, source: String, attacker: Variant
 
 # --- Мобы (делегирование) --------------------------------------------------
 
-## Существо под прицелом: {entity, dist} или {}.
+## Существо или транспорт под прицелом: {entity, dist} или {}.
 func raycast(origin: Vector3, dir: Vector3, max_dist: float) -> Dictionary:
-	if mobs == null:
-		return {}
-	return mobs.call("raycast", origin, dir, max_dist)
+	var best: Dictionary = {}
+	if mobs != null:
+		best = mobs.call("raycast", origin, dir, max_dist)
+	for n in get_children():
+		if not is_vehicle(n) or n.is_queued_for_deletion() or (player != null and n == player.vehicle):
+			continue
+		var r := World._ray_aabb(origin, dir, (n.call("body_box") as AABB))
+		if r.size() == 2 and float(r[0]) <= max_dist and (best.is_empty() or float(r[0]) < float(best["dist"])):
+			best = {"entity": n, "dist": float(r[0])}
+	return best
+
+
+## Сущности, которые можно ударить и «прицелить»: транспорт и картины.
+static func is_vehicle(n: Object) -> bool:
+	return n is Minecart or n is Boat or n is Painting
+
+
+## Повесить картину на боковую грань блока: случайная из подходящих по размеру (как в 1.2).
+func place_painting(t: Dictionary) -> bool:
+	if t.is_empty():
+		return false
+	var n: Vector3i = t["normal"]
+	if n.y != 0:
+		return false
+	var face := Blocks.DIR_VEC.find(n)
+	var at: Vector3i = t["pos"] + n
+	var others: Array = []
+	for c in get_children():
+		if c is Painting and not c.is_queued_for_deletion():
+			others.append(c)
+	var r := Painting.right_of(face)
+	var options: Array = []
+	for i in Painting.ARTS.size():
+		var s := Vector2i(int(Painting.ARTS[i][1]), int(Painting.ARTS[i][2]))
+		@warning_ignore("integer_division")
+		var anchor: Vector3i = at - r * ((s.x - 1) / 2) - Vector3i(0, (s.y - 1) / 2, 0)
+		if Painting.fits(world, anchor, face, s, others):
+			options.append([i, anchor])
+	if options.is_empty():
+		return false
+	var pick: Array = options[rng.randi_range(0, options.size() - 1)]
+	spawn_painting(pick[1], face, int(pick[0]))
+	return true
+
+
+func spawn_painting(cell: Vector3i, face: int, art: int) -> Painting:
+	var pt := Painting.new()
+	pt.world = world
+	pt.manager = self
+	pt.cell = cell
+	pt.facing = face
+	pt.art = art
+	add_child(pt)
+	return pt
 
 
 func attack(entity: Variant, damage: int) -> void:
+	if is_vehicle(entity):
+		entity.call("hit", player, damage)
+		return
 	if mobs != null:
 		mobs.call("player_attack", entity, damage)
 
 
 func interact(entity: Variant) -> bool:
+	if is_vehicle(entity):
+		return bool(entity.call("interact", player))
 	if mobs == null:
 		return false
 	return bool(mobs.call("interact", entity, player))
+
+
+## Поставить транспорт: kind — minecart, chest_minecart, furnace_minecart, boat.
+func spawn_vehicle(kind: String, pos: Vector3, yaw := 0.0) -> Node3D:
+	var v: Node3D
+	if kind == "boat":
+		var b := Boat.new()
+		b.yaw = yaw
+		v = b
+	else:
+		var m := Minecart.new()
+		m.kind = kind
+		v = m
+	v.set("world", world)
+	v.set("manager", self)
+	v.position = pos
+	add_child(v)
+	return v
 
 
 func spawn_mob(type: int, pos: Vector3) -> Node3D:
@@ -374,6 +448,14 @@ func restore(d: Dictionary) -> void:
 		"arrow":
 			var a := spawn_projectile("arrow", pos, Vector3.ZERO)
 			a.set("stuck", true)
+		"painting":
+			var pt := Painting.new()
+			pt.from_dict(d)
+			spawn_painting(pt.cell, pt.facing, pt.art)
+			pt.free()
+		"minecart", "chest_minecart", "furnace_minecart", "boat":
+			var v := spawn_vehicle(str(d["kind"]), pos, float(d.get("yaw", 0.0)))
+			v.call("from_dict", d)
 		"mob":
 			if mobs != null:
 				mobs.call("restore", d)

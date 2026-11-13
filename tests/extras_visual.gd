@@ -220,6 +220,45 @@ func _run() -> void:
 	await wait(1.5)
 	check(p.inventory.count_of(Items.FISH) > fish_before, "поймана рыба")
 
+	# --- Рельсы, вагонетка, лодка, картины ---
+	var rail_cells := []
+	for x in range(2, 8):
+		rail_cells.append(c + Vector3i(x, 1, 5))
+	rail_cells.append(c + Vector3i(7, 1, 6))
+	rail_cells.append(c + Vector3i(7, 1, 7))
+	w.set_block(c.x + 7, c.y + 1, c.z + 8, Blocks.STONE)
+	rail_cells.append(c + Vector3i(7, 2, 8))
+	for rc: Vector3i in rail_cells:
+		w.set_block(rc.x, rc.y, rc.z, Blocks.RAIL, 0)
+		Rails.on_placed(w, rc, 1)
+	check(w.get_meta_v(c + Vector3i(7, 1, 5)) == 7 and w.get_meta_v(c + Vector3i(7, 1, 7)) == 5,
+		"рельсы сами образовали поворот и подъём (%d, %d)" % [w.get_meta_v(c + Vector3i(7, 1, 5)), w.get_meta_v(c + Vector3i(7, 1, 7))])
+	var cart: Minecart = g.entities.spawn_vehicle("minecart", Vector3(c + Vector3i(2, 1, 5)) + Vector3(0.5, 0.0625, 0.5))
+	g.entities.spawn_vehicle("chest_minecart", Vector3(c + Vector3i(4, 1, 5)) + Vector3(0.5, 0.0625, 0.5))
+	g.entities.spawn_vehicle("furnace_minecart", Vector3(c + Vector3i(6, 1, 5)) + Vector3(0.5, 0.0625, 0.5))
+	g.entities.spawn_vehicle("boat", Vector3(c + Vector3i(-5, 0, 5)) + Vector3(0.5, 0.76, 0.5), 0.6)
+	w.fill_region(c + Vector3i(2, 1, 10), c + Vector3i(6, 4, 10), Blocks.COBBLESTONE)
+	for k in 3:
+		g.entities.place_painting({"pos": c + Vector3i(2 + k * 2, 2 + k % 2, 10), "normal": Vector3i(0, 0, -1), "block": Blocks.COBBLESTONE})
+	p.position = Vector3(c) + Vector3(4.5, 2.5, 1.0)
+	p.set_look(deg_to_rad(200.0), deg_to_rad(-25.0))
+	p.inventory.select(4)
+	await frames(30)
+	await shot("rails_carts_paintings")
+	# Поездка: садимся в вагонетку и толкаем её.
+	check(cart.interact(p) and p.vehicle == cart, "игрок сел в вагонетку")
+	cart.velocity = Vector3(6, 0, 0)
+	p.set_look(-PI / 2.0, deg_to_rad(-15.0))
+	await wait(0.6)
+	await shot("minecart_ride")
+	await wait(2.0)
+	check(cart.position.z > c.z + 5.6, "вагонетка повернула на рельсах (z=%.2f)" % (cart.position.z - c.z))
+	p.touch_sneak = true
+	await frames(3)
+	p.touch_sneak = false
+	check(p.vehicle == null, "приседание — выход из вагонетки")
+	await frames(5)
+
 	# --- Портал в Нижний мир ---
 	var o := c + Vector3i(-2, 1, 4)
 	for i in 4:

@@ -123,6 +123,22 @@ func open(kind: String, pos: Vector3i, p_creative: bool) -> void:
 	refresh()
 
 
+## Окно контейнера-сущности (вагонетка с сундуком): данные — словарь вида данных блока.
+func open_data(kind: String, be: Dictionary) -> void:
+	creative = false
+	mode = kind
+	container_pos = Vector3i(0, -999, 0)
+	_cursor = [0, 0, 0]
+	_craft_size = 2
+	_craft = Inventory.new(9)
+	_bes.clear()
+	_bes.append(be)
+	_load_container()
+	_build()
+	visible = true
+	refresh()
+
+
 func _load_container() -> void:
 	var size: int = Containers.SIZES.get(mode, 0)
 	_cont = Inventory.new(size * _bes.size())
@@ -145,6 +161,8 @@ func _save_container() -> void:
 			part.counts[i] = _cont.counts[k * size + i]
 			part.datas[i] = _cont.datas[k * size + i]
 		Containers.store(_bes[k], part)
+	if container_pos.y <= -999:
+		return
 	world.mark_dirty(container_pos)
 	if mode == "furnace" or mode == "brewing":
 		logic.containers.mark_active(container_pos)

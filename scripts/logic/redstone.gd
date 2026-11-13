@@ -392,6 +392,8 @@ func _strong_from(q: Vector3i, id: int, m: int, f: int, wires: bool) -> bool:
 			return m & 8 != 0 and Blocks.attach_offset(m & 7) == _faces[f]
 		K_PLATE:
 			return f == 3 and m & 1 != 0
+		K_DETECTOR_RAIL:
+			return f == 3 and m & 8 != 0
 		K_TORCH_ON:
 			return f == 2 and Blocks.attach_offset(m & 7) != UP
 		K_REPEATER_ON:
@@ -408,6 +410,8 @@ func _weak_from(q: Vector3i, id: int, m: int, f: int, wires: bool) -> bool:
 			return m & 8 != 0
 		K_PLATE:
 			return m & 1 != 0
+		K_DETECTOR_RAIL:
+			return m & 8 != 0
 		K_TORCH_ON:
 			return Blocks.attach_offset(m & 7) != _faces[f]
 		K_REPEATER_ON:

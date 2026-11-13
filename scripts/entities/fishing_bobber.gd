@@ -82,16 +82,23 @@ func update_entity(dt: float) -> void:
 		position.z += velocity.z * dt
 		_update_fishing(dt)
 	elif not on_ground:
-		velocity.y -= GRAVITY * dt
-		var res := BodyPhysics.move(world, position, 0.1, 0.2, velocity * dt, 0.0, false)
-		position = res["pos"]
-		if res["hit_y"] and velocity.y < 0.0:
-			on_ground = true
-			velocity = Vector3.ZERO
-		if res["hit_x"]:
-			velocity.x = 0.0
-		if res["hit_z"]:
-			velocity.z = 0.0
+		# Полёт считаем подшагами по 1/60 с, чтобы дальность заброса не зависела от FPS.
+		var left := dt
+		while left > 0.0 and not on_ground:
+			var h := minf(left, 1.0 / 60.0)
+			left -= h
+			velocity.y -= GRAVITY * h
+			var res := BodyPhysics.move(world, position, 0.1, 0.2, velocity * h, 0.0, false)
+			position = res["pos"]
+			if res["hit_y"] and velocity.y < 0.0:
+				on_ground = true
+				velocity = Vector3.ZERO
+			if res["hit_x"]:
+				velocity.x = 0.0
+			if res["hit_z"]:
+				velocity.z = 0.0
+			if Blocks.is_water(world.get_block(floori(position.x), floori(position.y), floori(position.z))):
+				break
 	_draw_line()
 
 

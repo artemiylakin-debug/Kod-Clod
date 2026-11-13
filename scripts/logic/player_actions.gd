@@ -425,7 +425,7 @@ func _use_item(player: Player, id: int, data: int, t: Dictionary) -> bool:
 			game.call("use_fishing_rod")
 			return true
 		Items.MINECART, Items.CHEST_MINECART, Items.FURNACE_MINECART, Items.BOAT, Items.PAINTING, Items.SADDLE:
-			if has_target and game.has_method("place_vehicle") and bool(game.call("place_vehicle", id, t)):
+			if game.has_method("place_vehicle") and bool(game.call("place_vehicle", id, t)):
 				if not player.creative:
 					inv.consume_selected(1)
 				return true
@@ -565,6 +565,8 @@ func _place(player: Player, id: int, data: int, t: Dictionary) -> bool:
 		return false
 	_consume(player)
 	_placed(p, block)
+	if Rails.is_rail(block):
+		Rails.on_placed(world, p, meta)
 	if block == Blocks.PUMPKIN or block == Blocks.JACK_O_LANTERN:
 		_check_golems(p)
 	if block == Blocks.SIGN_POST or block == Blocks.WALL_SIGN:

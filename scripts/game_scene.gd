@@ -475,6 +475,45 @@ func open_container(kind: String, pos: Vector3i) -> void:
 	_ui_state_changed()
 
 
+## Окно контейнера, который хранится не в блоке (вагонетка с сундуком).
+func open_entity_container(kind: String, data: Dictionary) -> void:
+	if not gameplay_active():
+		return
+	inventory_ui.open_data(kind, data)
+	_ui_state_changed()
+
+
+## Поставить вагонетку на рельсы, лодку на воду, картину на стену.
+func place_vehicle(id: int, t: Dictionary) -> bool:
+	match id:
+		Items.MINECART, Items.CHEST_MINECART, Items.FURNACE_MINECART:
+			if t.is_empty():
+				return false
+			var p: Vector3i = t["pos"]
+			if not Rails.is_rail(world.get_block_v(p)):
+				return false
+			var kind := "minecart"
+			if id == Items.CHEST_MINECART:
+				kind = "chest_minecart"
+			elif id == Items.FURNACE_MINECART:
+				kind = "furnace_minecart"
+			entities.spawn_vehicle(kind, Vector3(p) + Vector3(0.5, 0.0625, 0.5))
+			return true
+		Items.BOAT:
+			var hit := world.raycast(player.eye_position(), player.look_dir(), player.reach(), true)
+			if hit.is_empty():
+				return false
+			var p: Vector3i = hit["pos"]
+			var at := Vector3(p) + Vector3(0.5, 1.0, 0.5)
+			if Blocks.is_water(int(hit["block"])):
+				at.y = p.y + 0.76
+			entities.spawn_vehicle("boat", at, player.yaw)
+			return true
+		Items.PAINTING:
+			return entities.place_painting(t)
+	return false
+
+
 func open_pause() -> void:
 	if loading or pause_menu.visible:
 		return
