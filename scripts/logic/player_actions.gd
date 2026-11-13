@@ -411,8 +411,17 @@ func _use_item(player: Player, id: int, data: int, t: Dictionary) -> bool:
 					inv.consume_selected(1)
 				game.call("check_end_portal", tp)
 				return true
-			_throw(player, "ender_pearl", 0, 0.0)
-			return false
+			# Брошенное око летит в сторону ближайшей крепости.
+			var stronghold := Vector3.INF
+			if game != null and game.has_method("nearest_stronghold"):
+				stronghold = game.call("nearest_stronghold", player.position)
+			if stronghold == Vector3.INF:
+				return false
+			entities.spawn_ender_eye(player.eye_position(), stronghold)
+			_sound("bow", player.position, 0.5)
+			if not player.creative:
+				inv.consume_selected(1)
+			return true
 		Blocks.WATERLILY:
 			var wt := world.raycast(player.eye_position(), player.look_dir(), player.reach(), true)
 			if wt.is_empty() or int(wt["block"]) != Blocks.WATER:

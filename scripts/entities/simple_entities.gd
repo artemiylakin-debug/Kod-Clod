@@ -1,6 +1,6 @@
 class_name SimpleEntities
 extends RefCounted
-## Вспомогательные сущности: шарик опыта, падающий блок, подожжённый динамит, снаряд.
+## Вспомогательные сущности: шарик опыта, падающий блок, подожжённый динамит, снаряд, око Края.
 ## Каждая — Node3D с update_entity(dt), to_dict() и полем kind.
 
 
@@ -204,3 +204,83 @@ class Projectile extends Node3D:
 		if type != "arrow" or not stuck:
 			return {}
 		return {"kind": "arrow", "pos": [position.x, position.y, position.z]}
+
+
+## Брошенное око Края (EntityEnderEye 1.2): летит к ближайшей крепости — не дальше 12 блоков
+## по горизонтали и с подъёмом на 8, — зависает и через 4 секунды падает предметом (в 4 случаях
+## из 5) или разбивается.
+class EnderEye extends Node3D:
+	var kind := "ender_eye"
+	var world: World
+	var manager: Node
+	var target := Vector3.ZERO
+	## Скорость в блоках за тик (1/20 с), как в оригинале.
+	var motion := Vector3.ZERO
+	var drops := true
+	var ticks := 0
+	var _acc := 0.0
+	var _mesh: MeshInstance3D
+
+	## Цель — точка крепости (x, 64, z); rng решает, уцелеет ли око.
+	func aim(stronghold: Vector3, rng: RandomNumberGenerator) -> void:
+		var dx := stronghold.x - position.x
+		var dz := stronghold.z - position.z
+		var dist := sqrt(dx * dx + dz * dz)
+		if dist > 12.0:
+			target = Vector3(position.x + dx / dist * 12.0, position.y + 8.0, position.z + dz / dist * 12.0)
+		else:
+			target = stronghold
+		drops = rng.randi_range(0, 4) > 0
+
+	func _ready() -> void:
+		_mesh = MeshInstance3D.new()
+		_mesh.mesh = TextureFactory.item_mesh(Items.ENDER_EYE, 0)
+		_mesh.material_override = TextureFactory.instance_material(TextureFactory.entity_material)
+		_mesh.scale = Vector3.ONE * 0.4
+		_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_mesh)
+
+	func update_entity(dt: float) -> void:
+		_acc += dt
+		while _acc >= 0.05 and not is_queued_for_deletion():
+			_acc -= 0.05
+			_tick()
+		if is_queued_for_deletion() or world == null:
+			return
+		var cell := Vector3i(floori(position.x), floori(position.y), floori(position.z))
+		TextureFactory.set_light(_mesh, world.get_sky_light(cell) / 15.0, 0.6)
+		var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+		if cam != null and cam.global_position.distance_squared_to(global_position) > 0.01:
+			_mesh.look_at(cam.global_position, Vector3.UP)
+
+	func _tick() -> void:
+		position += motion
+		var horiz := Vector2(motion.x, motion.z).length()
+		var dx := target.x - position.x
+		var dz := target.z - position.z
+		var d := sqrt(dx * dx + dz * dz)
+		var angle := atan2(dz, dx)
+		var speed := horiz + (d - horiz) * 0.0025
+		if d < 1.0:
+			speed *= 0.8
+			motion.y *= 0.8
+		motion.x = cos(angle) * speed
+		motion.z = sin(angle) * speed
+		if position.y < target.y:
+			motion.y += (1.0 - motion.y) * 0.015
+		else:
+			motion.y += (-1.0 - motion.y) * 0.015
+		ticks += 1
+		if manager != null and ticks % 2 == 0:
+			manager.call("_fx", "portal_trail", position - motion * 0.25)
+		if ticks > 80:
+			if manager != null:
+				if drops:
+					manager.call("spawn_drop", Items.ENDER_EYE, 1, 0, position, Vector3.ZERO)
+				else:
+					manager.call("_fx", "eye_shatter", position)
+					manager.call("_fx_sound", "glass_break", position, 0.8)
+			queue_free()
+
+	func to_dict() -> Dictionary:
+		return {}

@@ -117,6 +117,17 @@ func spawn_projectile(type: String, pos: Vector3, vel: Vector3, shooter: Node3D 
 	return p
 
 
+## Око Края, брошенное к крепости stronghold (точка на высоте 64).
+func spawn_ender_eye(pos: Vector3, stronghold: Vector3) -> Node3D:
+	var e := SimpleEntities.EnderEye.new()
+	e.world = world
+	e.manager = self
+	e.position = pos
+	e.aim(stronghold, rng)
+	add_child(e)
+	return e
+
+
 # --- Снаряды ---------------------------------------------------------------
 
 ## Кого задевает снаряд на отрезке a→b: моба или игрока (не стрелявшего).

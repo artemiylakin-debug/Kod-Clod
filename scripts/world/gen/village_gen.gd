@@ -274,7 +274,7 @@ func _ground_level(p: GenPiece) -> int:
 	var pts := [Vector2i(p.x0, p.z0), Vector2i(p.x1, p.z0), Vector2i(p.x0, p.z1), Vector2i(p.x1, p.z1),
 		Vector2i((p.x0 + p.x1) >> 1, (p.z0 + p.z1) >> 1)]
 	for q: Vector2i in pts:
-		sum += maxi(gen.get_height(q.x, q.y), WorldGen.SEA_LEVEL)
+		sum += maxi(gen.get_height(q.x, q.y), gen.sea_level)
 	@warning_ignore("integer_division")
 	return sum / pts.size()
 

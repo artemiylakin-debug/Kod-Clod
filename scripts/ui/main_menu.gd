@@ -14,6 +14,8 @@ var _survival_btn: Button
 var _mode_hint: Label
 var _hardcore_btn: Button
 var _difficulty: OptionButton
+var _world_type: OptionButton
+var _structures_btn: Button
 var _confirm: Control
 var _confirm_label: Label
 var _confirm_id := ""
@@ -157,6 +159,8 @@ func _refresh_worlds() -> void:
 		name_label.custom_minimum_size = Vector2(300, 0)
 		info.add_child(name_label)
 		var mode := "Креатив" if bool(meta.get("creative", false)) else ("Хардкор" if bool(meta.get("hardcore", false)) else "Выживание")
+		if str(meta.get("world_type", "default")) == "flat":
+			mode += " · суперплоский"
 		var details := "%s · сид %d · %s" % [mode, int(meta.get("seed", 0)), _format_time(float(meta.get("last_played", 0)))]
 		info.add_child(UITheme.label(details, 17, Color(0.72, 0.72, 0.72)))
 		var play := UITheme.button("Играть", 150, 22)
@@ -220,17 +224,35 @@ func _build_create() -> void:
 	diff_row.add_theme_constant_override("separation", 12)
 	diff_row.add_child(UITheme.label("Сложность", 20, Color(0.8, 0.8, 0.8)))
 	_difficulty = OptionButton.new()
-	_difficulty.custom_minimum_size = Vector2(300, 48)
+	_difficulty.custom_minimum_size = Vector2(190, 48)
 	for k in Game.DIFFICULTY_NAMES.size():
 		_difficulty.add_item(Game.DIFFICULTY_NAMES[k], k)
 	_difficulty.select(2)
 	diff_row.add_child(_difficulty)
+	# Тип мира, как в 1.2: обычный или суперплоский.
+	diff_row.add_child(UITheme.label("Мир", 20, Color(0.8, 0.8, 0.8)))
+	_world_type = OptionButton.new()
+	_world_type.custom_minimum_size = Vector2(200, 48)
+	_world_type.add_item("Обычный", 0)
+	_world_type.add_item("Суперплоский", 1)
+	diff_row.add_child(_world_type)
 	vbox.add_child(diff_row)
 	vbox.add_child(UITheme.label("Сид генератора", 20, Color(0.8, 0.8, 0.8)))
+	var seed_row := HBoxContainer.new()
+	seed_row.add_theme_constant_override("separation", 12)
+	vbox.add_child(seed_row)
 	_seed_edit = LineEdit.new()
-	_seed_edit.placeholder_text = "Оставьте пустым для случайного мира"
-	_seed_edit.custom_minimum_size = Vector2(600, 52)
-	vbox.add_child(_seed_edit)
+	_seed_edit.placeholder_text = "Пусто — случайный мир"
+	_seed_edit.custom_minimum_size = Vector2(380, 52)
+	_seed_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	seed_row.add_child(_seed_edit)
+	# «Генерация построек»: деревни, шахты и крепости.
+	_structures_btn = UITheme.button("Постройки: да", 208, 20)
+	_structures_btn.toggle_mode = true
+	_structures_btn.button_pressed = true
+	_structures_btn.toggled.connect(func(on: bool) -> void:
+		_structures_btn.text = "Постройки: да" if on else "Постройки: нет")
+	seed_row.add_child(_structures_btn)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 16)
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -261,7 +283,8 @@ func _create_world() -> void:
 	if world_name.is_empty():
 		world_name = "Новый мир"
 	var id := Game.create_world(world_name, _creative_btn.button_pressed, _seed_edit.text, _difficulty.selected,
-		_hardcore_btn.button_pressed)
+		_hardcore_btn.button_pressed, "flat" if _world_type.selected == 1 else "default",
+		_structures_btn.button_pressed)
 	Game.start_world(id)
 
 
@@ -304,6 +327,8 @@ func _show(screen: String) -> void:
 	elif screen == "create":
 		_name_edit.text = "Новый мир"
 		_seed_edit.text = ""
+		_world_type.select(0)
+		_structures_btn.button_pressed = true
 		_survival_btn.button_pressed = true
 		_update_mode_hint()
 

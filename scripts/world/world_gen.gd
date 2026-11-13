@@ -46,6 +46,11 @@ var _soil := FastNoiseLite.new()
 var _carvers: Carvers
 var _decor: Decorator
 var _structures: Structures
+## Настройка мира «Генерация построек» (деревни, шахты, крепости). Задаётся игровой сценой
+## до начала генерации и одинакова для всех потоков.
+static var structures_enabled := true
+## Уровень моря для построек (у суперплоского мира моря нет).
+var sea_level := SEA_LEVEL
 ## Кэш колонок сетки плотности: ключ → PackedFloat32Array(17).
 var _grid_cache: Dictionary = {}
 
@@ -272,7 +277,8 @@ func _stage(s: int) -> void:
 			_decor.ores(1)
 			_decor.underground()
 		10:
-			_structures.generate()
+			if structures_enabled:
+				_structures.generate()
 		11:
 			_decor.trees(-1, 0, 2)
 		12:
@@ -292,7 +298,8 @@ func _after_terrain() -> void:
 		_structures = Structures.new(self)
 	_carvers.begin(buf, heights)
 	_decor.begin()
-	_structures.begin()
+	if structures_enabled:
+		_structures.begin()
 
 
 ## Готовый чанк (снег, лёд и животные — последним шагом).
@@ -308,12 +315,14 @@ func finish_chunk() -> Dictionary:
 
 ## Мешает ли постройка дереву в колонке (деревья не растут посреди деревень).
 func structure_blocks_tree(wx: int, wz: int) -> bool:
-	return _structures.blocks_tree(wx, wz)
+	return structures_enabled and _structures.blocks_tree(wx, wz)
 
 
 ## Центры трёх крепостей (мировые координаты x, z) — для глаза Края и отладки.
 func stronghold_positions() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
+	if not structures_enabled:
+		return out
 	for c: Vector2i in StrongholdGen.new(seed_value).start_chunks(biome_src):
 		out.append(Vector2i(c.x * 16 + 4, c.y * 16 + 4))
 	return out
@@ -321,6 +330,8 @@ func stronghold_positions() -> Array[Vector2i]:
 
 ## Центр деревни области 512×512 блоков (rx, rz) или Vector2i(1 << 30, 0), если её там нет.
 func village_center(rx: int, rz: int) -> Vector2i:
+	if not structures_enabled:
+		return Vector2i(1 << 30, 0)
 	return VillageGen.new(self).village_center(rx, rz)
 
 

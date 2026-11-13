@@ -121,8 +121,9 @@ func _ready() -> void:
 	world = World.new()
 	world.name = "World"
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	WorldGen.structures_enabled = bool(meta.get("structures", true))
 	world.setup(int(meta.get("seed", 0)), dimension_dir(dimension), int(Game.settings["render_distance"]),
-		generator_for(dimension), dimension)
+		generator_for(dimension, str(meta.get("world_type", "default"))), dimension)
 	world.sync_budget_usec = 40000
 	add_child(world)
 
@@ -673,6 +674,12 @@ func effect(kind: String, pos: Vector3, data := 0) -> void:
 			particles.flame(pos)
 		"potion":
 			particles.colored(pos, Color.hex(data << 8 | 0xFF), 10, 0.5, 0.6)
+		"portal_trail":
+			particles.portal(pos)
+		"eye_shatter":
+			particles.colored(pos, Color(0.2, 0.55, 0.45), 10, 0.4, 0.4)
+			for i in 6:
+				particles.portal(pos)
 
 
 ## Звуки событий блоков (вызывается действиями игрока и логикой).
@@ -685,6 +692,19 @@ func edit_sign(p: Vector3i) -> void:
 		return
 	sign_editor.open(p, Signs.lines_of(world.get_block_entity(p, false)))
 	_ui_state_changed()
+
+
+## Ближайшая к pos крепость (центр на высоте 64, как findClosestStructure в 1.2) или
+## Vector3.INF, если крепостей нет: в Нижнем мире, Крае, суперплоском мире и без построек.
+func nearest_stronghold(pos: Vector3) -> Vector3:
+	if dimension != 0 or not world.generator.has_method("stronghold_positions"):
+		return Vector3.INF
+	var best := Vector3.INF
+	for c: Vector2i in world.generator.call("stronghold_positions"):
+		var p := Vector3(c.x, 64.0, c.y)
+		if best == Vector3.INF or Vector2(p.x - pos.x, p.z - pos.z).length() < Vector2(best.x - pos.x, best.z - pos.z).length():
+			best = p
+	return best
 
 
 func check_end_portal(p: Vector3i) -> void:
@@ -1141,7 +1161,9 @@ func _on_lightning(pos: Vector3) -> void:
 
 # --- Измерения ---------------------------------------------------------------
 
-static func generator_for(dim: int) -> Script:
+static func generator_for(dim: int, world_type := "default") -> Script:
+	if dim == 0 and world_type == "flat":
+		return FlatGen
 	var path := NETHER_GEN_PATH if dim == -1 else (END_GEN_PATH if dim == 1 else "")
 	if not path.is_empty() and ResourceLoader.exists(path):
 		return load(path)

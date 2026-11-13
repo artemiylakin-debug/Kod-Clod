@@ -5,7 +5,8 @@ extends RefCounted
 ## (WorldGenSpikes) с бедроком и кристаллом Края на вершине. Интерфейс как у WorldGen.
 
 const LEVELS := 17
-const ISLAND_RADIUS := 82.0
+## Радиус острова: площадка прибытия (100, 49, 0) оказывается у самого края, как в 1.2.
+const ISLAND_RADIUS := 92.0
 const TOP := 62.0
 const PILLARS := 10
 

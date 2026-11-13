@@ -53,6 +53,7 @@ func _run() -> void:
 	_test_textures()
 	_test_worldgen()
 	_test_other_dimensions()
+	_test_ender_eye()
 	_test_mesher()
 	_test_light()
 	_test_inventory()
@@ -273,6 +274,40 @@ func _test_worldgen() -> void:
 		and int(ores[Blocks.DIAMOND_ORE]) > 0, "руды: угля больше железа, железа больше алмазов")
 	var spawn: Vector2i = gen.find_spawn_column()
 	check(gen.get_height(spawn.x, spawn.y) >= WorldGen.SEA_LEVEL, "точка появления на суше")
+
+
+## Око Края: летит к крепости не дальше 12 блоков, поднимаясь, и через 80 тиков падает или бьётся.
+func _test_ender_eye() -> void:
+	print("Око Края")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var eye := SimpleEntities.EnderEye.new()
+	eye.position = Vector3(0.5, 70.0, 0.5)
+	eye.aim(Vector3(800.0, 64.0, 0.5), rng)
+	check(is_equal_approx(eye.target.x, 12.5) and is_equal_approx(eye.target.y, 78.0), "цель — 12 блоков к крепости и 8 вверх")
+	var top := 0.0
+	for i in 80:
+		eye._tick()
+		top = maxf(top, eye.position.y)
+	check(eye.position.x > 7.0 and eye.position.x < 16.0 and absf(eye.position.z - 0.5) < 0.5,
+		"око долетело в сторону крепости (x=%.1f)" % eye.position.x)
+	check(top > 73.0, "и поднялось (до y=%.1f)" % top)
+	eye._tick()
+	check(eye.is_queued_for_deletion(), "через 4 секунды око исчезает")
+	eye.free()
+	var near := SimpleEntities.EnderEye.new()
+	near.position = Vector3(0.0, 40.0, 0.0)
+	near.aim(Vector3(5.0, 64.0, 3.0), rng)
+	check(near.target == Vector3(5.0, 64.0, 3.0), "рядом с крепостью — летит прямо к ней")
+	near.free()
+	var drops := 0
+	for i in 1000:
+		var e := SimpleEntities.EnderEye.new()
+		e.aim(Vector3(100, 64, 0), rng)
+		if e.drops:
+			drops += 1
+		e.free()
+	check(drops > 740 and drops < 860, "4 ока из 5 падают предметом, остальные бьются (%d из 1000)" % drops)
 
 
 func _test_other_dimensions() -> void:

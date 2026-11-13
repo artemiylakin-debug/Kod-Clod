@@ -31,6 +31,8 @@ func _run() -> void:
 	_test_mineshaft()
 	_test_stronghold()
 	_test_spawn()
+	_test_no_structures()
+	_test_flat()
 	var nether: Script = load("res://scripts/world/gen/nether_gen.gd")
 	var end: Script = load("res://scripts/world/gen/end_gen.gd")
 	if nether != null:
@@ -364,6 +366,71 @@ func _test_spawn() -> void:
 			Biomes.name_of(g.biome_at(sp.x, sp.y))])
 
 
+## «Генерация построек: нет» — ни деревень, ни крепостей, ни шахт; рельеф тот же.
+func _test_no_structures() -> void:
+	print("Мир без построек")
+	var g := WorldGen.new(SEED)
+	var c := _find_village(g)
+	var with := WorldGen.new(SEED).generate_chunk(c.x >> 4, c.y >> 4)
+	WorldGen.structures_enabled = false
+	var g2 := WorldGen.new(SEED)
+	check(g2.stronghold_positions().is_empty(), "крепостей нет — око Края некуда бросить")
+	check(g2.village_center(0, 0).x == 1 << 30 and _find_village(g2).x == 1 << 30, "деревень нет")
+	var without := WorldGen.new(SEED).generate_chunk(c.x >> 4, c.y >> 4)
+	WorldGen.structures_enabled = true
+	var doors_with := _count(with, Blocks.WOODEN_DOOR) + _count(with, Blocks.GRAVEL) + _count(with, Blocks.COBBLESTONE)
+	var doors_without := _count(without, Blocks.WOODEN_DOOR) + _count(without, Blocks.COBBLESTONE)
+	check(doors_with > 0 and _count(without, Blocks.WOODEN_DOOR) == 0 and doors_without < doors_with,
+		"на месте деревни только природа (%d → %d построечных блоков)" % [doors_with, doors_without])
+
+
+## Суперплоский мир: коренная порода, 2 земли, трава на y=3, равнины, деревни при включённых постройках.
+func _test_flat() -> void:
+	print("Суперплоский мир")
+	var g := FlatGen.new(SEED)
+	var d := g.generate_chunk(5, -7)
+	var blocks: PackedByteArray = d["blocks"]
+	var layers_ok := true
+	for col in [0, 37, 255]:
+		var want := [Blocks.BEDROCK, Blocks.DIRT, Blocks.DIRT, Blocks.GRASS, Blocks.AIR]
+		for y in 5:
+			if blocks[col + (y << 8)] != want[y]:
+				layers_ok = false
+	check(layers_ok, "слои: коренная порода, земля, земля, трава, дальше воздух")
+	check(_count(d, Blocks.STONE) == 0 and _count(d, Blocks.LOG) == 0 and _count(d, Blocks.COAL_ORE) == 0,
+		"ни камня, ни деревьев, ни руды")
+	check((d["biomes"] as PackedByteArray).count(Biomes.PLAINS) == 256 and g.get_height(123, -45) == 3,
+		"всюду равнины, поверхность на y=3")
+	check(g.stronghold_positions().is_empty(), "крепостей нет")
+	var c := _find_village(g)
+	check(c.x != 1 << 30, "деревня нашлась (%s)" % str(c))
+	if c.x == 1 << 30:
+		return
+	var doors := 0
+	var villagers := 0
+	var floating := 0
+	for dz in range(-2, 3):
+		for dx in range(-2, 3):
+			var v := FlatGen.new(SEED).generate_chunk((c.x >> 4) + dx, (c.y >> 4) + dz)
+			doors += _count(v, Blocks.WOODEN_DOOR)
+			var vb: PackedByteArray = v["blocks"]
+			# Над y=20 построек деревни быть не должно — дома стоят на траве.
+			for y in range(20, 40):
+				for col in 256:
+					if vb[col + (y << 8)] != Blocks.AIR:
+						floating += 1
+			for e: Dictionary in v["entities"]:
+				if int(e.get("type", 0)) == 120:
+					villagers += 1
+	check(doors >= 4 and villagers >= 2, "дома с дверями и жители (%d дверей, %d жителей)" % [doors, villagers])
+	check(floating == 0, "дома стоят на земле, а не на уровне моря (%d блоков выше y=20)" % floating)
+	WorldGen.structures_enabled = false
+	var none := FlatGen.new(SEED).generate_chunk(c.x >> 4, c.y >> 4)
+	WorldGen.structures_enabled = true
+	check(_count(none, Blocks.WOODEN_DOOR) == 0 and _count(none, Blocks.COBBLESTONE) == 0,
+		"без построек — пустая равнина")
+
+
 # --- Ад и Край -------------------------------------------------------------
 
 func _test_nether(script: Script) -> void:
@@ -427,6 +494,11 @@ func _test_end(script: Script) -> void:
 	print("    камня Края %d, обсидиана %d, кристаллов %d" % [stone, obsidian, crystals])
 	check(stone > 10000 and obsidian > 100 and crystals >= 4, "остров из камня Края, обсидиановые столбы с кристаллами")
 	check(_count(far, Blocks.AIR) == WorldGen.VOLUME, "вдали от острова — пустота")
+	# Как в 1.2: игрок прибывает на обсидиановую площадку (100, 49, 0) у края острова.
 	var sp: Vector2i = g.call("find_spawn_column")
-	var h: int = g.call("get_height", sp.x, sp.y)
-	check(h > 20, "точка появления на острове (%s, y=%d)" % [str(sp), h])
+	check(sp == Vector2i(Portals.END_SPAWN.x, Portals.END_SPAWN.z), "прибытие — к площадке у острова (%s)" % str(sp))
+	var edge := -1
+	for x in range(sp.x - 40, sp.x + 1):
+		if int(g.call("get_height", x, sp.y)) > 20:
+			edge = x
+	check(edge >= 0 and sp.x - edge <= 20, "от площадки до острова не больше 20 блоков (край на x=%d)" % edge)

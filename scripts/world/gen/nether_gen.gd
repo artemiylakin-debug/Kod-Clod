@@ -294,6 +294,24 @@ func fortress_center(rx: int, rz: int) -> Vector2i:
 	return Vector2i(ox, oz)
 
 
+## Ближайшая к точке (x, z) крепость (её центр) среди соседних областей или (1 << 30, 0).
+func fortress_near(x: int, z: int) -> Vector2i:
+	var best := Vector2i(1 << 30, 0)
+	var best_d := INF
+	var rx0 := floori(float(x) / REGION)
+	var rz0 := floori(float(z) / REGION)
+	for rz in range(rz0 - 1, rz0 + 2):
+		for rx in range(rx0 - 1, rx0 + 2):
+			var c := fortress_center(rx, rz)
+			if c.x == 1 << 30:
+				continue
+			var d := Vector2(c.x - x, c.y - z).length()
+			if d < best_d:
+				best_d = d
+				best = c
+	return best
+
+
 ## Этапы крепости: 0 — мосты и опоры, 1 — центральный зал, 2 — коридоры, 3 — площадка ифритов и сад.
 func _fortress(part: int) -> void:
 	var rx := floori(float(buf.ox) / REGION)
