@@ -4,10 +4,10 @@ extends RefCounted
 ## залами, стартующие в соседних чанках. Каждый чанк заново проходит все туннели, которые могут
 ## до него дотянуться (их путь задаётся сидом чанка-источника), и вырезает только свою часть —
 ## поэтому пещеры непрерывны на границах и не зависят от порядка генерации.
-## Радиус и длина туннелей меньше оригинала (5 чанков вместо 8, туннели 48–64 шага вместо 84–112),
-## а пещеры чуть чаще (1/12 чанков вместо 1/15), чтобы уложиться в бюджет времени.
+## Радиус и длина туннелей меньше оригинала (4 чанка вместо 8, туннели 36–48 шагов вместо 84–112),
+## а системы пещер чаще (1/8 чанков вместо 1/15), чтобы уложиться в бюджет времени.
 
-const CAVE_RANGE := 5
+const CAVE_RANGE := 4
 ## Наибольшая «ширина» туннеля (в оригинале изредка до 12 — огромные дорогие полости).
 const MAX_WIDTH := 6.0
 const RAVINE_RANGE := 8
@@ -19,8 +19,8 @@ var _buf: GenChunk
 ## Центр текущего чанка (для отсечения туннелей, которые до него не дотянутся).
 var _ccx := 0.0
 var _ccz := 0.0
-## Минимальная высота поверхности в чанке: глубже воды быть не может.
-var _min_surface := 0
+## Нижняя граница воды по колонкам (255 — воды нет); вода над рельефом — до уровня моря.
+var _water_low := PackedInt32Array()
 var _rng := RandomNumberGenerator.new()
 ## Множители ширины ущелья по высоте (рваные стены).
 var _ravine_rs := PackedFloat32Array()
@@ -31,11 +31,14 @@ func _init(p_seed: int) -> void:
 	_ravine_rs.resize(128)
 
 
-func begin(buf: GenChunk, min_surface: int) -> void:
+func begin(buf: GenChunk, heights: PackedInt32Array) -> void:
 	_buf = buf
 	_ccx = buf.ox + 8.0
 	_ccz = buf.oz + 8.0
-	_min_surface = min_surface
+	_water_low.resize(256)
+	for col in 256:
+		var h := heights[col]
+		_water_low[col] = h + 1 if h < WorldGen.SEA_LEVEL else 255
 
 
 static func _ri(rng: RandomNumberGenerator, n: int) -> int:
@@ -53,7 +56,7 @@ func caves(dz0: int, dz1: int) -> void:
 			var ocz := _buf.cz + dz
 			rng.seed = WorldGen.hash3(ocx, 4401, ocz, seed_value) * 7919 + ocx * 31 + ocz
 			var n := _ri(rng, _ri(rng, _ri(rng, 40) + 1) + 1)
-			if _ri(rng, 12) != 0:
+			if _ri(rng, 8) != 0:
 				continue
 			for i in n:
 				var x := float(ocx * 16 + _ri(rng, 16))
@@ -143,15 +146,11 @@ func _carve(x: float, y: float, z: float, rh: float, rv: float, floor_cut: float
 	if x0 >= x1 or z0 >= z1 or y0 >= y1:
 		return
 	var data := _buf.blocks
-	# Вода (океан, реки) может быть только выше самой низкой поверхности чанка.
-	if y1 + 1 >= _min_surface:
-		for yy in range(maxi(y0 - 1, _min_surface - 2), mini(y1 + 1, 255)):
-			for zz in range(z0, z1):
-				var row := (zz << 4) + (yy << 8)
-				for xx in range(x0, x1):
-					var b := data[row + xx]
-					if b == Blocks.WATER or b == Blocks.FLOWING_WATER:
-						return
+	# Рядом вода (океан, река) — шаг пропускается, чтобы не затопить пещеру.
+	for zz in range(z0, z1):
+		for xx in range(x0, x1):
+			if _water_low[xx + (zz << 4)] <= y1 + 1:
+				return
 	for zz in range(z0, z1):
 		var nz := (zz + oz + 0.5 - z) / rh
 		for xx in range(x0, x1):

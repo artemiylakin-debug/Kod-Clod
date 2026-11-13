@@ -354,12 +354,29 @@ func tree_candidates(ocx: int, ocz: int) -> Array:
 
 
 ## Деревья из этого и соседних чанков, дотягивающиеся до этого чанка, — в едином порядке, поэтому
-## перекрывающиеся кроны на границах одинаковы с обеих сторон. dz — ряд чанков-источников
-## (три этапа порционной генерации).
-func trees(dz: int) -> void:
+## перекрывающиеся кроны на границах одинаковы с обеих сторон. dz — ряд чанков-источников,
+## half — половина ряда (0 — левый сосед и первая половина деревьев своего столбца, 1 — остальное,
+## 2 — весь ряд): так работа делится на этапы порционной генерации без смены порядка.
+func trees(dz: int, half0: int, half1: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	for dx in range(-1, 2):
-		for c: Array in tree_candidates(buf.cx + dx, buf.cz + dz):
+		var list := tree_candidates(buf.cx + dx, buf.cz + dz)
+		var a := 0
+		var b := list.size()
+		if half0 == 0 and half1 == 1:
+			if dx == 1:
+				continue
+			if dx == 0:
+				@warning_ignore("integer_division")
+				b = list.size() / 2
+		elif half0 == 1 and half1 == 2:
+			if dx == -1:
+				continue
+			if dx == 0:
+				@warning_ignore("integer_division")
+				a = list.size() / 2
+		for ci in range(a, b):
+			var c: Array = list[ci]
 			var x: int = c[0]
 			var z: int = c[1]
 			var kind: int = c[2]
@@ -399,8 +416,12 @@ func surface() -> void:
 	var b := gen.local_biome(8, 8)
 	_discs(rng, b)
 	_plants(rng, b)
+
+
+## Последний шаг: снег и лёд, животные.
+func finish() -> void:
 	_snow_and_ice()
-	_animals(_seed(16), b)
+	_animals(_seed(16), gen.local_biome(8, 8))
 
 
 ## Верхний грунтовый блок каждой колонки (листва, брёвна наверху, растения и лианы пропускаются).

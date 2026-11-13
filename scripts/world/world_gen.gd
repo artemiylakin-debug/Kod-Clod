@@ -13,7 +13,7 @@ extends RefCounted
 ## ставит только свою часть. Не трогает дерево сцены — работает в рабочих потоках.
 ##
 ## Порционный режим (однопоточная веб-сборка): begin_chunk → fill_rows(z, z + 1) ×16 →
-## finish_chunk. fill_rows выполняет «этапы» с номерами z0..z1-1 (0–5 — рельеф по 2–3 ряда,
+## finish_chunk. fill_rows выполняет «этапы» с номерами z0..z1-1 (0–4 — рельеф по 3–4 ряда,
 ## дальше — пещеры, ущелья, руды, данжи, постройки, деревья, растения); результат не зависит от
 ## разбиения на вызовы.
 
@@ -32,7 +32,7 @@ const NOISE_AMP := 26.0
 const NOISE_VSCALE := 0.5
 const STAGES := 16
 ## Ряды рельефа по этапам 0–5.
-const TERRAIN_ROWS := [0, 3, 6, 9, 12, 14, 16]
+const TERRAIN_ROWS := [0, 3, 6, 9, 12, 16]
 ## Вероятность коренной породы на высотах 0–4 (из 16): (5 − y) / 5, как y ≤ rand(5) в 1.2.
 const BEDROCK_CHANCE := [16, 13, 10, 6, 3]
 
@@ -154,8 +154,9 @@ func grid_column(gx: int, gz: int) -> PackedFloat32Array:
 
 
 ## Плотность колонки (wx, wz) по четырём узлам сетки — общая формула для чанка и get_height.
+## Результат — в PackedFloat64Array, чтобы совпадать до бита с get_height (там вычисления в double).
 static func _column_dens(a: PackedFloat32Array, b: PackedFloat32Array, c: PackedFloat32Array,
-		e: PackedFloat32Array, fx: float, fz: float, out: PackedFloat32Array) -> void:
+		e: PackedFloat32Array, fx: float, fz: float, out: PackedFloat64Array) -> void:
 	for k in GRID_LEVELS:
 		var p := a[k] + (b[k] - a[k]) * fx
 		var q := c[k] + (e[k] - c[k]) * fx
@@ -163,7 +164,7 @@ static func _column_dens(a: PackedFloat32Array, b: PackedFloat32Array, c: Packed
 
 
 ## Верхний y с положительной плотностью (0, если колонка пуста).
-static func _top_from_dens(d: PackedFloat32Array) -> int:
+static func _top_from_dens(d: PackedFloat64Array) -> int:
 	for k in range(GRID_LEVELS - 2, -1, -1):
 		var a := d[k]
 		var b := d[k + 1]
@@ -253,31 +254,33 @@ func fill_rows(z0: int, z1: int) -> void:
 
 
 func _stage(s: int) -> void:
-	if s < 6:
+	if s < 5:
 		_terrain_rows(TERRAIN_ROWS[s], TERRAIN_ROWS[s + 1])
-		if s == 5:
+		if s == 4:
 			_after_terrain()
 		return
 	match s:
-		6:
+		5:
 			_carvers.caves(-Carvers.CAVE_RANGE, -1)
-		7:
+		6:
 			_carvers.caves(0, Carvers.CAVE_RANGE)
-		8:
+		7:
 			_carvers.ravines()
-		9:
+		8:
 			_decor.ores(0)
-		10:
+		9:
 			_decor.ores(1)
 			_decor.underground()
-		11:
+		10:
 			_structures.generate()
+		11:
+			_decor.trees(-1, 0, 2)
 		12:
-			_decor.trees(-1)
+			_decor.trees(0, 0, 1)
 		13:
-			_decor.trees(0)
+			_decor.trees(0, 1, 2)
 		14:
-			_decor.trees(1)
+			_decor.trees(1, 0, 2)
 		15:
 			_decor.surface()
 
@@ -287,13 +290,14 @@ func _after_terrain() -> void:
 		_carvers = Carvers.new(seed_value)
 		_decor = Decorator.new(self)
 		_structures = Structures.new(self)
-	_carvers.begin(buf, min_surface)
+	_carvers.begin(buf, heights)
 	_decor.begin()
 	_structures.begin()
 
 
-## Готовый чанк.
+## Готовый чанк (снег, лёд и животные — последним шагом).
 func finish_chunk() -> Dictionary:
+	_decor.finish()
 	var out := {"blocks": buf.blocks, "meta": buf.meta, "biomes": _biomes, "block_entities": buf.block_entities,
 		"entities": buf.entities}
 	buf = null
@@ -307,6 +311,19 @@ func structure_blocks_tree(wx: int, wz: int) -> bool:
 	return _structures.blocks_tree(wx, wz)
 
 
+## Центры трёх крепостей (мировые координаты x, z) — для глаза Края и отладки.
+func stronghold_positions() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for c: Vector2i in StrongholdGen.new(seed_value).start_chunks(biome_src):
+		out.append(Vector2i(c.x * 16 + 4, c.y * 16 + 4))
+	return out
+
+
+## Центр деревни области 512×512 блоков (rx, rz) или Vector2i(1 << 30, 0), если её там нет.
+func village_center(rx: int, rz: int) -> Vector2i:
+	return VillageGen.new(self).village_center(rx, rz)
+
+
 ## Биом колонки чанка (локальные координаты).
 func local_biome(lx: int, lz: int) -> int:
 	return _biomes[lx + lz * 16]
@@ -316,7 +333,7 @@ func local_biome(lx: int, lz: int) -> int:
 ## наполнитель биома (как replaceBlocksForBiome), песчаник под песком, коренная порода.
 func _terrain_rows(z0: int, z1: int) -> void:
 	var data := buf.blocks
-	var dens := PackedFloat32Array()
+	var dens := PackedFloat64Array()
 	dens.resize(GRID_LEVELS)
 	var gx0 := buf.cx * 4
 	var gz0 := buf.cz * 4
@@ -340,7 +357,7 @@ func _terrain_rows(z0: int, z1: int) -> void:
 			_fill_column(data, col, dens, top, _biomes[col], soil_depth(buf.ox + x, buf.oz + z), buf.ox + x, buf.oz + z)
 
 
-func _fill_column(data: PackedByteArray, col: int, dens: PackedFloat32Array, top: int, biome: int, soil: int,
+func _fill_column(data: PackedByteArray, col: int, dens: PackedFloat64Array, top: int, biome: int, soil: int,
 		wx: int, wz: int) -> void:
 	var top_b := Biomes.top_block(biome)
 	var fill_b := Biomes.filler_block(biome)
