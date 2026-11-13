@@ -6,10 +6,12 @@ signal resume_requested
 signal mode_toggle_requested
 signal settings_requested
 signal difficulty_requested
+signal view_requested
 signal quit_requested
 
 var _mode_button: Button
 var _difficulty_button: Button
+var _view_button: Button
 var _info: Label
 
 
@@ -39,12 +41,21 @@ func _ready() -> void:
 	_difficulty_button = UITheme.button("", 460)
 	_difficulty_button.pressed.connect(func() -> void: difficulty_requested.emit())
 	vbox.add_child(_difficulty_button)
+	_view_button = UITheme.button("", 460)
+	_view_button.pressed.connect(func() -> void: view_requested.emit())
+	vbox.add_child(_view_button)
+	set_view(0)
 	var settings := UITheme.button("Настройки", 460)
 	settings.pressed.connect(func() -> void: settings_requested.emit())
 	vbox.add_child(settings)
 	var quit := UITheme.button("Сохранить и выйти в меню", 460)
 	quit.pressed.connect(func() -> void: quit_requested.emit())
 	vbox.add_child(quit)
+
+
+## Подпись кнопки вида камеры (F5).
+func set_view(mode: int) -> void:
+	_view_button.text = "Вид: %s (F5)" % ["от первого лица", "сзади", "спереди"][clampi(mode, 0, 2)]
 
 
 func set_info(world_name: String, seed_value: int, creative: bool, difficulty := 2, hardcore := false) -> void:

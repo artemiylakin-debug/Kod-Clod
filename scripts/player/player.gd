@@ -76,6 +76,10 @@ var dead := false
 var spawn_point := Vector3.ZERO
 ## Транспорт, в котором едет игрок (вагонетка, лодка), или null.
 var vehicle: Node3D
+## Вид камеры (F5): 0 — от первого лица, 1 — сзади, 2 — спереди.
+var view_mode := 0
+var _eye_y := EYE_HEIGHT
+var _model: PlayerModel
 ## Сложность: 0 мирная, 1 лёгкая, 2 нормальная, 3 сложная.
 var difficulty := 2
 ## Пока чанк под игроком не загружен, физика заморожена.
@@ -251,11 +255,12 @@ func facing() -> int:
 
 
 func look_dir() -> Vector3:
-	return -camera.global_transform.basis.z
+	# По углам обзора, а не по камере: в виде от третьего лица камера смотрит иначе.
+	return (Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)) * Vector3(0, 0, -1)
 
 
 func eye_position() -> Vector3:
-	return camera.global_position
+	return global_transform * Vector3(0, _eye_y, 0)
 
 
 ## Двойное нажатие прыжка в креативе включает/выключает полёт.
@@ -351,6 +356,7 @@ func _process(delta: float) -> void:
 	_update_using(timer_dt)
 	_update_survival(timer_dt)
 	_update_hand(delta)
+	_update_view(delta)
 	_track_movement()
 	if position.y < -64.0:
 		# Страховка от падения в пустоту.
@@ -359,6 +365,32 @@ func _process(delta: float) -> void:
 			velocity = Vector3.ZERO
 		else:
 			take_damage(4, "void")
+
+
+## Переключение вида (F5): от первого лица → сзади → спереди.
+func cycle_view() -> void:
+	view_mode = (view_mode + 1) % 3
+
+
+## Камера от третьего лица: на 4 блока за спиной (или перед лицом), ближе — если мешают блоки.
+func _update_view(delta: float) -> void:
+	if _model == null:
+		_model = PlayerModel.new()
+		_model.create(self)
+	if view_mode != 0:
+		hand.visible = false
+	_model.update(self, delta, view_mode != 0 and not dead)
+	if view_mode == 0:
+		return
+	var dir_local := Basis(Vector3.RIGHT, pitch) * Vector3(0, 0, -1)
+	var off_local := -dir_local if view_mode == 1 else dir_local
+	var eye_local := Vector3(0, _eye_y, 0)
+	var dist := 4.0
+	var hit := world.raycast(eye_position(), (global_transform.basis * off_local).normalized(), dist)
+	if not hit.is_empty():
+		dist = maxf(eye_position().distance_to(hit["hit"]) - 0.3, 0.3)
+	camera.position = eye_local + off_local * dist
+	camera.rotation = Vector3(pitch, 0, 0) if view_mode == 1 else Vector3(-pitch, PI, 0)
 
 
 ## Направление движения с клавиатуры/джойстика (для транспорта): x — вбок, y — вперёд (−1).
@@ -606,7 +638,8 @@ func _update_environment_state(dt: float) -> void:
 
 func _update_camera(dt: float) -> void:
 	var eye := SNEAK_EYE_HEIGHT if sneaking else EYE_HEIGHT
-	camera.position.y = lerpf(camera.position.y, eye, 1.0 - exp(-15.0 * dt))
+	_eye_y = lerpf(_eye_y, eye, 1.0 - exp(-15.0 * dt))
+	camera.position = Vector3(0, _eye_y, 0)
 	var moving := _move_input.length() > 0.1
 	var fov_target := base_fov * (1.1 if sprinting and moving else 1.0)
 	if effects.has(Potions.SPEED):
@@ -644,7 +677,7 @@ func _update_target() -> void:
 		target = {}
 		return
 	var stop_liquid := inventory.selected_id() == Items.BUCKET
-	target = world.raycast(camera.global_position, look_dir(), reach(), stop_liquid)
+	target = world.raycast(eye_position(), look_dir(), reach(), stop_liquid)
 	if not target.is_empty() and Blocks.is_liquid(int(target["block"])) and not stop_liquid:
 		target = {}
 

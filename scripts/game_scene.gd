@@ -382,6 +382,9 @@ func _build_ui() -> void:
 	pause_menu.resume_requested.connect(resume)
 	pause_menu.mode_toggle_requested.connect(func() -> void: set_creative(not creative))
 	pause_menu.difficulty_requested.connect(func() -> void: set_difficulty((difficulty + 1) % 4))
+	pause_menu.view_requested.connect(func() -> void:
+		player.cycle_view()
+		pause_menu.set_view(player.view_mode))
 	pause_menu.settings_requested.connect(func() -> void:
 		pause_menu.visible = false
 		settings_panel.open())
@@ -755,6 +758,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.toggle_debug()
 	elif event.is_action_pressed("toggle_mode") and gameplay_active():
 		set_creative(not creative)
+	elif event.is_action_pressed("toggle_view") and gameplay_active():
+		player.cycle_view()
 	elif event.is_action_pressed("drop_item") and gameplay_active():
 		_drop_selected()
 	elif event is InputEventMouseButton:

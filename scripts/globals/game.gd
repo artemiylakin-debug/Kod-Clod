@@ -87,6 +87,7 @@ func _setup_input_map() -> void:
 	_bind("drop_item", [KEY_Q])
 	_bind("toggle_debug", [KEY_F3])
 	_bind("toggle_mode", [KEY_F4])
+	_bind("toggle_view", [KEY_F5])
 
 
 ## Используются физические клавиши, чтобы WASD работали и в русской раскладке.

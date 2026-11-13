@@ -78,8 +78,15 @@ func update_entity(dt: float) -> void:
 		if _bite > 0.0:
 			target_y -= 0.35
 		position.y = lerpf(position.y, target_y, minf(dt * 6.0, 1.0))
-		position.x += velocity.x * dt
-		position.z += velocity.z * dt
+		# По воде дрейфует, но на берег не выплывает.
+		var nx := position.x + velocity.x * dt
+		var nz := position.z + velocity.z * dt
+		if Blocks.is_water(world.get_block(floori(nx), cell.y, floori(nz))):
+			position.x = nx
+			position.z = nz
+		else:
+			velocity.x = 0.0
+			velocity.z = 0.0
 		_update_fishing(dt)
 	elif not on_ground:
 		# Полёт считаем подшагами по 1/60 с, чтобы дальность заброса не зависела от FPS.

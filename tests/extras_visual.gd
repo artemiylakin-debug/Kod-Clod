@@ -136,6 +136,21 @@ func _run() -> void:
 	g.set("time_of_day", 0.15)
 	w.set_block(c.x, c.y + 1, c.z - 2, Blocks.AIR)
 
+	# --- Вид от третьего лица (F5) ---
+	p.position = Vector3(c) + Vector3(0.5, 1.001, 0.5)
+	p.set_look(deg_to_rad(150.0), deg_to_rad(-40.0))
+	p.cycle_view()
+	await frames(10)
+	check(p.view_mode == 1 and not p.hand.visible, "F5: вид сзади, рука скрыта")
+	await shot("third_person_back")
+	p.cycle_view()
+	await frames(10)
+	check(not p.target.is_empty(), "в виде спереди прицел по-прежнему перед игроком")
+	await shot("third_person_front")
+	p.cycle_view()
+	await frames(3)
+	check(p.view_mode == 0, "F5: снова от первого лица")
+
 	# --- Таблички ---
 	var sp := c + Vector3i(3, 1, -2)
 	w.set_block(sp.x, sp.y, sp.z, Blocks.SIGN_POST, 8)
