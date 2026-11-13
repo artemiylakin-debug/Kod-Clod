@@ -99,12 +99,8 @@ func use(player: Player, first: bool) -> bool:
 	var id := inv.selected_id()
 	var data := inv.selected_data()
 	# Существо под прицелом.
-	if first:
-		var hit := entities.raycast(player.eye_position(), player.look_dir(), 3.5)
-		if not hit.is_empty():
-			var closer := player.target.is_empty() or player.eye_position().distance_to(player.target["hit"]) > float(hit["dist"])
-			if closer and entities.interact(hit["entity"]):
-				return true
+	if first and use_on_entity(player):
+		return true
 	var t := player.target
 	# Блок с действием (кроме приседания — тогда ставим предмет рядом).
 	if first and not t.is_empty() and not player.sneaking and is_usable_block(int(t["block"])):
@@ -116,6 +112,15 @@ func use(player: Player, first: bool) -> bool:
 	if t.is_empty():
 		return false
 	return _place(player, id, data, t)
+
+
+## Правая кнопка по существу под прицелом (ближе блока). true — существо отреагировало.
+func use_on_entity(player: Player) -> bool:
+	var hit := entities.raycast(player.eye_position(), player.look_dir(), 3.5)
+	if hit.is_empty():
+		return false
+	var closer := player.target.is_empty() or player.eye_position().distance_to(player.target["hit"]) > float(hit["dist"])
+	return closer and entities.interact(hit["entity"])
 
 
 func _use_block(player: Player, t: Dictionary) -> bool:
