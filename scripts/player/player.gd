@@ -732,6 +732,13 @@ func _update_using(dt: float) -> void:
 	var id := inventory.selected_id()
 	# Поедание: удерживать (или тап на сенсорном экране — доедается само).
 	if (Items.is_food(id) or id == Items.MILK_BUCKET or id == Items.POTION) and _can_consume(id):
+		# Еда в руке по существу (мясо волку, рыба оцелоту) — кормление, а не поедание.
+		if _place_queued and eat_progress <= 0.0 and actions != null and actions.has_method("use_on_entity") \
+				and bool(actions.call("use_on_entity", self)):
+			_place_queued = false
+			_swing = 1.0
+			_use_was = holding
+			return
 		if _place_queued and (target.is_empty() or not _block_is_usable(target)):
 			_place_queued = false
 			_auto_eat = not holding
