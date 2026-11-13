@@ -9,7 +9,7 @@ enum { NONE = 0, SPEED = 1, SLOWNESS = 2, HASTE = 3, MINING_FATIGUE = 4, STRENGT
 	WATER_BREATHING = 13, INVISIBILITY = 14, BLINDNESS = 15, NIGHT_VISION = 16, HUNGER = 17, WEAKNESS = 18,
 	POISON = 19 }
 
-const EFFECT_NAMES := {
+static var EFFECT_NAMES := {
 	SPEED: "Скорость", SLOWNESS: "Замедление", STRENGTH: "Сила", INSTANT_HEALTH: "Исцеление",
 	INSTANT_DAMAGE: "Вред", REGENERATION: "Регенерация", FIRE_RESISTANCE: "Огнестойкость",
 	HUNGER: "Голод", WEAKNESS: "Слабость", POISON: "Отравление",
@@ -25,7 +25,7 @@ const LEVEL_TWO := 32
 const EXTENDED := 64
 
 ## Тип зелья (биты 0–3) → [эффект, длительность в секундах (обычная, продлённая, уровень II), цвет].
-const KINDS := {
+static var KINDS := {
 	1: [REGENERATION, [45, 120, 22], Color8(205, 92, 171)],
 	2: [SPEED, [180, 480, 90], Color8(124, 175, 198)],
 	3: [FIRE_RESISTANCE, [180, 480, 180], Color8(228, 154, 58)],
@@ -37,7 +37,7 @@ const KINDS := {
 	12: [INSTANT_DAMAGE, [0, 0, 0], Color8(67, 10, 9)],
 }
 
-const CREATIVE := [0, 16, 32, 64, 8193, 8225, 8257, 8194, 8226, 8258, 8195, 8259, 8196, 8228, 8260, 8197, 8229,
+static var CREATIVE := [0, 16, 32, 64, 8193, 8225, 8257, 8194, 8226, 8258, 8195, 8259, 8196, 8228, 8260, 8197, 8229,
 	8200, 8264, 8201, 8233, 8265, 8202, 8266, 8204, 8236, 16385, 16386, 16388, 16389, 16392, 16393, 16394, 16396]
 
 

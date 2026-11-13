@@ -12,9 +12,9 @@ const SEA := WorldGen.SEA_LEVEL
 const GRASS_TRIES := 24
 const FLOWER_TRIES := 12
 ## Смещения клеток «шарика» жилы, по возрастанию удалённости: центр, 6 граней, 12 рёбер, 8 углов.
-const VEIN_X := [0, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1]
-const VEIN_Y := [0, 0, 0, 1, -1, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1]
-const VEIN_Z := [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1]
+static var VEIN_X := [0, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1]
+static var VEIN_Y := [0, 0, 0, 1, -1, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1]
+static var VEIN_Z := [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1]
 
 ## Приёмник блоков дерева, пишущий прямо в чанк (с отсечением по его границам).
 class ChunkSink extends TreeGen.Sink:
@@ -784,16 +784,19 @@ func _reeds(rng: RandomNumberGenerator) -> void:
 
 
 ## Кактусы (WorldGenCactus): на песке, без соседних блоков, высота 1–3.
+## Как в 1.2, высота попытки случайна (0–127, ±3): кактус вырастает, только если она пришлась
+## на поверхность песка, поэтому в пустыне их немного.
 func _cacti(rng: RandomNumberGenerator) -> void:
 	var cx := _ri(rng, 16)
 	var cz := _ri(rng, 16)
+	var cy := _ri(rng, 128)
 	for t in 10:
 		var x := cx + _ri(rng, 8) - _ri(rng, 8)
 		var z := cz + _ri(rng, 8) - _ri(rng, 8)
 		if x < 1 or x > 14 or z < 1 or z > 14:
 			continue
 		var y := _ground_at(x, z)
-		if _block(x, y, z) != Blocks.SAND:
+		if _block(x, y, z) != Blocks.SAND or absi(cy + _ri(rng, 4) - _ri(rng, 4) - y) > 1:
 			continue
 		var h := 1 + _ri(rng, _ri(rng, 3) + 1)
 		for k in h:

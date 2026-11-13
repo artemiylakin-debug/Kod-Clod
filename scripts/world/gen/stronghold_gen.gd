@@ -15,7 +15,7 @@ const REACH_CHUNKS := 8
 const MAX_DIST := 112
 const MAX_PIECES := 60
 ## Вид → [ширина, высота, глубина, x проёма входа, y проёма входа, вес, предел, мин. глубина].
-const TYPES := {
+static var TYPES := {
 	CORRIDOR: [5, 5, 7, 1, 1, 40, 0, 0],
 	CHEST_CORRIDOR: [5, 5, 7, 1, 1, 5, 4, 0],
 	TURN_LEFT: [5, 5, 5, 1, 1, 20, 0, 0],

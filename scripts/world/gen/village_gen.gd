@@ -16,7 +16,7 @@ const MAX_DIST := 88
 ## Радиус (в чанках), на котором чанку нужно знать о деревне.
 const REACH_CHUNKS := 7
 ## Вид → [ширина, высота, глубина, x двери, вес, мин, макс] (веса и лимиты — как в 1.2).
-const TYPES := {
+static var TYPES := {
 	HOUSE_SMALL: [5, 6, 5, 2, 4, 2, 4],
 	CHURCH: [5, 13, 9, 2, 20, 0, 1],
 	LIBRARY: [9, 8, 6, 1, 20, 0, 2],
@@ -28,7 +28,7 @@ const TYPES := {
 	HOUSE_BIG: [9, 8, 7, 4, 8, 0, 3],
 }
 ## Профессии жителей 1.2: 0 фермер, 1 библиотекарь, 2 священник, 3 кузнец, 4 мясник.
-const VILLAGERS := {
+static var VILLAGERS := {
 	HOUSE_SMALL: [0], HUT: [0], LIBRARY: [1], BUTCHER: [4, 0], BLACKSMITH: [3], CHURCH: [2], HOUSE_BIG: [0, 0],
 }
 

@@ -9,7 +9,7 @@ const CHUNK_MAGIC_V1 := 0x424B4331 # "BKC1"
 const CHUNK_MAGIC := 0x424B4332 # "BKC2"
 const V1_HEIGHT := 128
 ## Старые номера блоков (до версии с полным набором 1.2) → номера Minecraft.
-const V1_IDS := [0, 2, 3, 1, 4, 17, 18, 5, 12, 20, 7, 9, 16, 15, 45, 80, 13, 98, 47]
+static var V1_IDS := [0, 2, 3, 1, 4, 17, 18, 5, 12, 20, 7, 9, 16, 15, 45, 80, 13, 98, 47]
 
 
 static func world_dir(id: String) -> String:

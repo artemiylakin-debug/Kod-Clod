@@ -13,7 +13,7 @@ enum {
 }
 
 ## [название, температура, влажность, цвет травы, цвет листвы]
-const INFO := [
+static var INFO := [
 	["Океан", 0.5, 0.5, Color8(142, 185, 113), Color8(113, 167, 77)],
 	["Равнины", 0.8, 0.4, Color8(145, 189, 89), Color8(119, 171, 47)],
 	["Пустыня", 2.0, 0.0, Color8(191, 183, 85), Color8(174, 164, 42)],
@@ -40,26 +40,26 @@ const INFO := [
 ]
 
 ## Рельеф биома, как setMinMaxHeight в 1.2: [minHeight (глубина), maxHeight (разброс высот)].
-const HEIGHTS := [
+static var HEIGHTS := [
 	[-1.0, 0.4], [0.1, 0.3], [0.1, 0.2], [0.2, 1.3], [0.1, 0.3], [0.1, 0.4], [-0.2, 0.1], [-0.5, 0.0],
 	[0.1, 0.3], [0.1, 0.3], [-1.0, 0.5], [-0.5, 0.0], [0.1, 0.3], [0.2, 1.2], [0.2, 1.0], [-1.0, 0.1],
 	[0.0, 0.1], [0.2, 0.7], [0.2, 0.6], [0.2, 0.7], [0.2, 0.8], [0.2, 0.4], [1.8, 0.5],
 ]
 
 ## Верхний блок и наполнитель поверхности (topBlock / fillerBlock).
-const TOP_BLOCKS := [
+static var TOP_BLOCKS := [
 	Blocks.GRASS, Blocks.GRASS, Blocks.SAND, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS,
 	Blocks.NETHERRACK, Blocks.END_STONE, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.MYCELIUM,
 	Blocks.MYCELIUM, Blocks.SAND, Blocks.SAND, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS, Blocks.GRASS,
 ]
-const FILLER_BLOCKS := [
+static var FILLER_BLOCKS := [
 	Blocks.DIRT, Blocks.DIRT, Blocks.SAND, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT,
 	Blocks.NETHERRACK, Blocks.END_STONE, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT,
 	Blocks.DIRT, Blocks.SAND, Blocks.SAND, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT, Blocks.DIRT,
 ]
 
 ## Биомы, в которых может оказаться точка появления (как biomesToSpawnIn в 1.2).
-const SPAWN_BIOMES := [FOREST, PLAINS, TAIGA, TAIGA_HILLS, FOREST_HILLS, JUNGLE, JUNGLE_HILLS]
+static var SPAWN_BIOMES := [FOREST, PLAINS, TAIGA, TAIGA_HILLS, FOREST_HILLS, JUNGLE, JUNGLE_HILLS]
 
 
 static func name_of(b: int) -> String:

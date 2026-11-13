@@ -32,9 +32,9 @@ const NOISE_AMP := 26.0
 const NOISE_VSCALE := 0.5
 const STAGES := 16
 ## Ряды рельефа по этапам 0–5.
-const TERRAIN_ROWS := [0, 3, 6, 9, 12, 16]
+static var TERRAIN_ROWS := [0, 3, 6, 9, 12, 16]
 ## Вероятность коренной породы на высотах 0–4 (из 16): (5 − y) / 5, как y ≤ rand(5) в 1.2.
-const BEDROCK_CHANCE := [16, 13, 10, 6, 3]
+static var BEDROCK_CHANCE := [16, 13, 10, 6, 3]
 
 var seed_value := 0
 var biome_src: BiomeSource

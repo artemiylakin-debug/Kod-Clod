@@ -52,6 +52,7 @@ func _run() -> void:
 	_test_enchantments()
 	_test_textures()
 	_test_worldgen()
+	_test_other_dimensions()
 	_test_mesher()
 	_test_light()
 	_test_inventory()
@@ -272,6 +273,64 @@ func _test_worldgen() -> void:
 		and int(ores[Blocks.DIAMOND_ORE]) > 0, "руды: угля больше железа, железа больше алмазов")
 	var spawn: Vector2i = gen.find_spawn_column()
 	check(gen.get_height(spawn.x, spawn.y) >= WorldGen.SEA_LEVEL, "точка появления на суше")
+
+
+func _test_other_dimensions() -> void:
+	print("Нижний мир и Край")
+	var ng := NetherGen.new(777)
+	var a: Dictionary = ng.generate_chunk(0, 0)
+	var ab: PackedByteArray = a["blocks"]
+	check(ab == NetherGen.new(777).generate_chunk(0, 0)["blocks"], "Нижний мир детерминирован")
+	check(ab[0] == Blocks.BEDROCK and ab[Chunk.index_of(0, 127, 0)] == Blocks.BEDROCK, "коренная порода снизу и сверху")
+	var counts := {}
+	for cz in range(-2, 3):
+		for cx in range(-2, 3):
+			var d: PackedByteArray = ng.generate_chunk(cx, cz)["blocks"]
+			for id in [Blocks.NETHERRACK, Blocks.LAVA, Blocks.GLOWSTONE, Blocks.SOUL_SAND, Blocks.GRAVEL, Blocks.FIRE]:
+				counts[id] = int(counts.get(id, 0)) + d.count(id)
+	print("    в 25 чанках: ", counts)
+	check(int(counts[Blocks.NETHERRACK]) > 100000 and int(counts[Blocks.LAVA]) > 1000, "незерак и лавовое море")
+	check(int(counts[Blocks.GLOWSTONE]) > 20 and int(counts[Blocks.SOUL_SAND]) > 0, "светокамень и песок душ")
+	var c := ng.fortress_center(0, 0)
+	var bricks := 0
+	var spawners := 0
+	for cz in range(floori(c.y / 16.0) - 3, floori(c.y / 16.0) + 4):
+		for cx in range(floori(c.x / 16.0) - 3, floori(c.x / 16.0) + 4):
+			var d: Dictionary = ng.generate_chunk(cx, cz)
+			bricks += (d["blocks"] as PackedByteArray).count(Blocks.NETHER_BRICK)
+			for be: Dictionary in (d["block_entities"] as Dictionary).values():
+				if int(be.get("mob", 0)) == 61:
+					spawners += 1
+	check(bricks > 1000 and spawners == 1, "крепость у начала координат: кирпичей %d, рассадник ифритов %d" % [bricks, spawners])
+	var lava_ok := true
+	for y in range(5, 40):
+		var id := ab[Chunk.index_of(3, y, 3)]
+		if id == Blocks.AIR and y <= NetherGen.LAVA_LEVEL:
+			lava_ok = false
+	check(lava_ok, "ниже y = 31 нет воздуха — только лава или камень")
+	var eg := EndGen.new(777)
+	var e0: Dictionary = eg.generate_chunk(0, 0)
+	var eb: PackedByteArray = e0["blocks"]
+	check(eb.count(Blocks.END_STONE) > 2000, "в центре Края — остров из камня Края (%d)" % eb.count(Blocks.END_STONE))
+	check((eg.generate_chunk(40, 40)["blocks"] as PackedByteArray).count(Blocks.AIR) == WorldGen.VOLUME, "вдали — пустота")
+	var crystals := 0
+	var obsidian := 0
+	for cz in range(-5, 5):
+		for cx in range(-5, 5):
+			var d: Dictionary = eg.generate_chunk(cx, cz)
+			obsidian += (d["blocks"] as PackedByteArray).count(Blocks.OBSIDIAN)
+			for en: Dictionary in d["entities"]:
+				if int(en.get("type", 0)) == 200:
+					crystals += 1
+	check(crystals == EndGen.PILLARS and obsidian > 1000, "обсидиановые столбы с кристаллами: %d, обсидиана %d" % [crystals, obsidian])
+	var t0 := Time.get_ticks_usec()
+	ng.generate_chunk(5, 5)
+	var tn := (Time.get_ticks_usec() - t0) / 1000.0
+	t0 = Time.get_ticks_usec()
+	eg.generate_chunk(1, 1)
+	var te := (Time.get_ticks_usec() - t0) / 1000.0
+	print("    чанк Нижнего мира: %.1f мс, Края: %.1f мс" % [tn, te])
+	check(tn < 120.0 and te < 120.0, "генерация измерений за разумное время")
 
 
 func _empty_chunks() -> Array:

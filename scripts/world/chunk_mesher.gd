@@ -15,14 +15,14 @@ const SZ := PS
 const SY := PS * PS
 
 ## Яркость граней по направлению: +X, -X, +Y, -Y, +Z, -Z.
-const FACE_SHADE := [0.6, 0.6, 1.0, 0.5, 0.8, 0.8]
-const AO_CURVE := [0.42, 0.62, 0.8, 1.0]
+static var FACE_SHADE := [0.6, 0.6, 1.0, 0.5, 0.8, 0.8]
+static var AO_CURVE := [0.42, 0.62, 0.8, 1.0]
 ## Небесный свет в зависимости от глубины под ближайшим непрозрачным блоком сверху.
-const SKY_BY_DEPTH := [1.0, 0.82, 0.68, 0.56, 0.46, 0.38, 0.31, 0.25, 0.2, 0.16, 0.13, 0.1, 0.08, 0.065, 0.055, 0.05]
+static var SKY_BY_DEPTH := [1.0, 0.82, 0.68, 0.56, 0.46, 0.38, 0.31, 0.25, 0.2, 0.16, 0.13, 0.1, 0.08, 0.065, 0.055, 0.05]
 
-const DIRS := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
-const AXIS_U := [Vector3i(0, 0, 1), Vector3i(0, 0, 1), Vector3i(1, 0, 0), Vector3i(1, 0, 0), Vector3i(1, 0, 0), Vector3i(1, 0, 0)]
-const AXIS_V := [Vector3i(0, 1, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, 1), Vector3i(0, 1, 0), Vector3i(0, 1, 0)]
+static var DIRS := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
+static var AXIS_U := [Vector3i(0, 0, 1), Vector3i(0, 0, 1), Vector3i(1, 0, 0), Vector3i(1, 0, 0), Vector3i(1, 0, 0), Vector3i(1, 0, 0)]
+static var AXIS_V := [Vector3i(0, 1, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, 1), Vector3i(0, 1, 0), Vector3i(0, 1, 0)]
 
 static var neighbor_off := PackedInt32Array()
 static var corner_pos: Array[PackedVector3Array] = []
@@ -303,7 +303,7 @@ func _blk(j: int) -> float:
 
 
 ## Самые частые непрозрачные блоки толщи: по ним (встроенным подсчётом) узнаём сплошные строки.
-const SOLID_COMMON := [Blocks.STONE, Blocks.DIRT, Blocks.GRASS, Blocks.SAND, Blocks.GRAVEL, Blocks.BEDROCK,
+static var SOLID_COMMON := [Blocks.STONE, Blocks.DIRT, Blocks.GRASS, Blocks.SAND, Blocks.GRAVEL, Blocks.BEDROCK,
 	Blocks.SANDSTONE, Blocks.COAL_ORE, Blocks.IRON_ORE, Blocks.NETHERRACK, Blocks.END_STONE, Blocks.CLAY,
 	Blocks.SOUL_SAND, Blocks.MYCELIUM, Blocks.SNOW]
 

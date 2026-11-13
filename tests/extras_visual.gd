@@ -344,6 +344,13 @@ func _run() -> void:
 	p.set_look(deg_to_rad(90.0), deg_to_rad(-10.0))
 	await frames(10)
 	await shot("end_arrival")
+	p.set_flying(true)
+	p.position = Vector3(60, 95, 30)
+	p.set_look(deg_to_rad(60.0), deg_to_rad(-25.0))
+	await wait_idle()
+	await frames(10)
+	await shot("end_island")
+	p.set_flying(false)
 	# Гибель в Краю — возрождение в обычном мире.
 	p.take_damage(1000)
 	await frames(3)

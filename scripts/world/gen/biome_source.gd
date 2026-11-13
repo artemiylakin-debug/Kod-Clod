@@ -23,7 +23,7 @@ const ORIGIN_LAND := 600.0
 const MUSHROOM_REGION := 768
 
 ## Биомы обычной (не холодной) суши — равновероятны, как allowedBiomes в GenLayerBiome 1.2.
-const LAND_BIOMES := [Biomes.DESERT, Biomes.FOREST, Biomes.EXTREME_HILLS, Biomes.SWAMPLAND, Biomes.PLAINS,
+static var LAND_BIOMES := [Biomes.DESERT, Biomes.FOREST, Biomes.EXTREME_HILLS, Biomes.SWAMPLAND, Biomes.PLAINS,
 	Biomes.TAIGA, Biomes.JUNGLE]
 
 var seed_value := 0

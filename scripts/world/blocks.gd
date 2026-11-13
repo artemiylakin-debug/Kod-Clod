@@ -51,15 +51,15 @@ enum { TOOL_NONE, TOOL_PICKAXE, TOOL_AXE, TOOL_SHOVEL, TOOL_SWORD, TOOL_SHEARS, 
 ## Звук (материал) — шаги, добыча, установка.
 enum { SND_STONE, SND_WOOD, SND_GRAVEL, SND_GRASS, SND_SAND, SND_GLASS, SND_CLOTH, SND_METAL, SND_SNOW, SND_NONE }
 
-const DIR_VEC := [Vector3i(0, 0, 1), Vector3i(-1, 0, 0), Vector3i(0, 0, -1), Vector3i(1, 0, 0)]
+static var DIR_VEC := [Vector3i(0, 0, 1), Vector3i(-1, 0, 0), Vector3i(0, 0, -1), Vector3i(1, 0, 0)]
 ## Грань, смотрящая в горизонтальном направлении 0–3.
-const DIR_FACE := [4, 1, 5, 0]
-const FACE_VEC := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
-const OPPOSITE_FACE := [1, 0, 3, 2, 5, 4]
+static var DIR_FACE := [4, 1, 5, 0]
+static var FACE_VEC := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
+static var OPPOSITE_FACE := [1, 0, 3, 2, 5, 4]
 
 const CRACK_STAGES := 10
-const WOOD_NAMES := ["Дубовые", "Еловые", "Берёзовые", "Тропические"]
-const COLOR_NAMES := ["Белая", "Оранжевая", "Пурпурная", "Голубая", "Жёлтая", "Лаймовая", "Розовая", "Серая",
+static var WOOD_NAMES := ["Дубовые", "Еловые", "Берёзовые", "Тропические"]
+static var COLOR_NAMES := ["Белая", "Оранжевая", "Пурпурная", "Голубая", "Жёлтая", "Лаймовая", "Розовая", "Серая",
 	"Светло-серая", "Бирюзовая", "Фиолетовая", "Синяя", "Коричневая", "Зелёная", "Красная", "Чёрная"]
 
 ## Свойства (заполняются в _static_init). Индекс — ID блока.

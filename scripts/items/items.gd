@@ -33,30 +33,30 @@ const FIRST_ITEM := 256
 ## Красители (данные предмета DYE).
 enum { DYE_INK, DYE_RED, DYE_GREEN, DYE_COCOA, DYE_LAPIS, DYE_PURPLE, DYE_CYAN, DYE_LIGHT_GRAY, DYE_GRAY,
 	DYE_PINK, DYE_LIME, DYE_YELLOW, DYE_LIGHT_BLUE, DYE_MAGENTA, DYE_ORANGE, DYE_BONE_MEAL }
-const DYE_NAMES := ["Чернильный мешок", "Красный краситель", "Зелёный краситель", "Какао-бобы", "Лазурит",
+static var DYE_NAMES := ["Чернильный мешок", "Красный краситель", "Зелёный краситель", "Какао-бобы", "Лазурит",
 	"Фиолетовый краситель", "Бирюзовый краситель", "Светло-серый краситель", "Серый краситель",
 	"Розовый краситель", "Лаймовый краситель", "Жёлтый краситель", "Голубой краситель",
 	"Пурпурный краситель", "Оранжевый краситель", "Костная мука"]
 ## Цвета шерсти/красителей (data шерсти = 15 − data красителя).
-const WOOL_COLORS := [Color(0.92, 0.92, 0.92), Color(0.92, 0.53, 0.25), Color(0.75, 0.3, 0.79), Color(0.42, 0.55, 0.85),
+static var WOOL_COLORS := [Color(0.92, 0.92, 0.92), Color(0.92, 0.53, 0.25), Color(0.75, 0.3, 0.79), Color(0.42, 0.55, 0.85),
 	Color(0.78, 0.71, 0.15), Color(0.25, 0.71, 0.2), Color(0.85, 0.52, 0.6), Color(0.26, 0.26, 0.26),
 	Color(0.62, 0.65, 0.65), Color(0.15, 0.46, 0.57), Color(0.5, 0.24, 0.71), Color(0.15, 0.2, 0.6),
 	Color(0.34, 0.2, 0.11), Color(0.22, 0.3, 0.1), Color(0.64, 0.17, 0.16), Color(0.1, 0.09, 0.09)]
 
 ## Материалы инструментов: дерево, камень, железо, алмаз, золото.
 enum { MAT_WOOD, MAT_STONE, MAT_IRON, MAT_DIAMOND, MAT_GOLD }
-const MAT_TIER := [0, 1, 2, 3, 0]
-const MAT_SPEED := [2.0, 4.0, 6.0, 8.0, 12.0]
-const MAT_DURABILITY := [59, 131, 250, 1561, 32]
-const MAT_DAMAGE := [0, 1, 2, 3, 0]
+static var MAT_TIER := [0, 1, 2, 3, 0]
+static var MAT_SPEED := [2.0, 4.0, 6.0, 8.0, 12.0]
+static var MAT_DURABILITY := [59, 131, 250, 1561, 32]
+static var MAT_DAMAGE := [0, 1, 2, 3, 0]
 ## Слоты брони: 0 шлем, 1 нагрудник, 2 поножи, 3 ботинки.
-const ARMOR_DURABILITY_BASE := [11, 16, 15, 13]
+static var ARMOR_DURABILITY_BASE := [11, 16, 15, 13]
 ## Броня: кожа, кольчуга, железо, алмаз, золото.
-const ARMOR_MAT_DURABILITY := [5, 15, 15, 33, 7]
-const ARMOR_POINTS := [[1, 3, 2, 1], [2, 5, 4, 1], [2, 6, 5, 2], [3, 8, 6, 3], [2, 5, 3, 1]]
+static var ARMOR_MAT_DURABILITY := [5, 15, 15, 33, 7]
+static var ARMOR_POINTS := [[1, 3, 2, 1], [2, 5, 4, 1], [2, 6, 5, 2], [3, 8, 6, 3], [2, 5, 3, 1]]
 
 ## Яйца призыва: data → [имя, основной цвет, цвет пятен].
-const SPAWN_EGGS := {
+static var SPAWN_EGGS := {
 	50: ["Крипер", Color8(13, 167, 11), Color8(0, 0, 0)],
 	51: ["Скелет", Color8(193, 193, 193), Color8(73, 73, 73)],
 	52: ["Паук", Color8(52, 45, 39), Color8(168, 14, 14)],
@@ -80,7 +80,7 @@ const SPAWN_EGGS := {
 	120: ["Житель", Color8(86, 60, 51), Color8(189, 139, 114)],
 }
 
-const RECORD_NAMES := ["13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward", "11"]
+static var RECORD_NAMES := ["13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward", "11"]
 
 ## Свойства предметов 256–385: индекс = id − 256.
 static var _names: Array[String] = []
