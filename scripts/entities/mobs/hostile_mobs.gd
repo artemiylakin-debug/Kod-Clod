@@ -88,8 +88,8 @@ class Zombie extends Monster:
 			_door_time = 0.0
 
 	func drop_loot(by_player: bool, _source: String) -> void:
-		drop(Items.ROTTEN_FLESH, rng.randi_range(0, 2))
-		if by_player and rng.randf() < 0.025:
+		loot(Items.ROTTEN_FLESH, rng.randi_range(0, 2))
+		if by_player and rare_drop():
 			drop([Items.IRON_INGOT, Items.IRON_SWORD, Items.IRON_HELMET, Items.IRON_SHOVEL][rng.randi_range(0, 3)], 1)
 
 	func pose(ph: float, amt: float, hy: float, hp: float, t: float) -> void:
@@ -157,9 +157,9 @@ class PigZombie extends Zombie:
 		target = attacker
 
 	func drop_loot(by_player: bool, _source: String) -> void:
-		drop(Items.ROTTEN_FLESH, rng.randi_range(0, 1))
-		drop(Items.GOLD_NUGGET, rng.randi_range(0, 1))
-		if by_player and rng.randf() < 0.025:
+		loot(Items.ROTTEN_FLESH, rng.randi_range(0, 1))
+		loot(Items.GOLD_NUGGET, rng.randi_range(0, 1))
+		if by_player and rare_drop():
 			drop(Items.GOLD_INGOT, 1)
 
 	func save_extra(d: Dictionary) -> void:
@@ -222,9 +222,9 @@ class Skeleton extends Monster:
 		sound("bow")
 
 	func drop_loot(by_player: bool, _source: String) -> void:
-		drop(Items.ARROW, rng.randi_range(0, 2))
-		drop(Items.BONE, rng.randi_range(0, 2))
-		if by_player and rng.randf() < 0.025:
+		loot(Items.ARROW, rng.randi_range(0, 2))
+		loot(Items.BONE, rng.randi_range(0, 2))
+		if by_player and rare_drop():
 			drop(Items.BOW, 1)
 
 	func pose(ph: float, amt: float, hy: float, hp: float, t: float) -> void:
@@ -296,7 +296,7 @@ class Creeper extends Monster:
 		m.logic.explode(c, 6.0 if charged else 3.0, false, null)
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
-		drop(Items.GUNPOWDER, rng.randi_range(0, 2))
+		loot(Items.GUNPOWDER, rng.randi_range(0, 2))
 
 	func on_death(_source: String, attacker: Node3D) -> void:
 		if attacker is Skeleton:
@@ -384,8 +384,8 @@ class Spider extends Monster:
 		return hit_wall and move_dir.length_squared() > 0.01
 
 	func drop_loot(by_player: bool, _source: String) -> void:
-		drop(Items.STRING, rng.randi_range(0, 2))
-		if by_player and rng.randi_range(0, 2) == 0:
+		loot(Items.STRING, rng.randi_range(0, 2))
+		if by_player and (rng.randi_range(0, 2) == 0 or rng.randi_range(0, looting) > 0):
 			drop(Items.SPIDER_EYE, 1)
 
 
@@ -556,7 +556,7 @@ class Enderman extends Monster:
 				_update_carry_mesh()
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
-		drop(Items.ENDER_PEARL, rng.randi_range(0, 1))
+		loot(Items.ENDER_PEARL, rng.randi_range(0, 1))
 		if carried != 0:
 			drop(carried, 1, carried_meta if carried != Blocks.GRASS else 0)
 
@@ -687,9 +687,9 @@ class Slime extends Monster:
 	func drop_loot(_by_player: bool, _source: String) -> void:
 		if magma:
 			if size > 1:
-				drop(Items.MAGMA_CREAM, rng.randi_range(0, 1))
+				loot(Items.MAGMA_CREAM, rng.randi_range(0, 1))
 		elif size == 1:
-			drop(Items.SLIME_BALL, rng.randi_range(0, 2))
+			loot(Items.SLIME_BALL, rng.randi_range(0, 2))
 
 	func pose(_ph: float, _amt: float, _hy: float, _hp: float, _t: float) -> void:
 		var a := clampf(tick_acc / TICK, 0.0, 1.0)
@@ -854,8 +854,8 @@ class Ghast extends Mob:
 		return super.hurt(amount, source, attacker, kb, ignore_invuln)
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
-		drop(Items.GHAST_TEAR, rng.randi_range(0, 1))
-		drop(Items.GUNPOWDER, rng.randi_range(0, 2))
+		loot(Items.GHAST_TEAR, rng.randi_range(0, 1))
+		loot(Items.GUNPOWDER, rng.randi_range(0, 2))
 
 	func pose(_ph: float, _amt: float, _hy: float, _hp: float, t: float) -> void:
 		for i in 9:
@@ -947,7 +947,7 @@ class Blaze extends Monster:
 
 	func drop_loot(by_player: bool, _source: String) -> void:
 		if by_player:
-			drop(Items.BLAZE_ROD, rng.randi_range(0, 1))
+			loot(Items.BLAZE_ROD, rng.randi_range(0, 1))
 
 	func pose(_ph: float, _amt: float, hy: float, hp: float, t: float) -> void:
 		model.rot("head", Vector3(hp, hy, 0))

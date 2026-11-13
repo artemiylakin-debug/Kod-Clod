@@ -124,8 +124,11 @@ class Animal extends Mob:
 		wander_target = Vector3.INF
 		love = 0.0
 
-	func drop_meat(raw: int, cooked: int, count: int) -> void:
-		drop(cooked if burning() else raw, count)
+	func drop_meat(raw: int, cooked: int, count: int, looted := true) -> void:
+		if looted:
+			loot(cooked if burning() else raw, count)
+		else:
+			drop(cooked if burning() else raw, count)
 
 	func save_extra(d: Dictionary) -> void:
 		if love > 0.0:
@@ -307,7 +310,7 @@ class Cow extends Animal:
 		return super.interact(p)
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
-		drop(Items.LEATHER, rng.randi_range(0, 2))
+		loot(Items.LEATHER, rng.randi_range(0, 2))
 		drop_meat(Items.BEEF, Items.COOKED_BEEF, rng.randi_range(1, 3))
 
 
@@ -382,8 +385,8 @@ class Chicken extends Animal:
 				sound("plop")
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
-		drop(Items.FEATHER, rng.randi_range(0, 2))
-		drop_meat(Items.CHICKEN, Items.COOKED_CHICKEN, 1)
+		loot(Items.FEATHER, rng.randi_range(0, 2))
+		drop_meat(Items.CHICKEN, Items.COOKED_CHICKEN, 1, false)
 
 	func save_extra(d: Dictionary) -> void:
 		super.save_extra(d)
@@ -449,7 +452,7 @@ class Squid extends Mob:
 		fall_dist = 0.0
 
 	func drop_loot(_by_player: bool, _source: String) -> void:
-		drop(Items.DYE, rng.randi_range(1, 3), Items.DYE_INK)
+		loot(Items.DYE, rng.randi_range(1, 3), Items.DYE_INK)
 
 	func pose(_ph: float, _amt: float, _hy: float, _hp: float, t: float) -> void:
 		var spread := 0.35 + maxf(sin(_pulse), 0.0) * 0.45 if in_water else 0.1 + sin(t * 2.0) * 0.05

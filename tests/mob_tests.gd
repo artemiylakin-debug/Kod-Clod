@@ -65,6 +65,7 @@ func _run() -> void:
 	await _test_all_types()
 	await _test_hostiles()
 	await _test_animals()
+	await _test_looting()
 	await _test_pets()
 	await _test_misc()
 	await _test_saving()
@@ -543,6 +544,42 @@ func _test_animals() -> void:
 	_clear_drops(c)
 	sq.hurt(100, "player", c.p, Vector3.ZERO)
 	check(_drops(c, Items.DYE) >= 1, "спрут роняет чернильные мешки")
+	await _free_ctx(c)
+
+
+## «Добыча» III на мече: к обычной добыче +0…3 штуки, редкая добыча чаще (5+3 из 200).
+func _test_looting() -> void:
+	print("Зачарование «Добыча»")
+	var c := await _make_ctx(false)
+	c.g.night = true
+	c.g.sky_level = 4
+	var counts := []
+	for level in [0, 3]:
+		c.p.inventory.set_slot(c.p.inventory.selected, Items.IRON_SWORD, 1,
+			Enchantments.add(0, Enchantments.LOOTING, level) if level > 0 else 0)
+		_clear_drops(c)
+		for i in 40:
+			_reset_player(c)
+			var z := c.ent.spawn_mob(MobDefs.ZOMBIE, c.p.position + Vector3(1.5, 0, 0)) as Mob
+			for k in 8:
+				z.invuln = 0.0
+				c.mobs.player_attack(z, 10)
+				if z.is_dead():
+					break
+		counts.append(_drops(c, Items.ROTTEN_FLESH))
+	check(counts[0] >= 15 and counts[0] <= 70, "без зачарования ~1 гнилой плоти на зомби (%d на 40)" % counts[0])
+	check(counts[1] > counts[0] + 25, "«Добыча» III даёт заметно больше (%d против %d)" % [counts[1], counts[0]])
+	var probe := c.ent.spawn_mob(MobDefs.ZOMBIE, c.p.position + Vector3(3.5, 0, 0)) as Mob
+	var rare := [0, 0]
+	for li in 2:
+		probe.looting = li * 3
+		for i in 4000:
+			if probe.rare_drop():
+				rare[li] += 1
+	check(rare[0] > 60 and rare[0] < 150, "редкая добыча ~2,5%% (%d из 4000)" % rare[0])
+	check(rare[1] > rare[0] + 25, "с «Добычей» III редкая добыча чаще (%d против %d)" % [rare[1], rare[0]])
+	probe.looting = 0
+	_clear_drops(c)
 	await _free_ctx(c)
 
 

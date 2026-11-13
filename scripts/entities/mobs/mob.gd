@@ -55,6 +55,8 @@ var prev_head_pitch := 0.0
 
 ## Решения ИИ на текущий тик.
 var move_dir := Vector3.ZERO
+## Уровень зачарования «Добыча» на оружии убийцы — действует, пока выпадает добыча.
+var looting := 0
 var want_jump := false
 var look_pos := Vector3.INF
 
@@ -650,7 +652,9 @@ func die(source: String, attacker: Node3D) -> void:
 	if m == null:
 		return
 	if not baby:
+		looting = _looting_of(attacker)
 		drop_loot(attacker == player() or player_hurt > 0.0, source)
+		looting = 0
 		if xp_value > 0 and (attacker == player() or player_hurt > 0.0):
 			m.spawn_xp(center(), xp_value)
 	on_death(source, attacker)
@@ -663,6 +667,23 @@ func drop_loot(_by_player: bool, _source: String) -> void:
 
 func on_death(_source: String, _attacker: Node3D) -> void:
 	pass
+
+
+## Уровень «Добычи» у оружия в руке игрока-убийцы.
+func _looting_of(attacker: Node3D) -> int:
+	if attacker is Player:
+		return Enchantments.level_of((attacker as Player).inventory.selected_data(), Enchantments.LOOTING)
+	return 0
+
+
+## Обычная добыча: «Добыча» добавляет от 0 до своего уровня штук (как в 1.2).
+func loot(id: int, count: int, data := 0) -> void:
+	drop(id, count + (rng.randi_range(0, looting) if looting > 0 else 0), data)
+
+
+## Редкая добыча моба, убитого игроком: 5 шансов из 200, каждый уровень «Добычи» добавляет один.
+func rare_drop() -> bool:
+	return rng.randi_range(0, 199) - looting < 5
 
 
 func drop(id: int, count: int, data := 0) -> void:

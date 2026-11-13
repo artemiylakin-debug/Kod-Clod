@@ -82,8 +82,11 @@ func _ready() -> void:
 	_crosshair = Painter.new(_paint_crosshair)
 	root.add_child(_crosshair)
 	_held = Painter.new(_paint_held)
+	_held.visible = false
 	root.add_child(_held)
+	# Скрыта, пока в руке нет карты: иначе первый кадр рисует пустую текстуру.
 	_map_view = Painter.new(_paint_map)
+	_map_view.visible = false
 	root.add_child(_map_view)
 	hotbar = HotbarView.new()
 	root.add_child(hotbar)
@@ -365,6 +368,8 @@ func _paint_map(c: Control) -> void:
 	c.draw_rect(rect, Color(0.85, 0.78, 0.6))
 	var inner := rect.grow(-12.0)
 	c.draw_rect(inner, Color(0.72, 0.65, 0.48))
+	if map_texture == null:
+		return
 	c.draw_texture_rect(map_texture, inner, false)
 	if map_marker.x >= 0.0 and map_marker.y >= 0.0 and map_marker.x < MapData.SIZE and map_marker.y < MapData.SIZE:
 		var p := inner.position + map_marker / MapData.SIZE * inner.size
