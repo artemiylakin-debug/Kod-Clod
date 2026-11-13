@@ -338,7 +338,7 @@ func _build_enchanting_top() -> void:
 	var left := VBoxContainer.new()
 	left.alignment = BoxContainer.ALIGNMENT_CENTER
 	left.add_child(_slot("cont", 0, SLOT * 1.2))
-	left.add_child(_label("Полок: %d" % _shelves))
+	left.add_child(_label("Полок: %d" % mini(_shelves, 15)))
 	row.add_child(left)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)

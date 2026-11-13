@@ -161,6 +161,13 @@ func _test_enchantments() -> void:
 		and Enchantments.level_of(d, Enchantments.UNBREAKING) == 3 and Enchantments.level_of(d, Enchantments.SMITE) == 0,
 		"зачарования хранятся в данных предмета вместе с износом")
 	check(Enchantments.describe(d) == "Острота IV, Прочность III", "названия: %s" % Enchantments.describe(d))
+	d = Enchantments.add(Enchantments.add(d, Enchantments.KNOCKBACK, 2), Enchantments.FIRE_ASPECT, 2)
+	var inv_e := Inventory.new()
+	inv_e.set_slot(0, Items.DIAMOND_SWORD, 1, d)
+	var back := Inventory.new()
+	back.from_data(JSON.parse_string(JSON.stringify(inv_e.to_data())))
+	check(back.datas[0] == d and Enchantments.list(back.datas[0]).size() == 4,
+		"четыре зачарования и износ переживают сохранение в JSON")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
 	var top := 0
@@ -350,7 +357,7 @@ func _test_mesher() -> void:
 	for v in sv:
 		smax = maxf(smax, v.y)
 	check(sv.size() == 24 and is_equal_approx(smax, 10.5), "плита: 6 граней высотой полблока")
-	var torch := _single(Blocks.TORCH, 5)
+	var torch := _single(Blocks.TORCH, 0)
 	check(_verts(_mesh(torch[0], torch[1])["opaque"]).size() > 0, "факел рисуется")
 	var stairs := _single(Blocks.OAK_STAIRS, 0)
 	check(_verts(_mesh(stairs[0], stairs[1])["opaque"]).size() >= 40, "ступеньки рисуются двумя частями")
@@ -560,7 +567,7 @@ func _test_world_and_player() -> void:
 	check(w.set_block(-1, 11, -1, Blocks.BRICKS) and w.get_block(-1, 11, -1) == Blocks.BRICKS, "установка блока")
 	var ch: Chunk = w.chunks[Vector2i(-1, -1)]
 	check(ch.modified and ch.dirty, "изменённый чанк помечен для сохранения")
-	w.set_block(4, 11, 4, Blocks.TORCH, 5)
+	w.set_block(4, 11, 4, Blocks.TORCH, 0)
 	check(w.get_block_light(Vector3i(5, 11, 4)) == 13, "факел освещает соседнюю клетку (13)")
 	w.set_block(4, 11, 4, Blocks.AIR)
 	check(w.get_block_light(Vector3i(5, 11, 4)) == 0, "свет гаснет, когда факел убран")
@@ -734,7 +741,7 @@ func _test_block_logic() -> void:
 	check(w.get_block(3, 15, 3) == Blocks.AIR and w.get_block(3, 11, 3) == Blocks.SAND, "песок падает на землю")
 	# Факел без опоры выпадает предметом.
 	w.set_block(6, 11, 6, Blocks.STONE)
-	w.set_block(6, 12, 6, Blocks.TORCH, 5)
+	w.set_block(6, 12, 6, Blocks.TORCH, 0)
 	w.set_block(6, 11, 6, Blocks.AIR)
 	_ticks(logic, 2)
 	var torch_drop := false

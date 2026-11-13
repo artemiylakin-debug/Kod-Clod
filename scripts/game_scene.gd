@@ -52,12 +52,16 @@ var settings_panel: SettingsPanel
 var weather: Weather
 var particles: Particles
 var sound: SoundSystem
+var signs: Signs
+var sign_editor: SignEditor
 var meta: Dictionary = {}
 var world_dir := ""
 var time_of_day := 0.08
 var loading := true
 var creative := true
 var difficulty := 2
+## Хардкор: одна жизнь, после гибели мир удаляется.
+var hardcore := false
 ## Измерение: 0 — обычный мир, -1 — Нижний мир, 1 — Край.
 var dimension := 0
 ## Дракон Края побеждён (больше не появляется).
@@ -102,6 +106,7 @@ func _ready() -> void:
 		return
 	creative = bool(meta.get("creative", true))
 	difficulty = int(meta.get("difficulty", 2))
+	hardcore = bool(meta.get("hardcore", false))
 	time_of_day = float(meta.get("time", 0.08))
 	dimension = int(meta.get("dimension", 0))
 	dragon_killed = bool(meta.get("dragon_killed", false))
@@ -155,6 +160,10 @@ func _ready() -> void:
 	particles.name = "Particles"
 	add_child(particles)
 	particles.setup(world, player.camera)
+	signs = Signs.new()
+	signs.name = "Signs"
+	add_child(signs)
+	signs.setup(world)
 	sound = SoundSystem.new()
 	sound.name = "Sound"
 	sound.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -369,13 +378,19 @@ func _build_ui() -> void:
 		spawn_drop(id, count, data, player.position + Vector3(0, 1.2, 0), Vector3.ZERO, 1.5))
 	pause_menu = PauseMenu.new()
 	menus.add_child(pause_menu)
-	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative)
+	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative, difficulty, hardcore)
 	pause_menu.resume_requested.connect(resume)
 	pause_menu.mode_toggle_requested.connect(func() -> void: set_creative(not creative))
+	pause_menu.difficulty_requested.connect(func() -> void: set_difficulty((difficulty + 1) % 4))
 	pause_menu.settings_requested.connect(func() -> void:
 		pause_menu.visible = false
 		settings_panel.open())
 	pause_menu.quit_requested.connect(quit_to_menu)
+	sign_editor = SignEditor.new()
+	menus.add_child(sign_editor)
+	sign_editor.finished.connect(func(p: Vector3i, lines: PackedStringArray) -> void:
+		signs.set_text(p, lines)
+		_ui_state_changed())
 	settings_panel = SettingsPanel.new()
 	menus.add_child(settings_panel)
 	settings_panel.closed.connect(func() -> void:
@@ -404,7 +419,8 @@ func _apply_settings() -> void:
 
 func gameplay_active() -> bool:
 	return not loading and not player.dead and not inventory_ui.visible \
-		and not pause_menu.visible and not settings_panel.visible and not player.sleeping
+		and not pause_menu.visible and not settings_panel.visible and not player.sleeping \
+		and not (sign_editor != null and sign_editor.visible)
 
 
 func _ui_state_changed() -> void:
@@ -464,7 +480,7 @@ func open_pause() -> void:
 		return
 	if inventory_ui.visible:
 		inventory_ui.close_ui()
-	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative)
+	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative, difficulty, hardcore)
 	pause_menu.visible = true
 	get_tree().paused = true
 	_ui_state_changed()
@@ -479,6 +495,8 @@ func resume() -> void:
 
 
 func set_creative(value: bool) -> void:
+	if hardcore:
+		return
 	creative = value
 	player.creative = value
 	if not value:
@@ -489,8 +507,18 @@ func set_creative(value: bool) -> void:
 	meta["creative"] = value
 	hud.set_creative(value)
 	touch.queue_redraw()
-	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), value)
+	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), value, difficulty, hardcore)
 	hud.show_toast("Режим игры: %s" % ("Креатив" if value else "Выживание"))
+
+
+func set_difficulty(value: int) -> void:
+	if hardcore:
+		return
+	difficulty = clampi(value, 0, 3)
+	player.difficulty = difficulty
+	meta["difficulty"] = difficulty
+	pause_menu.set_info(str(meta.get("name", "")), int(meta.get("seed", 0)), creative, difficulty, hardcore)
+	hud.show_toast("Сложность: %s" % Game.DIFFICULTY_NAMES[difficulty])
 
 
 func show_toast(text: String, duration := 2.5) -> void:
@@ -506,7 +534,60 @@ func show_item_info(id: int) -> void:
 			var hours := int(fposmod(time_of_day * 24.0 + 6.0, 24.0))
 			hud.show_toast("Часы: %s (%02d:00)" % ["день" if not is_night() else "ночь", hours], 3.0)
 		Items.MAP:
-			hud.show_toast("Карта: X %d, Z %d" % [floori(player.position.x), floori(player.position.z)], 3.0)
+			var m := _held_map()
+			if m != null:
+				hud.show_toast("Карта №%d" % m.id, 2.0)
+
+
+# --- Карты, компас и часы в руке ------------------------------------------------
+
+var _maps: Dictionary = {}
+var _spin := 0.0
+
+
+## Карта в руке (новая получает номер и центр при первом взгляде на неё).
+func _held_map() -> MapData:
+	if player.inventory.selected_id() != Items.MAP:
+		return null
+	var map_id := player.inventory.selected_data()
+	if map_id == 0:
+		map_id = int(meta.get("next_map", 1))
+		meta["next_map"] = map_id + 1
+		player.inventory.datas[player.inventory.selected] = map_id
+		player.inventory.changed.emit()
+		_maps[map_id] = MapData.create(map_id, player.position)
+	if not _maps.has(map_id):
+		var loaded := MapData.load_map(world_dir, map_id)
+		_maps[map_id] = loaded if loaded != null else MapData.create(map_id, player.position)
+	return _maps[map_id]
+
+
+func _update_held_items(delta: float) -> void:
+	var held := player.inventory.selected_id()
+	# В Нижнем мире и Краю компас и часы крутятся как попало.
+	_spin += delta * (4.0 + sin(Time.get_ticks_msec() / 700.0) * 3.0)
+	if held == Items.COMPASS:
+		if dimension != 0:
+			hud.compass_angle = _spin
+		else:
+			var to := Vector2(player.spawn_point.x - player.position.x, player.spawn_point.z - player.position.z)
+			var fwd := Vector2(-sin(player.yaw), -cos(player.yaw))
+			hud.compass_angle = fwd.angle_to(to)
+	elif held == Items.CLOCK:
+		hud.day_angle = _spin if dimension != 0 else (time_of_day - 0.25) * TAU
+	elif held == Items.MAP:
+		var m := _held_map()
+		hud.map_texture = m.texture if m != null else null
+		if m != null:
+			if dimension == 0:
+				m.explore(world, player.position)
+			hud.map_marker = m.pixel_of(player.position) if dimension == 0 else Vector2(-1, -1)
+
+
+func _save_maps() -> void:
+	for m: MapData in _maps.values():
+		if m.dirty:
+			m.save(world_dir)
 
 
 func play_note(p: Vector3i, note: int) -> void:
@@ -557,8 +638,11 @@ func on_block_placed(p: Vector3i, id: int) -> void:
 	sound.play_block("place", id, Vector3(p) + Vector3(0.5, 0.5, 0.5))
 
 
-func edit_sign(_p: Vector3i) -> void:
-	pass
+func edit_sign(p: Vector3i) -> void:
+	if not Signs.is_sign(world.get_block_v(p)):
+		return
+	sign_editor.open(p, Signs.lines_of(world.get_block_entity(p, false)))
+	_ui_state_changed()
 
 
 func check_end_portal(p: Vector3i) -> void:
@@ -566,8 +650,35 @@ func check_end_portal(p: Vector3i) -> void:
 		hud.show_toast("Портал в Край открыт", 2.5)
 
 
+var _bobber: FishingBobber
+
+
+## Удочка: закинуть поплавок или подсечь (при поклёвке — рыба и опыт).
 func use_fishing_rod() -> void:
-	hud.show_toast("Рыбалка: закиньте удочку в воду", 1.5)
+	var inv := player.inventory
+	if is_instance_valid(_bobber) and not _bobber.is_queued_for_deletion():
+		var pos := _bobber.position
+		var r := _bobber.reel()
+		_bobber = null
+		if r == 1:
+			var vel := (player.eye_position() - pos) * 1.2 + Vector3(0, 5.0, 0)
+			entities.spawn_drop(Items.FISH, 1, 0, pos + Vector3(0, 0.4, 0), vel)
+			entities.spawn_xp(player.position + Vector3(0, 0.5, 0), randi_range(1, 6))
+			if not creative:
+				inv.damage_slot(inv.selected, 1)
+		elif r == -1 and not creative:
+			inv.damage_slot(inv.selected, 2)
+		sound.play("swim", pos, 0.5)
+		return
+	_bobber = FishingBobber.new()
+	_bobber.world = world
+	_bobber.player = player
+	_bobber.game = self
+	var dir := player.look_dir()
+	_bobber.position = player.eye_position() + dir * 0.6
+	_bobber.velocity = dir * 9.0 + Vector3(0, 2.5, 0)
+	entities.add_child(_bobber)
+	sound.play("bow", player.position, 0.4, 1.3)
 
 
 func on_item_picked(_id: int, _count: int) -> void:
@@ -582,7 +693,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if loading or player == null:
 		return
 	if event.is_action_pressed("pause"):
-		if settings_panel.visible:
+		if sign_editor.visible:
+			sign_editor.close_editor()
+		elif settings_panel.visible:
 			settings_panel.close_panel()
 		elif inventory_ui.visible:
 			inventory_ui.close_ui()
@@ -655,6 +768,8 @@ func _process(delta: float) -> void:
 	_update_selection()
 	entities.update(delta)
 	particles.update(delta, _daylight)
+	signs.update(delta)
+	_update_held_items(delta)
 	_update_sounds(delta)
 	hud.set_underwater(player.head_in_water)
 	_autosave += delta
@@ -855,12 +970,19 @@ func _on_player_died() -> void:
 	entities.spawn_xp(player.position + Vector3(0, 0.5, 0), mini(player.xp_level * 7, 100))
 	if inventory_ui.visible:
 		inventory_ui.close_ui()
+	hud.set_hardcore_death(hardcore)
 	hud.show_death(true)
 	_ui_state_changed()
 	save_game(true)
 
 
 func _respawn() -> void:
+	if hardcore:
+		# Хардкор: мир удаляется, возврат в главное меню.
+		world.wait_for_jobs()
+		WorldStorage.delete_world(Game.current_world_id)
+		Game.goto_main_menu()
+		return
 	if dimension != 0:
 		# Возрождение — всегда в обычном мире.
 		player.respawn()
@@ -893,6 +1015,7 @@ func save_game(full := true) -> void:
 		meta["weather"] = weather.to_dict()
 	meta["last_played"] = Time.get_unix_time_from_system()
 	WorldStorage.save_meta(world_dir, meta)
+	_save_maps()
 	if full:
 		entities.save_into_chunks()
 	var n := world.save_dirty_chunks()
@@ -1043,6 +1166,9 @@ func change_dimension(to: int, pos: Vector3, arrival: String) -> void:
 
 
 func quit_to_menu() -> void:
+	if hardcore and player.dead:
+		_respawn()
+		return
 	if inventory_ui.visible:
 		inventory_ui.close_ui()
 	save_game(true)

@@ -1,12 +1,13 @@
 class_name Enchantments
 extends RefCounted
 ## Зачарования 1.2. Хранятся в данных предмета (data) поверх износа: биты 0–11 — износ,
-## с бита 16 — до пяти зачарований по 8 бит (5 бит — номер в таблице, 3 бита — уровень − 1).
+## с бита 16 — до четырёх зачарований по 8 бит (5 бит — номер в таблице, 3 бита — уровень − 1).
+## Всего 48 бит — число точно переживает сохранение в JSON.
 ## Стол зачарований: три варианта, уровни до 50 при 15 книжных полках вокруг (как в 1.0–1.2).
 
 const DAMAGE_MASK := 0xFFF
 const SHIFT := 16
-const SLOTS := 5
+const SLOTS := 4
 
 enum {
 	NONE, PROTECTION, FIRE_PROTECTION, FEATHER_FALLING, BLAST_PROTECTION, PROJECTILE_PROTECTION, RESPIRATION,
@@ -57,15 +58,17 @@ static func with_damage(data: int, damage: int) -> int:
 ## Список [номер, уровень] зачарований предмета.
 static func list(data: int) -> Array:
 	var out := []
+	if data < 0:
+		return out
 	for k in SLOTS:
 		var e := (data >> (SHIFT + k * 8)) & 0xFF
-		if e != 0:
+		if e != 0 and (e & 31) > 0 and (e & 31) < INFO.size():
 			out.append([e & 31, (e >> 5) + 1])
 	return out
 
 
 static func is_enchanted(data: int) -> bool:
-	return (data >> SHIFT) != 0
+	return data > 0 and (data >> SHIFT) != 0
 
 
 static func level_of(data: int, ench: int) -> int:

@@ -689,10 +689,10 @@ func _gallery(g: Node, w: World, p: Player, arena: Vector3i) -> void:
 		[Blocks.CAKE, 0], [Blocks.ENCHANTING_TABLE, 0], [Blocks.BREWING_STAND, 0], [Blocks.CAULDRON, 3]]
 	for i in row1.size():
 		w.set_block(o.x + i, o.y, o.z, row1[i][0], row1[i][1])
-	var row2 := [[Blocks.TORCH, 5], [Blocks.REDSTONE_TORCH, 5], [Blocks.SAPLING, 0], [Blocks.SAPLING, 1],
+	var row2 := [[Blocks.TORCH, 0], [Blocks.REDSTONE_TORCH, 0], [Blocks.SAPLING, 0], [Blocks.SAPLING, 1],
 		[Blocks.TALLGRASS, 1], [Blocks.TALLGRASS, 2], [Blocks.DANDELION, 0], [Blocks.ROSE, 0], [Blocks.BROWN_MUSHROOM, 0],
 		[Blocks.RED_MUSHROOM, 0], [Blocks.DEADBUSH, 0], [Blocks.WEB, 0], [Blocks.RAIL, 0], [Blocks.POWERED_RAIL, 8],
-		[Blocks.DETECTOR_RAIL, 1], [Blocks.REDSTONE_WIRE, 15], [Blocks.REDSTONE_WIRE, 0], [Blocks.LEVER, 5],
+		[Blocks.DETECTOR_RAIL, 1], [Blocks.REDSTONE_WIRE, 15], [Blocks.REDSTONE_WIRE, 0], [Blocks.LEVER, 0],
 		[Blocks.STONE_PLATE, 0], [Blocks.REPEATER_OFF, 0], [Blocks.SNOW_LAYER, 2], [Blocks.WHEAT, 7], [Blocks.REEDS, 0]]
 	for i in row2.size():
 		w.set_block(o.x + i, o.y, o.z + 2, row2[i][0], row2[i][1])

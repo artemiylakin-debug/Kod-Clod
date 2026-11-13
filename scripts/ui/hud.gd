@@ -13,6 +13,13 @@ var creative := true
 var touch_mode := false
 
 var _crosshair: Painter
+## Компас и часы в руке (в углу экрана), карта в руке (крупно внизу справа).
+var _held: Painter
+var _map_view: Painter
+var map_texture: Texture2D
+var map_marker := Vector2(-1, -1)
+var compass_angle := 0.0
+var day_angle := 0.0
 var _hearts: Painter
 var _debug: Label
 var _toast: Label
@@ -24,6 +31,8 @@ var _portal: ColorRect
 var _loading: Control
 var _loading_label: Label
 var _death: Control
+var _death_respawn: Button
+var _death_note: Label
 var _rotate_hint: Control
 var _toast_time := 0.0
 var _item_time := 0.0
@@ -72,6 +81,10 @@ func _ready() -> void:
 
 	_crosshair = Painter.new(_paint_crosshair)
 	root.add_child(_crosshair)
+	_held = Painter.new(_paint_held)
+	root.add_child(_held)
+	_map_view = Painter.new(_paint_map)
+	root.add_child(_map_view)
 	hotbar = HotbarView.new()
 	root.add_child(hotbar)
 	_hearts = Painter.new(_paint_hearts)
@@ -156,9 +169,14 @@ func _build_death() -> void:
 	var title := UITheme.label("Вы погибли!", 56)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
+	_death_note = UITheme.label("", 20)
+	_death_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_death_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_death_note)
 	var respawn := UITheme.button("Возродиться", 440)
 	respawn.pressed.connect(func() -> void: respawn_requested.emit())
 	box.add_child(respawn)
+	_death_respawn = respawn
 	var menu := UITheme.button("Выйти в главное меню", 440)
 	menu.pressed.connect(func() -> void: menu_requested.emit())
 	box.add_child(menu)
@@ -187,6 +205,12 @@ func show_loading(value: bool) -> void:
 
 func set_loading_text(text: String) -> void:
 	_loading_label.text = text
+
+
+## Хардкор: вместо возрождения — удаление мира.
+func set_hardcore_death(value: bool) -> void:
+	_death_note.text = "Хардкор: мир будет удалён." if value else ""
+	_death_respawn.text = "Удалить мир" if value else "Возродиться"
 
 
 func show_death(value: bool) -> void:
@@ -237,6 +261,9 @@ func _layout() -> void:
 	UITheme.place(_hearts, Vector2(0.5, 1.0), Vector2(-hw / 2.0, -s - bottom - 76.0), Vector2(hw, 74))
 	UITheme.place(_item_name, Vector2(0.5, 1.0), Vector2(-320, -s - bottom - 112.0), Vector2(640, 34))
 	UITheme.place(_crosshair, Vector2(0.5, 0.5), Vector2(-16, -16), Vector2(32, 32))
+	UITheme.place(_held, Vector2(1.0, 0.0), Vector2(-150 - _margins.z, 50.0 + _margins.y), Vector2(130, 130))
+	var map_s := minf(320.0, root.size.y * 0.42)
+	UITheme.place(_map_view, Vector2(1.0, 1.0), Vector2(-map_s - 24.0 - _margins.z, -map_s - s - bottom - 90.0), Vector2(map_s, map_s))
 	UITheme.place(_toast, Vector2(0.5, 0.0), Vector2(-420, 64.0 + _margins.y), Vector2(840, 40))
 	UITheme.place(_saved, Vector2(1.0, 0.0), Vector2(-360 - _margins.z, 14.0 + _margins.y), Vector2(260, 28))
 	UITheme.place(_debug, Vector2(0.0, 0.0), Vector2(12.0 + _margins.x, 8.0 + _margins.y), Vector2(760, 260))
@@ -260,6 +287,13 @@ func _on_inventory_changed() -> void:
 
 
 func _process(delta: float) -> void:
+	var held := player.inventory.selected_id() if player != null else 0
+	_held.visible = _crosshair.visible and (held == Items.COMPASS or held == Items.CLOCK)
+	_map_view.visible = _crosshair.visible and held == Items.MAP and map_texture != null
+	if _held.visible:
+		_held.queue_redraw()
+	if _map_view.visible:
+		_map_view.queue_redraw()
 	_toast_time -= delta
 	_toast.modulate.a = clampf(_toast_time, 0.0, 1.0)
 	_item_time -= delta
@@ -295,6 +329,49 @@ func _debug_text() -> String:
 		var t: Vector3i = player.target["pos"]
 		lines.append("Блок: %s, данные %d (%d, %d, %d)" % [Blocks.block_name(player.target["block"]), int(player.target.get("meta", 0)), t.x, t.y, t.z])
 	return "\n".join(lines)
+
+
+## Компас (стрелка на точку появления) или часы (диск дня и ночи).
+func _paint_held(c: Control) -> void:
+	var r := c.size.x * 0.5
+	var center := c.size * 0.5
+	c.draw_circle(center, r, Color(0.35, 0.3, 0.25, 0.9))
+	c.draw_circle(center, r - 6.0, Color(0.85, 0.82, 0.72) if player.inventory.selected_id() == Items.COMPASS else Color(0.1, 0.1, 0.2))
+	if player.inventory.selected_id() == Items.COMPASS:
+		var dir := Vector2(sin(compass_angle), -cos(compass_angle))
+		var side := Vector2(-dir.y, dir.x) * 7.0
+		c.draw_colored_polygon(PackedVector2Array([center + dir * (r - 14.0), center + side, center - side]), Color(0.85, 0.1, 0.1))
+		c.draw_colored_polygon(PackedVector2Array([center - dir * (r - 14.0), center + side, center - side]), Color(0.3, 0.3, 0.3))
+		c.draw_string(c.get_theme_default_font(), center + Vector2(-6, -r + 22), "С", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.2, 0.2, 0.2))
+	else:
+		# Верхняя половина — небо: днём голубое с солнцем, ночью тёмное с луной.
+		var a := day_angle
+		for k in 32:
+			var t0 := TAU * k / 32.0
+			var t1 := TAU * (k + 1) / 32.0
+			var mid := (t0 + t1) * 0.5 - a
+			var col := Color(0.35, 0.6, 1.0) if cos(mid) > 0.0 else Color(0.05, 0.05, 0.2)
+			c.draw_colored_polygon(PackedVector2Array([center, center + Vector2(sin(t0), -cos(t0)) * (r - 8.0),
+				center + Vector2(sin(t1), -cos(t1)) * (r - 8.0)]), col)
+		c.draw_circle(center + Vector2(sin(-a), -cos(-a)) * (r - 26.0), 12.0, Color(1.0, 0.9, 0.3))
+		c.draw_circle(center + Vector2(sin(PI - a), -cos(PI - a)) * (r - 26.0), 10.0, Color(0.85, 0.85, 0.9))
+		c.draw_rect(Rect2(center.x - r, center.y, r * 2.0, r), Color(0.35, 0.3, 0.25, 1.0))
+		c.draw_line(center + Vector2(0, -r + 6.0), center + Vector2(0, -r + 20.0), Color(1, 1, 1), 2.0)
+
+
+## Карта в руке: изображение на «бумаге» и стрелка игрока.
+func _paint_map(c: Control) -> void:
+	var rect := Rect2(Vector2.ZERO, c.size)
+	c.draw_rect(rect, Color(0.85, 0.78, 0.6))
+	var inner := rect.grow(-12.0)
+	c.draw_rect(inner, Color(0.72, 0.65, 0.48))
+	c.draw_texture_rect(map_texture, inner, false)
+	if map_marker.x >= 0.0 and map_marker.y >= 0.0 and map_marker.x < MapData.SIZE and map_marker.y < MapData.SIZE:
+		var p := inner.position + map_marker / MapData.SIZE * inner.size
+		var dir := Vector2(-sin(player.yaw), -cos(player.yaw))
+		var side := Vector2(-dir.y, dir.x) * 5.0
+		c.draw_colored_polygon(PackedVector2Array([p + dir * 9.0, p - dir * 5.0 + side, p - dir * 5.0 - side]), Color(1, 1, 1))
+		c.draw_polyline(PackedVector2Array([p + dir * 9.0, p - dir * 5.0 + side, p - dir * 5.0 - side, p + dir * 9.0]), Color(0.1, 0.1, 0.1), 1.5)
 
 
 func _paint_crosshair(c: Control) -> void:

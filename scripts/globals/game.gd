@@ -153,7 +153,10 @@ func save_settings() -> void:
 
 # --- Миры ------------------------------------------------------------------
 
-func create_world(world_name: String, creative: bool, seed_text: String) -> String:
+const DIFFICULTY_NAMES := ["Мирная", "Лёгкая", "Нормальная", "Сложная"]
+
+
+func create_world(world_name: String, creative: bool, seed_text: String, difficulty := 2, hardcore := false) -> String:
 	var seed_value := randi() & 0x7FFFFFFF
 	seed_text = seed_text.strip_edges()
 	if not seed_text.is_empty():
@@ -168,7 +171,8 @@ func create_world(world_name: String, creative: bool, seed_text: String) -> Stri
 		"last_played": now,
 		"time": 0.08,
 		"version": 2,
-		"difficulty": 2,
+		"difficulty": 3 if hardcore else difficulty,
+		"hardcore": hardcore and not creative,
 	}
 	WorldStorage.save_meta(WorldStorage.world_dir(id), meta)
 	return id

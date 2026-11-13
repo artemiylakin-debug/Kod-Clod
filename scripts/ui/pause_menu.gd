@@ -5,9 +5,11 @@ extends Control
 signal resume_requested
 signal mode_toggle_requested
 signal settings_requested
+signal difficulty_requested
 signal quit_requested
 
 var _mode_button: Button
+var _difficulty_button: Button
 var _info: Label
 
 
@@ -34,6 +36,9 @@ func _ready() -> void:
 	_mode_button = UITheme.button("", 460)
 	_mode_button.pressed.connect(func() -> void: mode_toggle_requested.emit())
 	vbox.add_child(_mode_button)
+	_difficulty_button = UITheme.button("", 460)
+	_difficulty_button.pressed.connect(func() -> void: difficulty_requested.emit())
+	vbox.add_child(_difficulty_button)
 	var settings := UITheme.button("Настройки", 460)
 	settings.pressed.connect(func() -> void: settings_requested.emit())
 	vbox.add_child(settings)
@@ -42,6 +47,9 @@ func _ready() -> void:
 	vbox.add_child(quit)
 
 
-func set_info(world_name: String, seed_value: int, creative: bool) -> void:
+func set_info(world_name: String, seed_value: int, creative: bool, difficulty := 2, hardcore := false) -> void:
 	_info.text = "Мир «%s» · сид %d" % [world_name, seed_value]
 	_mode_button.text = "Режим: Креатив (сменить)" if creative else "Режим: Выживание (сменить)"
+	_mode_button.visible = not hardcore
+	_difficulty_button.text = "Сложность: %s" % Game.DIFFICULTY_NAMES[clampi(difficulty, 0, 3)]
+	_difficulty_button.disabled = hardcore

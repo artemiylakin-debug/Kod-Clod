@@ -18,7 +18,7 @@ const V1_IDS := [0, 2, 3, 1, 4, 17, 18, 5, 12, 20, 7, 9, 16, 15, 45, 80, 13, 98,
 
 var ids := PackedInt32Array()
 var counts := PackedInt32Array()
-var datas := PackedInt32Array()
+var datas := PackedInt64Array()
 var selected := 0
 var size := TOTAL
 

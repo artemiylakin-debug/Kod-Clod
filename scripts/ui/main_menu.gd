@@ -12,6 +12,8 @@ var _seed_edit: LineEdit
 var _creative_btn: Button
 var _survival_btn: Button
 var _mode_hint: Label
+var _hardcore_btn: Button
+var _difficulty: OptionButton
 var _confirm: Control
 var _confirm_label: Label
 var _confirm_id := ""
@@ -154,7 +156,7 @@ func _refresh_worlds() -> void:
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.custom_minimum_size = Vector2(300, 0)
 		info.add_child(name_label)
-		var mode := "Креатив" if bool(meta.get("creative", false)) else "Выживание"
+		var mode := "Креатив" if bool(meta.get("creative", false)) else ("Хардкор" if bool(meta.get("hardcore", false)) else "Выживание")
 		var details := "%s · сид %d · %s" % [mode, int(meta.get("seed", 0)), _format_time(float(meta.get("last_played", 0)))]
 		info.add_child(UITheme.label(details, 17, Color(0.72, 0.72, 0.72)))
 		var play := UITheme.button("Играть", 150, 22)
@@ -197,8 +199,14 @@ func _build_create() -> void:
 	_creative_btn.toggle_mode = true
 	_creative_btn.button_group = group
 	modes.add_child(_creative_btn)
+	_hardcore_btn = UITheme.button("Хардкор", 294)
+	_hardcore_btn.toggle_mode = true
+	_hardcore_btn.button_group = group
+	modes.add_child(_hardcore_btn)
+	for btn: Button in [_survival_btn, _creative_btn, _hardcore_btn]:
+		btn.custom_minimum_size.x = 194
 	var chosen := UITheme.box(Color(0.24, 0.48, 0.24, 0.96), Color(0.92, 1.0, 0.85), 3)
-	for btn: Button in [_survival_btn, _creative_btn]:
+	for btn: Button in [_survival_btn, _creative_btn, _hardcore_btn]:
 		btn.add_theme_stylebox_override("pressed", chosen)
 		btn.add_theme_stylebox_override("hover_pressed", chosen)
 	_mode_hint = UITheme.label("", 17, Color(0.75, 0.75, 0.75))
@@ -207,6 +215,17 @@ func _build_create() -> void:
 	vbox.add_child(_mode_hint)
 	_survival_btn.toggled.connect(func(_on: bool) -> void: _update_mode_hint())
 	_creative_btn.toggled.connect(func(_on: bool) -> void: _update_mode_hint())
+	_hardcore_btn.toggled.connect(func(_on: bool) -> void: _update_mode_hint())
+	var diff_row := HBoxContainer.new()
+	diff_row.add_theme_constant_override("separation", 12)
+	diff_row.add_child(UITheme.label("Сложность", 20, Color(0.8, 0.8, 0.8)))
+	_difficulty = OptionButton.new()
+	_difficulty.custom_minimum_size = Vector2(300, 48)
+	for k in Game.DIFFICULTY_NAMES.size():
+		_difficulty.add_item(Game.DIFFICULTY_NAMES[k], k)
+	_difficulty.select(2)
+	diff_row.add_child(_difficulty)
+	vbox.add_child(diff_row)
 	vbox.add_child(UITheme.label("Сид генератора", 20, Color(0.8, 0.8, 0.8)))
 	_seed_edit = LineEdit.new()
 	_seed_edit.placeholder_text = "Оставьте пустым для случайного мира"
@@ -225,8 +244,14 @@ func _build_create() -> void:
 
 
 func _update_mode_hint() -> void:
+	if _difficulty != null:
+		_difficulty.disabled = _hardcore_btn.button_pressed
+		if _hardcore_btn.button_pressed:
+			_difficulty.select(3)
 	if _creative_btn.button_pressed:
 		_mode_hint.text = "Бесконечные блоки, мгновенное разрушение, полёт (двойной прыжок), нет урона."
+	elif _hardcore_btn.button_pressed:
+		_mode_hint.text = "Выживание на сложном уровне с одной жизнью: после гибели мир удаляется."
 	else:
 		_mode_hint.text = "Здоровье и урон от падения, блоки добываются со временем и попадают в инвентарь, есть крафт."
 
@@ -235,7 +260,8 @@ func _create_world() -> void:
 	var world_name := _name_edit.text.strip_edges()
 	if world_name.is_empty():
 		world_name = "Новый мир"
-	var id := Game.create_world(world_name, _creative_btn.button_pressed, _seed_edit.text)
+	var id := Game.create_world(world_name, _creative_btn.button_pressed, _seed_edit.text, _difficulty.selected,
+		_hardcore_btn.button_pressed)
 	Game.start_world(id)
 
 
